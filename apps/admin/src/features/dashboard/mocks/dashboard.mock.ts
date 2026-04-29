@@ -1,0 +1,161 @@
+import { waitForMockLatency } from '../../../lib/data/data-mode';
+import type { DashboardSummary } from '../types';
+
+export const mockDashboardData: DashboardSummary = {
+  metrics: [
+    {
+      id: 'metric-demandes',
+      title: 'Demandes reçues',
+      value: 42,
+      subtitle: 'Courriers physiques et digitaux',
+      trend: 'up',
+      trendValue: '+6 cette semaine',
+    },
+    {
+      id: 'metric-attente-dg',
+      title: 'En attente DG',
+      value: 11,
+      subtitle: 'Demandes non encore orientées',
+      trend: 'neutral',
+      trendValue: 'stable',
+    },
+    {
+      id: 'metric-dossiers-dn',
+      title: 'Dossiers DN ouverts',
+      value: 18,
+      subtitle: 'Après orientation favorable',
+      trend: 'up',
+      trendValue: '+3',
+    },
+    {
+      id: 'metric-oma-actifs',
+      title: 'Dossiers OMA actifs',
+      value: 9,
+      subtitle: 'Instruction en cours',
+      trend: 'up',
+      trendValue: '+2',
+    },
+    {
+      id: 'metric-retards',
+      title: 'Phases en retard',
+      value: 4,
+      subtitle: 'Actions DN à prioriser',
+      trend: 'down',
+      trendValue: '+1',
+      positiveIsGood: false,
+    },
+    {
+      id: 'metric-certificats',
+      title: 'Certificats délivrés',
+      value: 7,
+      subtitle: 'Exercice en cours',
+      trend: 'neutral',
+      trendValue: '0',
+    },
+  ],
+  activity: [
+    {
+      id: 'activity-1',
+      label: 'Demande soumise',
+      description: 'Postulant OMA-2026-014 via guichet digital',
+      timestamp: 'Il y a 8 min',
+      badgeLabel: 'Demande',
+      badgeVariant: 'secondary',
+    },
+    {
+      id: 'activity-2',
+      label: 'Courrier reçu physiquement',
+      description: 'Dossier papier enregistré au bureau courrier',
+      timestamp: 'Il y a 25 min',
+      badgeLabel: 'Courrier',
+      badgeVariant: 'default',
+    },
+    {
+      id: 'activity-3',
+      label: 'Courrier transmis au DG',
+      description: 'Demande OMA-2026-011 en attente d’orientation',
+      timestamp: 'Il y a 1 h',
+      badgeLabel: 'DG',
+      badgeVariant: 'outline',
+    },
+    {
+      id: 'activity-4',
+      label: 'Décision DG enregistrée',
+      description: 'Orientation favorable vers la DN',
+      timestamp: 'Il y a 2 h',
+      badgeLabel: 'Décision',
+      badgeVariant: 'secondary',
+    },
+    {
+      id: 'activity-5',
+      label: 'Dossier DN ouvert',
+      description: 'Dossier DN créé après orientation DG favorable',
+      timestamp: 'Hier',
+      badgeLabel: 'DN',
+      badgeVariant: 'default',
+    },
+    {
+      id: 'activity-6',
+      label: 'Phase OMA clôturée',
+      description: 'Phase documentaire validée par la DN',
+      timestamp: 'Hier',
+      badgeLabel: 'OMA',
+      badgeVariant: 'outline',
+    },
+  ],
+  recentRecords: [
+    {
+      id: 'demande-oma-014',
+      title: 'Demande OMA-2026-014',
+      subtitle: 'Soumise par postulant',
+      badgeLabel: 'En attente DG',
+      badgeVariant: 'secondary',
+      timestamp: '8 min',
+    },
+    {
+      id: 'courrier-oma-012',
+      title: 'Courrier OMA-2026-012',
+      subtitle: 'Reçu physiquement',
+      badgeLabel: 'Courrier',
+      badgeVariant: 'default',
+      timestamp: '25 min',
+    },
+    {
+      id: 'dossier-dn-008',
+      title: 'Dossier DN-OMA-008',
+      subtitle: 'Ouvert après orientation DG',
+      badgeLabel: 'Dossier ouvert',
+      badgeVariant: 'default',
+      timestamp: '2 h',
+    },
+    {
+      id: 'workflow-oma-006',
+      title: 'Workflow OMA-006',
+      subtitle: 'Réunion technique à planifier',
+      badgeLabel: 'Actif',
+      badgeVariant: 'outline',
+      timestamp: 'Aujourd’hui',
+    },
+    {
+      id: 'certificat-oma-002',
+      title: 'Certificat OMA-002',
+      subtitle: 'Délivré après instruction',
+      badgeLabel: 'Délivré',
+      badgeVariant: 'outline',
+      timestamp: 'Hier',
+    },
+  ],
+  statusDistribution: [
+    { label: 'En attente DG', count: 11, percentage: 26, badgeVariant: 'secondary' },
+    { label: 'Orientée DN', count: 8, percentage: 19, badgeVariant: 'default' },
+    { label: 'Dossier ouvert', count: 9, percentage: 21, badgeVariant: 'default' },
+    { label: 'Réorientée', count: 5, percentage: 12, badgeVariant: 'outline' },
+    { label: 'Rejetée', count: 3, percentage: 7, badgeVariant: 'destructive' },
+    { label: 'Clôturée', count: 6, percentage: 15, badgeVariant: 'outline' },
+  ],
+};
+
+export async function mockGetDashboard(): Promise<DashboardSummary> {
+  await waitForMockLatency();
+  return mockDashboardData;
+}

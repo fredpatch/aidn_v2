@@ -1,0 +1,74 @@
+/* AIDN palette derived from the organisation logo: aviation violet, Gabon green, signal yellow, and wing blue. */
+:root[data-palette="aidn"],
+:root[data-palette="default"] {
+  --primary: 247 39% 36%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 228 38% 95%;
+  --secondary-foreground: 247 39% 26%;
+  --muted: 220 24% 95%;
+  --muted-foreground: 226 16% 43%;
+  --accent: 145 48% 93%;
+  --accent-foreground: 247 39% 28%;
+  --ring: 247 39% 36%;
+}
+
+:root.dark[data-palette="aidn"],
+:root.dark[data-palette="default"] {
+  --primary: 56 92% 58%;
+  --primary-foreground: 247 39% 18%;
+  --secondary: 247 28% 21%;
+  --secondary-foreground: 220 35% 96%;
+  --muted: 247 24% 18%;
+  --muted-foreground: 224 20% 72%;
+  --accent: 145 42% 18%;
+  --accent-foreground: 145 70% 88%;
+  --ring: 56 92% 58%;
+}
+
+:root[data-palette="aviation"] {
+  --primary: 228 37% 48%;
+  --primary-foreground: 210 40% 98%;
+  --accent: 228 45% 94%;
+  --accent-foreground: 228 37% 28%;
+  --ring: 228 37% 48%;
+}
+
+:root.dark[data-palette="aviation"] {
+  --primary: 228 55% 66%;
+  --primary-foreground: 228 37% 16%;
+  --accent: 228 28% 20%;
+  --accent-foreground: 228 60% 88%;
+  --ring: 228 55% 66%;
+}
+
+:root[data-palette="gabon"] {
+  --primary: 145 100% 30%;
+  --primary-foreground: 0 0% 100%;
+  --accent: 56 92% 90%;
+  --accent-foreground: 145 100% 20%;
+  --ring: 145 100% 30%;
+}
+
+:root.dark[data-palette="gabon"] {
+  --primary: 145 72% 42%;
+  --primary-foreground: 145 100% 10%;
+  --accent: 56 64% 18%;
+  --accent-foreground: 56 92% 82%;
+  --ring: 145 72% 42%;
+}
+
+:root[data-palette="neutral"] {
+  --primary: 247 18% 32%;
+  --primary-foreground: 0 0% 98%;
+  --accent: 220 18% 94%;
+  --accent-foreground: 247 18% 24%;
+  --ring: 247 18% 32%;
+}
+
+:root.dark[data-palette="neutral"] {
+  --primary: 220 18% 78%;
+  --primary-foreground: 247 18% 16%;
+  --accent: 220 16% 18%;
+  --accent-foreground: 220 18% 86%;
+  --ring: 220 18% 78%;
+}

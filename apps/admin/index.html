@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <script>
+      (function() {
+        var prefix = 'aidn';
+        var validThemes = ['light', 'dark', 'system'];
+        var validPalettes = ['aidn', 'default', 'aviation', 'gabon', 'neutral'];
+        var storedTheme = localStorage.getItem(prefix + ':theme');
+        var theme = validThemes.includes(storedTheme) ? storedTheme : 'system';
+        var storedPalette = localStorage.getItem(prefix + ':palette');
+        var legacyPaletteMap = { default: 'aidn', blue: 'aviation', green: 'gabon' };
+        var palette = legacyPaletteMap[storedPalette] || (validPalettes.includes(storedPalette) ? storedPalette : 'aidn');
+        var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var dark = theme === 'dark' || (theme === 'system' && prefersDark);
+        if (dark) document.documentElement.classList.add('dark');
+        document.documentElement.setAttribute('data-palette', palette);
+      })();
+    </script>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AIDN</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

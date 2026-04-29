@@ -1,0 +1,19 @@
+services:
+  client:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile
+      target: dev
+    container_name: aidn-client
+    ports:
+      - "5173:5173"
+    environment:
+      NODE_ENV: development
+      CHOKIDAR_USEPOLLING: "true"
+    volumes:
+      - ../apps/admin:/app
+      - client_node_modules:/app/node_modules
+    command: npm run dev -- --host 0.0.0.0 --port 5173
+
+volumes:
+  client_node_modules:

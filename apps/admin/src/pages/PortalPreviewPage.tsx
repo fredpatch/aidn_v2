@@ -1,140 +1,39 @@
-import { useMemo, useState } from 'react';
-import { Bell, CalendarDays, ClipboardList, CreditCard, FileText, PackageCheck, UserRound } from 'lucide-react';
+import { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
+import { ArrowRight, Clock3, FolderKanban, UserRound } from "lucide-react";
 import {
-  getPortalStatusLabel,
   useAidnCertificates,
   useAidnDocuments,
   useAidnMeetings,
+  useAidnTimelineEvents,
   useAidnPhaseEvidence,
   useAidnPhaseNextActions,
   useDemandes,
   useDossiers,
-  type AidnCertificateStatus,
-  type AidnDemande,
-  type AidnDocumentStatus,
-  type AidnPhaseEvidenceStatus,
-  type AidnPortalStatus,
-} from '@/features/aidn';
-import { ErrorState, SkeletonCard } from '@/components/states';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+} from "@/features/aidn";
+import { ErrorState, SkeletonCard } from "@/components/states";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  actionForPortalStatus,
+  formatDate,
+  pickDefaultOrganization,
+  simplifiedPortalStatusLabel,
+} from "./portal-preview/portalPreview.utils";
 
-type StatusTone = 'default' | 'success' | 'warning' | 'muted';
-
-interface PortalRow {
+interface HomeUpdateRow {
   id: string;
   title: string;
   detail: string;
-  status: string;
   date?: string;
-  tone?: StatusTone;
-}
-
-const portalStatusTone: Partial<Record<AidnPortalStatus, StatusTone>> = {
-  action_required: 'warning',
-  payment_expected: 'warning',
-  meeting_to_schedule: 'warning',
-  certificate_ready_for_collection: 'success',
-  certificate_collected: 'success',
-  request_rejected: 'warning',
-  dossier_closed: 'muted',
-};
-
-const statusClassNames: Record<StatusTone, string> = {
-  default: 'border-primary/20 bg-primary/10 text-primary',
-  success: 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-200',
-  warning: 'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200',
-  muted: 'border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200',
-};
-
-function formatDate(value?: string): string {
-  if (!value) return 'Non renseigne';
-  return new Intl.DateTimeFormat('fr-FR', { dateStyle: 'medium' }).format(new Date(value));
-}
-
-function StatusBadge({ label, tone = 'default' }: { label: string; tone?: StatusTone }): React.JSX.Element {
-  return (
-    <Badge variant="outline" className={statusClassNames[tone]}>
-      {label}
-    </Badge>
-  );
-}
-
-function SectionCard({ title, icon: Icon, children }: { title: string; icon: React.ElementType; children: React.ReactNode }): React.JSX.Element {
-  return (
-    <Card>
-      <CardHeader className="flex flex-row items-center gap-2 space-y-0">
-        <span className="rounded-md bg-primary/10 p-2 text-primary">
-          <Icon className="h-4 w-4" aria-hidden="true" />
-        </span>
-        <CardTitle className="text-base">{title}</CardTitle>
-      </CardHeader>
-      <CardContent>{children}</CardContent>
-    </Card>
-  );
-}
-
-function EmptyState({ message }: { message: string }): React.JSX.Element {
-  return <p className="rounded-md border bg-muted/20 p-3 text-sm text-muted-foreground">{message}</p>;
-}
-
-function PortalRowList({ rows, emptyMessage }: { rows: PortalRow[]; emptyMessage: string }): React.JSX.Element {
-  if (rows.length === 0) return <EmptyState message={emptyMessage} />;
-
-  return (
-    <div className="grid gap-3">
-      {rows.map((row) => (
-        <div key={row.id} className="rounded-md border bg-background p-3">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="font-semibold text-slate-950 dark:text-white">{row.title}</p>
-              <p className="mt-1 text-sm text-muted-foreground">{row.detail}</p>
-              {row.date ? <p className="mt-2 text-xs text-muted-foreground">Mis a jour : {formatDate(row.date)}</p> : null}
-            </div>
-            <StatusBadge label={row.status} tone={row.tone} />
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function documentStatusLabel(status: AidnDocumentStatus): { label: string; tone: StatusTone } {
-  if (status === 'missing') return { label: 'A fournir', tone: 'warning' };
-  if (status === 'received') return { label: 'Recu', tone: 'default' };
-  if (status === 'to_review') return { label: 'En analyse', tone: 'default' };
-  if (status === 'validated') return { label: 'Valide', tone: 'success' };
-  return { label: 'A fournir', tone: 'warning' };
-}
-
-function evidenceStatusLabel(status: AidnPhaseEvidenceStatus): { label: string; tone: StatusTone } {
-  if (status === 'expected' || status === 'missing') return { label: 'A fournir', tone: 'warning' };
-  if (status === 'received' || status === 'scanned') return { label: 'Recu', tone: 'default' };
-  if (status === 'pending_review') return { label: 'En analyse', tone: 'default' };
-  if (status === 'validated') return { label: 'Valide', tone: 'success' };
-  return { label: 'Non applicable', tone: 'muted' };
-}
-
-function certificateStatusLabel(status: AidnCertificateStatus): { label: string; tone: StatusTone } {
-  if (status === 'ready_for_collection') return { label: 'Certificat pret au retrait', tone: 'success' };
-  if (status === 'collected' || status === 'archived') return { label: 'Certificat remis', tone: 'success' };
-  return { label: 'Certificat en preparation', tone: 'default' };
-}
-
-function actionForPortalStatus(status: AidnPortalStatus): string {
-  if (status === 'action_required') return 'Une action est attendue de votre part.';
-  if (status === 'payment_expected') return 'Un paiement est attendu.';
-  if (status === 'meeting_to_schedule') return 'Une reunion doit etre planifiee.';
-  if (status === 'meeting_scheduled') return 'Une reunion est programmee.';
-  if (status === 'certificate_ready_for_collection') return 'Votre certificat est pret au retrait.';
-  if (status === 'certificate_collected') return 'Votre certificat a ete remis.';
-  if (status === 'request_rejected') return 'La demande ne sera pas poursuivie.';
-  return 'Aucune action immediate indiquee.';
-}
-
-function pickDefaultOrganization(demandes: AidnDemande[]): string {
-  return demandes.find((demande) => demande.portalStatus !== 'request_received')?.organizationName ?? demandes[0]?.organizationName ?? '';
 }
 
 export function PortalPreviewPage(): React.JSX.Element {
@@ -145,13 +44,20 @@ export function PortalPreviewPage(): React.JSX.Element {
   const certificatesQuery = useAidnCertificates();
   const evidenceQuery = useAidnPhaseEvidence();
   const nextActionsQuery = useAidnPhaseNextActions();
+  const timelineQuery = useAidnTimelineEvents();
 
   const organizations = useMemo(
-    () => Array.from(new Set((demandesQuery.data ?? []).map((demande) => demande.organizationName))),
+    () =>
+      Array.from(
+        new Set(
+          (demandesQuery.data ?? []).map((demande) => demande.organizationName),
+        ),
+      ),
     [demandesQuery.data],
   );
-  const [selectedOrganization, setSelectedOrganization] = useState('');
-  const activeOrganization = selectedOrganization || pickDefaultOrganization(demandesQuery.data ?? []);
+  const [selectedOrganization, setSelectedOrganization] = useState("");
+  const activeOrganization =
+    selectedOrganization || pickDefaultOrganization(organizations);
 
   const isLoading =
     demandesQuery.isLoading ||
@@ -160,7 +66,8 @@ export function PortalPreviewPage(): React.JSX.Element {
     meetingsQuery.isLoading ||
     certificatesQuery.isLoading ||
     evidenceQuery.isLoading ||
-    nextActionsQuery.isLoading;
+    nextActionsQuery.isLoading ||
+    timelineQuery.isLoading;
   const error =
     demandesQuery.error ??
     dossiersQuery.error ??
@@ -168,140 +75,101 @@ export function PortalPreviewPage(): React.JSX.Element {
     meetingsQuery.error ??
     certificatesQuery.error ??
     evidenceQuery.error ??
-    nextActionsQuery.error;
+    nextActionsQuery.error ??
+    timelineQuery.error;
 
-  const portal = useMemo(() => {
-    const demandes = (demandesQuery.data ?? []).filter((demande) => demande.organizationName === activeOrganization);
+  const portalHome = useMemo(() => {
+    const demandes = (demandesQuery.data ?? []).filter(
+      (demande) => demande.organizationName === activeOrganization,
+    );
     const demandeIds = new Set(demandes.map((demande) => demande.id));
-    const dossiers = (dossiersQuery.data ?? []).filter((dossier) => demandeIds.has(dossier.demandeId));
+    const dossiers = (dossiersQuery.data ?? [])
+      .filter((dossier) => demandeIds.has(dossier.demandeId))
+      .sort((first, second) => second.openedAt.localeCompare(first.openedAt));
+    const activeDossier =
+      dossiers.find((dossier) => dossier.globalStatus !== "closed") ??
+      dossiers[0];
+    const activeDemande =
+      demandes.find((demande) => demande.id === activeDossier?.demandeId) ??
+      demandes[0];
     const dossierIds = new Set(dossiers.map((dossier) => dossier.id));
-    const documents = (documentsQuery.data ?? []).filter((document) => (document.demandeId && demandeIds.has(document.demandeId)) || (document.dossierId && dossierIds.has(document.dossierId)));
-    const meetings = (meetingsQuery.data ?? []).filter((meeting) => dossierIds.has(meeting.dossierId));
-    const certificates = (certificatesQuery.data ?? []).filter((certificate) => dossierIds.has(certificate.dossierId));
-    const evidence = (evidenceQuery.data ?? []).filter((item) => dossierIds.has(item.dossierId));
 
-    const demandeRows: PortalRow[] = demandes.map((demande) => ({
-      id: demande.id,
-      title: demande.reference,
-      detail: `${demande.requestType} - ${demande.organizationName}`,
-      status: getPortalStatusLabel(demande.portalStatus),
-      date: demande.submittedAt,
-      tone: portalStatusTone[demande.portalStatus],
-    }));
+    const documents = (documentsQuery.data ?? []).filter(
+      (document) => document.dossierId && dossierIds.has(document.dossierId),
+    );
+    const meetings = (meetingsQuery.data ?? []).filter((meeting) =>
+      dossierIds.has(meeting.dossierId),
+    );
+    const certificates = (certificatesQuery.data ?? []).filter((certificate) =>
+      dossierIds.has(certificate.dossierId),
+    );
+    const evidence = (evidenceQuery.data ?? []).filter((item) =>
+      dossierIds.has(item.dossierId),
+    );
+    const nextActions = (nextActionsQuery.data ?? []).filter(
+      (item) => activeDossier && item.dossierId === activeDossier.id,
+    );
+    const timeline = (timelineQuery.data ?? [])
+      .filter(
+        (event) =>
+          (event.demandeId ? demandeIds.has(event.demandeId) : false) ||
+          (event.dossierId ? dossierIds.has(event.dossierId) : false),
+      )
+      .sort((first, second) =>
+        second.occurredAt.localeCompare(first.occurredAt),
+      );
 
-    const documentRows: PortalRow[] = [
-      ...documents.map((document) => {
-        const status = documentStatusLabel(document.status);
-        return {
-          id: document.id,
-          title: document.title,
-          detail: document.phaseKey ? 'Piece rattachee au dossier' : 'Piece rattachee a la demande',
-          status: status.label,
-          date: document.updatedAt,
-          tone: status.tone,
-        };
-      }),
-      ...evidence
-        .filter((item) => item.kind === 'required_document' && ['expected', 'missing', 'pending_review', 'received', 'validated'].includes(item.status))
-        .map((item) => {
-          const status = evidenceStatusLabel(item.status);
-          return {
-            id: item.id,
-            title: 'Piece justificative',
-            detail: item.isRequired ? 'Piece requise pour poursuivre le dossier' : 'Piece complementaire',
-            status: status.label,
-            date: item.receivedAt ?? item.dueDate,
-            tone: status.tone,
-          };
-        }),
-    ];
+    const nextExpectedAction =
+      nextActions.find((item) => item.status === "pending")?.label ??
+      (activeDemande
+        ? actionForPortalStatus(activeDemande.portalStatus)
+        : "Action attendue");
 
-    const paymentRows: PortalRow[] = evidence
-      .filter((item) => item.kind === 'invoice' || item.kind === 'payment_proof')
-      .map((item) => {
-        const isInvoice = item.kind === 'invoice';
-        const status = evidenceStatusLabel(item.status);
-        return {
-          id: item.id,
-          title: isInvoice ? 'Facture disponible' : 'Preuve de paiement',
-          detail: isInvoice ? 'Element de paiement rattache au dossier' : 'Justificatif attendu ou recu',
-          status: item.status === 'expected' || item.status === 'missing' ? 'Paiement attendu' : status.label,
-          date: item.receivedAt ?? item.dueDate,
-          tone: item.status === 'expected' || item.status === 'missing' ? 'warning' : status.tone,
-        };
-      });
+    const dates = [
+      ...documents.map((item) => item.updatedAt),
+      ...meetings.map((item) => item.scheduledAt),
+      ...certificates.map(
+        (item) =>
+          item.collectedAt ??
+          item.readyForCollectionAt ??
+          item.preparedAt ??
+          "",
+      ),
+      ...evidence.map((item) => item.receivedAt ?? item.dueDate ?? ""),
+      ...timeline.map((item) => item.occurredAt),
+    ].filter(Boolean);
 
-    const meetingRows: PortalRow[] = meetings.map((meeting) => ({
-      id: meeting.id,
-      title: meeting.title,
-      detail: `${meeting.location} - ${meeting.outcome === 'planned' ? 'A venir' : meeting.outcome === 'held' ? 'Tenue' : 'Reprogrammee'}`,
-      status: meeting.reportDocumentId ? 'Compte rendu disponible' : meeting.outcome === 'planned' ? 'Reunion programmee' : 'Compte rendu a venir',
-      date: meeting.scheduledAt,
-      tone: meeting.outcome === 'planned' ? 'default' : 'success',
-    }));
+    const lastUpdate = dates.sort((first, second) =>
+      second.localeCompare(first),
+    )[0];
 
-    const certificateRows: PortalRow[] = certificates.map((certificate) => {
-      const status = certificateStatusLabel(certificate.status);
-      return {
-        id: certificate.id,
-        title: certificate.certificateNumber,
-        detail: `${certificate.holderName} - ${certificate.certificateType}`,
-        status: status.label,
-        date: certificate.collectedAt ?? certificate.readyForCollectionAt ?? certificate.preparedAt,
-        tone: status.tone,
-      };
-    });
-
-    const actionRows: PortalRow[] = [
-      ...demandes
-        .filter((demande) => ['action_required', 'payment_expected', 'meeting_to_schedule', 'meeting_scheduled', 'certificate_ready_for_collection'].includes(demande.portalStatus))
-        .map((demande) => ({
-          id: `action-${demande.id}`,
-          title: actionForPortalStatus(demande.portalStatus),
-          detail: demande.reference,
-          status: getPortalStatusLabel(demande.portalStatus),
-          date: demande.submittedAt,
-          tone: portalStatusTone[demande.portalStatus] ?? 'default',
-        })),
-      ...documentRows.filter((row) => row.status === 'A fournir').slice(0, 3).map((row) => ({ ...row, id: `action-${row.id}`, title: 'Document a fournir' })),
-      ...paymentRows.filter((row) => row.status === 'Paiement attendu').slice(0, 2).map((row) => ({ ...row, id: `action-${row.id}`, title: 'Paiement attendu' })),
-      ...certificateRows.filter((row) => row.status === 'Certificat pret au retrait').map((row) => ({ ...row, id: `action-${row.id}`, title: 'Retrait du certificat' })),
-    ];
-
-    const notificationRows: PortalRow[] = [
-      ...demandes.map((demande) => ({
-        id: `notice-${demande.id}`,
-        title: getPortalStatusLabel(demande.portalStatus),
-        detail: `${demande.reference} - ${actionForPortalStatus(demande.portalStatus)}`,
-        status: 'Notification',
-        date: demande.submittedAt,
-        tone: portalStatusTone[demande.portalStatus] ?? 'default',
-      })),
-      ...evidence
-        .filter((item) => item.kind === 'notification')
-        .map((item) => {
-          const status = evidenceStatusLabel(item.status);
-          return {
-            id: `notice-${item.id}`,
-            title: 'Notification disponible',
-            detail: 'Information publiee dans le suivi du dossier',
-            status: status.label,
-            date: item.receivedAt ?? item.dueDate,
-            tone: status.tone,
-          };
-        }),
-    ];
+    const recentUpdates: HomeUpdateRow[] = timeline
+      .slice(0, 5)
+      .map((event) => ({
+        id: event.id,
+        title: event.label,
+        detail: event.description,
+        date: event.occurredAt,
+      }));
 
     return {
-      demandes: demandeRows,
-      actions: actionRows,
-      documents: documentRows,
-      meetings: meetingRows,
-      payments: paymentRows,
-      notifications: notificationRows,
-      certificates: certificateRows,
+      activeDemande,
+      activeDossier,
+      nextExpectedAction,
+      lastUpdate,
+      recentUpdates,
     };
-  }, [activeOrganization, certificatesQuery.data, demandesQuery.data, documentsQuery.data, dossiersQuery.data, evidenceQuery.data, meetingsQuery.data]);
+  }, [
+    activeOrganization,
+    certificatesQuery.data,
+    demandesQuery.data,
+    documentsQuery.data,
+    dossiersQuery.data,
+    evidenceQuery.data,
+    meetingsQuery.data,
+    nextActionsQuery.data,
+    timelineQuery.data,
+  ]);
 
   const refetchAll = (): void => {
     void demandesQuery.refetch();
@@ -311,6 +179,7 @@ export function PortalPreviewPage(): React.JSX.Element {
     void certificatesQuery.refetch();
     void evidenceQuery.refetch();
     void nextActionsQuery.refetch();
+    void timelineQuery.refetch();
   };
 
   if (isLoading) {
@@ -329,16 +198,21 @@ export function PortalPreviewPage(): React.JSX.Element {
     <div className="page-container">
       <div className="page-header">
         <div>
-          <h1 className="page-title">Portail postulant - apercu</h1>
-          <p className="page-subtitle">Vue simplifiee des informations visibles par un postulant. Prototype lecture seule.</p>
+          <h1 className="page-title">Portail postulant - accueil</h1>
+          <p className="page-subtitle">
+            Un espace simple pour suivre un dossier en lecture seule.
+          </p>
         </div>
         <Badge variant="outline">Demo</Badge>
       </div>
 
-      {error ? <ErrorState message={error.message} onRetry={refetchAll} /> : null}
+      {error ? (
+        <ErrorState message={error.message} onRetry={refetchAll} />
+      ) : null}
 
       <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 text-sm text-primary">
-        Apercu prototype : cette page ne contient pas d'authentification, d'upload reel ou de soumission.
+        Apercu prototype : pas d'authentification reelle, pas de depot de
+        document et pas de soumission dans cette vue.
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-muted/20 p-4">
@@ -347,50 +221,168 @@ export function PortalPreviewPage(): React.JSX.Element {
             <UserRound className="h-4 w-4" aria-hidden="true" />
           </span>
           <div>
-            <p className="text-sm text-muted-foreground">Apercu pour</p>
-            <p className="font-semibold text-slate-950 dark:text-white">{activeOrganization || 'Aucun organisme'}</p>
+            <p className="text-sm text-muted-foreground">
+              Apercu pour l'organisme
+            </p>
+            <p className="font-semibold text-slate-950 dark:text-white">
+              {activeOrganization || "Aucun organisme"}
+            </p>
           </div>
         </div>
-        <Select value={activeOrganization} onValueChange={setSelectedOrganization}>
-          <SelectTrigger className="h-9 w-full sm:w-72" aria-label="Choisir un organisme pour l'apercu">
+        <Select
+          value={activeOrganization}
+          onValueChange={setSelectedOrganization}
+        >
+          <SelectTrigger
+            className="h-9 w-full sm:w-72"
+            aria-label="Choisir un organisme pour l'apercu"
+          >
             <SelectValue placeholder="Choisir un organisme" />
           </SelectTrigger>
           <SelectContent>
             {organizations.map((organization) => (
-              <SelectItem key={organization} value={organization}>{organization}</SelectItem>
+              <SelectItem key={organization} value={organization}>
+                {organization}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-2">
-        <SectionCard title="Mes demandes" icon={ClipboardList}>
-          <PortalRowList rows={portal.demandes} emptyMessage="Aucune demande visible pour cet organisme." />
-        </SectionCard>
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <FolderKanban className="h-4 w-4" aria-hidden="true" />
+            Dossier actif
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {portalHome.activeDossier && portalHome.activeDemande ? (
+            <div className="space-y-4">
+              <div className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-3">
+                <div>
+                  <p className="text-muted-foreground">Reference dossier</p>
+                  <p className="font-semibold">
+                    {portalHome.activeDossier.reference}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Type de demande</p>
+                  <p className="font-semibold">
+                    {portalHome.activeDemande.requestType}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Ouverture</p>
+                  <p className="font-semibold">
+                    {formatDate(portalHome.activeDossier.openedAt)}
+                  </p>
+                </div>
+              </div>
+              <Button asChild>
+                <Link
+                  to={`/portal-preview/dossiers/${portalHome.activeDossier.id}`}
+                >
+                  Ouvrir le detail du dossier
+                  <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                </Link>
+              </Button>
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Aucun dossier actif pour cet organisme.
+            </p>
+          )}
+        </CardContent>
+      </Card>
 
-        <SectionCard title="Actions attendues" icon={Bell}>
-          <PortalRowList rows={portal.actions} emptyMessage="Aucune action immediate indiquee." />
-        </SectionCard>
+      <div className="grid gap-4 lg:grid-cols-3">
+        <Card>
+          <CardContent className="p-4">
+            <p className="text-sm text-muted-foreground">
+              Dossier en cours de traitement
+            </p>
+            <p className="mt-2 font-semibold text-slate-900 dark:text-slate-100">
+              {portalHome.activeDemande
+                ? simplifiedPortalStatusLabel(
+                    portalHome.activeDemande.portalStatus,
+                  )
+                : "Dossier en cours de traitement"}
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <p className="text-sm text-muted-foreground">Action attendue</p>
+            <p className="mt-2 font-semibold text-slate-900 dark:text-slate-100">
+              {portalHome.nextExpectedAction}
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <p className="text-sm text-muted-foreground">
+              Derniere mise a jour
+            </p>
+            <p className="mt-2 inline-flex items-center gap-2 font-semibold text-slate-900 dark:text-slate-100">
+              <Clock3
+                className="h-4 w-4 text-muted-foreground"
+                aria-hidden="true"
+              />
+              {formatDate(portalHome.lastUpdate)}
+            </p>
+          </CardContent>
+        </Card>
+      </div>
 
-        <SectionCard title="Documents / pieces a fournir" icon={FileText}>
-          <PortalRowList rows={portal.documents} emptyMessage="Aucune piece visible pour cet organisme." />
-        </SectionCard>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Mises a jour recentes</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {portalHome.recentUpdates.length > 0 ? (
+            <div className="grid gap-3">
+              {portalHome.recentUpdates.map((update) => (
+                <div
+                  key={update.id}
+                  className="rounded-md border bg-background p-3"
+                >
+                  <p className="font-semibold text-slate-950 dark:text-white">
+                    {update.title}
+                  </p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {update.detail}
+                  </p>
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    Mis a jour : {formatDate(update.date)}
+                  </p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Aucune mise a jour recente.
+            </p>
+          )}
+        </CardContent>
+      </Card>
 
-        <SectionCard title="Reunions" icon={CalendarDays}>
-          <PortalRowList rows={portal.meetings} emptyMessage="Aucune reunion programmee." />
-        </SectionCard>
+      {portalHome.activeDossier ? (
+        <div className="flex justify-end">
+          <Button asChild variant="outline">
+            <Link
+              to={`/portal-preview/dossiers/${portalHome.activeDossier.id}`}
+            >
+              Voir le detail du dossier
+            </Link>
+          </Button>
+        </div>
+      ) : null}
 
-        <SectionCard title="Paiements" icon={CreditCard}>
-          <PortalRowList rows={portal.payments} emptyMessage="Aucun paiement visible pour cet organisme." />
-        </SectionCard>
-
-        <SectionCard title="Decisions / notifications" icon={Bell}>
-          <PortalRowList rows={portal.notifications} emptyMessage="Aucune notification disponible." />
-        </SectionCard>
-
-        <SectionCard title="Certificat / retrait" icon={PackageCheck}>
-          <PortalRowList rows={portal.certificates} emptyMessage="Aucun certificat visible pour cet organisme." />
-        </SectionCard>
+      <div className="rounded-lg border bg-muted/30 p-4 text-sm text-muted-foreground">
+        Cette page reste volontairement simple pour le postulant : documents,
+        paiements, reunions, notifications et certificat sont centralises dans
+        la fiche dossier.
       </div>
     </div>
   );

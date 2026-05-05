@@ -1,21 +1,22 @@
-import { Navigate, Route, Routes } from 'react-router-dom';
-import { AuthRoute } from './components/auth/AuthRoute';
-import { ProtectedRoute } from './components/auth/ProtectedRoute';
-import { AdminLayout } from './layouts/AdminLayout';
-import { CertificatsPage } from './pages/CertificatsPage';
-import { CourriersPage } from './pages/CourriersPage';
-import { DashboardPage } from './pages/DashboardPage';
-import { DemandesPage } from './pages/DemandesPage';
-import { DocumentsPage } from './pages/DocumentsPage';
-import { DossierDetailPage } from './pages/DossierDetailPage';
-import { DossiersPage } from './pages/DossiersPage';
-import { LoginPage } from './pages/LoginPage';
-import { ManagementPage } from './pages/ManagementPage';
-import { PortalPreviewPage } from './pages/PortalPreviewPage';
-import { ReunionsPage } from './pages/ReunionsPage';
-import { ReportsPage } from './pages/ReportsPage';
-import { SettingsPage } from './pages/SettingsPage';
-import { WorkflowOmaPage } from './pages/WorkflowOmaPage';
+import { Navigate, Route, Routes } from "react-router-dom";
+import { AuthRoute } from "./components/auth/AuthRoute";
+import { ProtectedRoute } from "./components/auth/ProtectedRoute";
+import { AdminLayout } from "./layouts/AdminLayout";
+import { CertificatsPage } from "./pages/CertificatsPage";
+import { CourriersPage } from "./pages/CourriersPage";
+import { DashboardPage } from "./pages/DashboardPage";
+import { DemandesPage } from "./pages/DemandesPage";
+import { DocumentsPage } from "./pages/DocumentsPage";
+import { DossierDetailPage } from "./pages/DossierDetailPage";
+import { DossiersPage } from "./pages/DossiersPage";
+import { LoginPage } from "./pages/LoginPage";
+import { ManagementPage } from "./pages/ManagementPage";
+import { PortalPreviewDossierPage } from "./pages/PortalPreviewDossierPage";
+import { PortalPreviewPage } from "./pages/PortalPreviewPage";
+import { ReunionsPage } from "./pages/ReunionsPage";
+import { ReportsPage } from "./pages/ReportsPage";
+import { SettingsPage } from "./pages/SettingsPage";
+import { WorkflowOmaPage } from "./pages/WorkflowOmaPage";
 
 export function App(): React.JSX.Element {
   return (
@@ -38,6 +39,10 @@ export function App(): React.JSX.Element {
           <Route path="/management" element={<ManagementPage />} />
           <Route path="/reports" element={<ReportsPage />} />
           <Route path="/portal-preview" element={<PortalPreviewPage />} />
+          <Route
+            path="/portal-preview/dossiers/:id"
+            element={<PortalPreviewDossierPage />}
+          />
           <Route path="/settings" element={<SettingsPage />} />
         </Route>
       </Route>

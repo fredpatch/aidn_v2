@@ -1,38 +1,36 @@
-# Current State — AIDN
+# Current State
 
-Last reviewed: TODO
-Reviewer: TODO
-Source files inspected: TODO
+Last reviewed: 2026-05-05
 
-## Product state
+## Project status
+- Vite + React + TypeScript admin app in apps/admin.
+- Data mode defaults to mock (VITE_DATA_MODE=mock).
+- AIDN module is mock-first; API mode throws explicit "not configured" errors for AIDN endpoints.
+- Auth is demo-only localStorage token gate (aidn-demo-token).
 
-AIDN is currently a prototype/MVP-style application for the Direction de la Navigabilité. It supports internal DN/Admin pages and a read-only postulant portal preview.
-
-## Confirmed functional scope
-
-- Internal dashboard
+## Implemented modules
+- Dashboard
 - Demandes
-- Courriers / Orientation DG
-- Dossiers DN
+- Courriers / orientation DG
+- Dossiers DN (+ detailed dossier workspace)
 - Workflow OMA
 - Documents
-- Réunions
+- Reunions
 - Certificats
 - Reports
 - Settings
-- Portal preview demo
+- Portal preview (home + dossier detail tabs)
 
-## Current focus
+## Portal state
+- Route /portal-preview is a simplified postulant home.
+- Route /portal-preview/dossiers/:id is a tabbed detail page.
+- Portal stays read-only (no real upload/payment/submission/auth flow).
 
-Improve the postulant portal preview so it is not a long concatenated admin-like page. Target design: simple portal home + dossier detail tabs.
+## Mock/demo limitations
+- No production backend wired for AIDN feature set.
+- Many actions mutate browser localStorage only (aidn.demo.state.v1).
+- Outlook/email/storage are represented as labels or notes, not active integrations.
 
-## Known constraints
-
-- Portal preview remains read-only.
-- No real external authentication yet.
-- No real upload/submission logic in portal preview yet.
-- MVP is semi-digital: official paper circuit and DG orientation remain part of the process.
-
-## Next exploration target
-
-Inspect actual frontend route/page files for `/portal-preview` and related mock data.
+## Next recommended implementation target
+- Define real backend contracts for AIDN entities and align React Query hooks to API mode.
+- Keep portal wording simplified while preserving internal/admin richness.

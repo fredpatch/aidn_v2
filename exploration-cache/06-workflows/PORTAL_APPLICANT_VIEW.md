@@ -1,58 +1,25 @@
 # Portal Applicant View
 
-Last reviewed: TODO
-Source files inspected: TODO
+## Current implementation
+- Home page route /portal-preview focuses on summary and next action.
+- Detail route /portal-preview/dossiers/:id provides tabbed grouped content.
 
-## Purpose
+## Files involved
+- apps/admin/src/pages/PortalPreviewPage.tsx
+- apps/admin/src/pages/PortalPreviewDossierPage.tsx
+- apps/admin/src/pages/portal-preview/portalPreview.utils.ts
 
-The portal is for the external postulant. It should show simplified tracking, not internal DN workflow complexity.
+## Current grouped sections
+- Home: organization selector, active dossier, simplified status, next action, last update, recent updates
+- Detail tabs: overview, documents, payments, meetings, notifications, certificate
 
-## UX rule
+## Read-only behavior
+- Explicitly marked as read-only in UI text.
+- No upload/submission/payment actions available.
 
-Do not concatenate every section on one long page. Use:
-- portal home for summary and next action
-- dossier detail page for grouped information
-- tabs for documents, payments, meetings, notifications, certificate
+## Historical UX issue to preserve in audit
+- Long single-page concatenation was identified as problematic.
+- Current split architecture resolves this and should remain baseline.
 
-## Recommended routes
-
-- `/portal-preview` — simplified home
-- `/portal-preview/dossiers/:id` — dossier detail
-
-## Recommended sections
-
-### Home
-
-- applicant/organization selector
-- active dossier summary
-- current simplified status
-- next expected action
-- last update
-- recent updates
-
-### Dossier detail tabs
-
-- Vue d’ensemble
-- Documents
-- Paiements
-- Réunions
-- Notifications
-- Certificat
-
-## Label rules
-
-Prefer external-facing labels:
-- Dossier en cours de traitement
-- Action attendue
-- Document à fournir
-- Notification disponible
-- Certificat en préparation
-
-Avoid overexposing internal labels unless needed:
-- Orientation DG
-- Workflow OMA
-- Dossier DN
-
-## Known gap
-
-Current screenshot shows too many blocks concatenated on one page. This should be refactored.
+## Safe next improvements
+- When real postulant auth is added, keep simplified labels and avoid exposing internal DG/DN operations.

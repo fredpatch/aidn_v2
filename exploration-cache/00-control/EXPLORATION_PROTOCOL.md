@@ -1,31 +1,28 @@
 # Exploration Protocol
 
-## Before coding
+## Goal
+Keep this cache factual, concise, and source-linked.
 
-1. Read this file.
-2. Read `CURRENT_STATE.md`.
-3. Read the relevant cache files for the task.
-4. Inspect only the source files listed in the relevant cache file first.
-5. Expand exploration only if the cache is stale or incomplete.
+## Required first reads
+1. 00-control/SOURCE_OF_TRUTH.md
+2. 00-control/CURRENT_STATE.md
+3. 01-project-map/REPO_STRUCTURE.md
+4. 01-project-map/ROUTES_MAP.md
 
-## During exploration
+## Required commands before documentation updates
+- pwd
+- ls
+- find . -maxdepth 3 -type f | sort (excluding heavy folders)
+- route search in apps/admin/src (Router/Route/path)
+- package script inspection (apps/admin/package.json)
 
-Record:
-- source files inspected
-- what is confirmed
-- what is assumed
-- what remains unknown
+## Update method
+- Prefer updating existing cache files over creating ad-hoc new files.
+- Add exact source paths for each non-trivial claim.
+- Mark assumptions as "assumption" explicitly.
+- Record uncertain areas in 10-decisions/OPEN_QUESTIONS.md.
 
-## After coding
-
-Update:
-- the specific module cache page
-- `09-qa/KNOWN_ISSUES.md` if anything remains risky
-- one session note in `99-session-notes/`
-
-## Strict rules
-
-- Do not re-scan the entire repo unless necessary.
-- Do not duplicate large source code blocks.
-- Keep cache notes factual and short.
-- Mark stale information clearly.
+## What not to do
+- Do not copy large code blocks into cache files.
+- Do not claim command/test success unless actually run.
+- Do not describe planned architecture as already implemented.

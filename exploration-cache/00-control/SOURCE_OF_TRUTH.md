@@ -1,26 +1,20 @@
-# Source of Truth
+# Source Of Truth
 
-## Business documents
+Priority order for factual decisions:
+1. Actual source code under apps/admin/src and config files
+2. Existing exploration-cache files (if recently refreshed)
+3. docs/* workflow notes and blueprint docs
+4. User/stakeholder corrections in chat/task prompts
+5. Explicit assumptions (must be labeled as assumptions)
 
-- Cahier des charges AIDN — initial need and expected workflows.
-- Étude de faisabilité AIDN — corrected MVP positioning and semi-digitalization principle.
+## Primary code sources currently used
+- Router: apps/admin/src/App.tsx
+- Bootstrap/providers: apps/admin/src/main.tsx
+- Shell/navigation: apps/admin/src/layouts/* and apps/admin/src/config/nav.tsx
+- AIDN data layer: apps/admin/src/features/aidn/*
+- Portal preview pages: apps/admin/src/pages/PortalPreviewPage.tsx and apps/admin/src/pages/PortalPreviewDossierPage.tsx
 
-## Code source of truth
-
-TODO: Fill after inspecting the repository.
-
-Expected areas:
-- router configuration
-- admin layout/sidebar
-- portal preview page
-- mock data helpers
-- dossier detail page
-- shared UI components
-
-## Decision priority
-
-When documents and code differ:
-1. validated stakeholder decision
-2. feasibility study / meeting validation
-3. current prototype code
-4. assumptions from previous implementation notes
+## Document sources used for business context
+- docs/AIDN_OMA_WORKFLOW_SOURCE_NOTES.md
+- docs/aidn-oma-revised-workflow-blueprint-v1.md
+- docs/AIDN-WORKFLOW-OMA.md

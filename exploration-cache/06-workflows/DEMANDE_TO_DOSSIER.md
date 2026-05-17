@@ -24,7 +24,9 @@
 - No direct "open dossier" button in current UI flow; dossier existence is seed/state driven.
 
 ## Known gaps
-- No explicit backend transaction for DG orientation -> dossier creation.
+- Backend models now represent the explicit separation between initial request, DG review, and DN dossier.
+- No explicit backend transaction for DG orientation -> dossier creation has been implemented yet.
 
 ## Safe next improvements
 - Add explicit transition event record for dossier opening from demande/courrier context.
+- Add a service method that atomically records favorable DG orientation, opens a dossier, starts preliminary phase, and writes an audit log.

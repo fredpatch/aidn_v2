@@ -1,535 +1,446 @@
-# AIDN — Exploration Cache Initialization Prompt
+# AIDN API-1 Prompt — Auth + Internal Account Activation
 
-You are working on the AIDN prototype codebase.
+You are working inside the existing `AIDN_V2` repository.
 
-## Objective
+The backend foundation has already been initialized under `apps/api`.
 
-Explore the current state of the project and create/fill a durable `exploration-cache/` folder so future implementation agents can reduce exploration time and work from a reliable project map.
-
-Do **not** implement product features in this pass.  
-Do **not** refactor application code unless strictly needed to read or document it.  
-This task is documentation/exploration only.
+Do not restart the backend architecture. Continue from the current modular monolith.
 
 ---
 
-## Context
+## Current state
 
-AIDN is a semi-digital workflow application for the Direction de la Navigabilité.
+Implemented backend routes already include:
 
-The prototype currently includes internal/admin pages such as:
+- `GET /health`
+- `GET /api/v1/auth/me`
+- `POST /api/v1/auth/bootstrap/login`
+- `POST /api/v1/auth/internal/login`
+- `GET /api/v1/admin/personnel?search=`
+- `GET /api/v1/admin/internal-accounts`
+- `POST /api/v1/admin/internal-accounts/activate`
+- `GET /api/v1/admin/organizations`
+- `GET /api/v1/admin/account-requests`
 
-- dashboard
-- demandes
-- courriers / orientation DG
-- dossiers DN
-- workflow OMA
-- documents
-- réunions
-- certificats
-- reports
-- settings
-- portal postulant demo / portal preview
+The backend is a modular monolith using:
 
-Important business principles:
-
-- AIDN is not full dematerialization in v1.
-- The official courrier/DG circuit remains semi-physical.
-- A demande becomes a dossier DN only after DG orientation toward DN.
-- The postulant portal must expose simplified statuses, not internal workflow complexity.
-- The prototype may be mock-data driven.
+- Node.js
+- TypeScript
+- Express
+- MongoDB
+- Mongoose
+- JWT/session scaffolding
+- Modular service/repository/controller structure
 
 ---
 
-# Task
+## Task objective
 
-Inspect the repository and create or update the following folder structure:
+Implement and harden the **Auth + internal account activation flow**.
+
+This phase must focus only on:
+
+1. Bootstrap admin login
+2. Current user session endpoint
+3. Official personnel lookup through adapter
+4. Internal AIDN account activation
+5. Internal login through personnel adapter
+6. Role/capability enforcement
+7. Audit logging for auth/admin account actions
+
+Do **not** implement request workflow, courrier workflow, DG review workflow, dossier opening, OMA phases, portal requests, uploads, emails, or certificate generation.
+
+---
+
+## Business rules
+
+Internal ANAC users must not self-register inside AIDN.
+
+Internal users come from the official personnel database / SIGEM-like source.
+
+AIDN only stores:
+
+- local user mirror;
+- activation status;
+- AIDN role;
+- permissions;
+- audit references;
+- login timestamps.
+
+Internal login flow:
 
 ```txt
-exploration-cache/
-├── 00-control/
-│   ├── INDEX.md
-│   ├── CURRENT_STATE.md
-│   ├── EXPLORATION_PROTOCOL.md
-│   └── SOURCE_OF_TRUTH.md
-├── 01-project-map/
-│   ├── REPO_STRUCTURE.md
-│   ├── ROUTES_MAP.md
-│   ├── ENTRYPOINTS.md
-│   └── MODULE_BOUNDARIES.md
-├── 02-domain/
-│   ├── DOMAIN_GLOSSARY.md
-│   ├── BUSINESS_RULES.md
-│   ├── STATUSES.md
-│   └── ROLES_AND_PERMISSIONS.md
-├── 03-frontend/
-│   ├── FRONTEND_ARCHITECTURE.md
-│   ├── ADMIN_SHELL.md
-│   ├── PORTAL_PREVIEW_MAP.md
-│   ├── COMPONENT_INVENTORY.md
-│   └── UI_PATTERNS.md
-├── 04-backend/
-│   ├── BACKEND_ARCHITECTURE.md
-│   ├── API_ROUTES.md
-│   ├── SERVICES_AND_CONTROLLERS.md
-│   └── AUTH_AND_PERMISSIONS.md
-├── 05-data/
-│   ├── MOCKS_AND_FIXTURES.md
-│   ├── DATA_MODELS.md
-│   └── SEED_DATA.md
-├── 06-workflows/
-│   ├── DEMANDE_TO_DOSSIER.md
-│   ├── DG_ORIENTATION.md
-│   ├── OMA_WORKFLOW.md
-│   ├── DOCUMENT_WORKFLOW.md
-│   ├── PAYMENT_WORKFLOW.md
-│   ├── MEETING_WORKFLOW.md
-│   ├── CERTIFICATE_WORKFLOW.md
-│   └── PORTAL_APPLICANT_VIEW.md
-├── 07-ui-ux/
-│   ├── PAGE_LEVEL_UX.md
-│   ├── PORTAL_UX_AUDIT.md
-│   ├── STATUS_LABELS_EXTERNAL.md
-│   └── NAVIGATION_MODEL.md
-├── 08-integrations/
-│   ├── EMAIL_NOTIFICATIONS.md
-│   ├── FILE_STORAGE.md
-│   └── QLOG_OR_EXTERNAL_SYSTEMS.md
-├── 09-qa/
-│   ├── BUILD_AND_TEST_COMMANDS.md
-│   ├── KNOWN_GAPS.md
-│   ├── RISK_REGISTER.md
-│   └── MANUAL_QA_CHECKLIST.md
-├── 10-decisions/
-│   ├── DECISIONS_LOG.md
-│   └── OPEN_QUESTIONS.md
-└── 99-session-notes/
-    └── exploration-session-YYYY-MM-DD.md
+matricule + password
+→ validate against official personnel adapter
+→ check AIDN internal account activation
+→ load local AIDN user
+→ load role/capabilities
+→ issue JWT
 
-Create missing files. Update existing files if already present.
+Important constraints:
 
-Required exploration method
-1. Start with project structure
+Do not store internal staff passwords locally.
+Do not allow inactive/disabled internal accounts to login.
+Do not create internal users directly from arbitrary input.
+Do not activate an account without matching official personnel data.
+Bootstrap admin is only for first setup and emergency admin access.
+Capability checks must be used for admin actions.
+Roles to support
 
-Inspect:
+Ensure these roles exist consistently:
 
-pwd
-ls
-find . -maxdepth 3 -type f | sort
-
-Ignore heavy folders:
-
-node_modules
-dist
-build
-coverage
-.git
-.cache
-.vite
-.next
-
-Document the result in:
-
-exploration-cache/01-project-map/REPO_STRUCTURE.md
-
-Include:
-
-apps/packages/services layout
-important source folders
-config files
-build tooling
-where frontend lives
-where backend lives, if present
-where mock/demo data lives
-2. Identify entrypoints and routes
-
-Search for:
-
-router
-routes
-createBrowserRouter
-BrowserRouter
-<Route
-path:
-
-Document in:
-
-exploration-cache/01-project-map/ROUTES_MAP.md
-exploration-cache/01-project-map/ENTRYPOINTS.md
-
-For each route, capture:
-
-Route	Page/component	Purpose	Data source	Notes
-
-Pay special attention to:
-
-/portal-preview
-/portal-preview/*
-/demandes
-/courriers
-/dossiers
-/dossiers/:id
-/workflow-oma
-/documents
-/reunions
-/certificats
-/reports
-/settings
-3. Inspect frontend architecture
-
-Find:
-
-app bootstrap
-router config
-layouts
-sidebar/nav config
-pages directory
-shared UI components
-feature folders
-hooks
-API/data access files
-
-Document in:
-
-exploration-cache/03-frontend/FRONTEND_ARCHITECTURE.md
-exploration-cache/03-frontend/ADMIN_SHELL.md
-exploration-cache/03-frontend/COMPONENT_INVENTORY.md
-exploration-cache/03-frontend/UI_PATTERNS.md
-
-Include exact file paths.
-
-4. Inspect portal preview
-
-Search for portal-related files:
-
-grep -R "portal" -n .
-grep -R "postulant" -n .
-grep -R "Portal" -n .
-
-Document in:
-
-exploration-cache/03-frontend/PORTAL_PREVIEW_MAP.md
-exploration-cache/06-workflows/PORTAL_APPLICANT_VIEW.md
-exploration-cache/07-ui-ux/PORTAL_UX_AUDIT.md
-
-Capture:
-
-current portal page file path
-components used
-mock data used
-current sections displayed
-current problems
-how data is currently grouped
-whether portal is read-only
-what should remain unchanged
-recommended next refactor boundaries
-
-Important UX finding to record:
-
-The current portal preview shows too much information on one long page. It should later be split into:
-
-Portal home
-└── Dossier detail page
-    ├── Vue d’ensemble
-    ├── Documents
-    ├── Paiements
-    ├── Réunions
-    ├── Notifications
-    └── Certificat
-
-Do not implement this refactor now. Only document it.
-
-5. Inspect mock/demo data
-
-Search for:
-
-mock
-mocks
-fixture
-fixtures
-demo
-seed
-aidn-demo
-
-Document in:
-
-exploration-cache/05-data/MOCKS_AND_FIXTURES.md
-exploration-cache/05-data/DATA_MODELS.md
-exploration-cache/05-data/SEED_DATA.md
-
-Capture:
-
-File	Exports	Used by	Data represented	Notes
-
-Pay attention to data for:
-
-demandes
-courriers
-dossiers
-OMA phases
-documents
-payments
-meetings/reunions
-certificates
-portal preview
-notifications
-6. Inspect workflows
-
-From code and data, document current implemented workflow behavior in:
-
-exploration-cache/06-workflows/DEMANDE_TO_DOSSIER.md
-exploration-cache/06-workflows/DG_ORIENTATION.md
-exploration-cache/06-workflows/OMA_WORKFLOW.md
-exploration-cache/06-workflows/DOCUMENT_WORKFLOW.md
-exploration-cache/06-workflows/PAYMENT_WORKFLOW.md
-exploration-cache/06-workflows/MEETING_WORKFLOW.md
-exploration-cache/06-workflows/CERTIFICATE_WORKFLOW.md
-
-Each workflow file should include:
-
-# Workflow name
-
-## Current implementation
-
-## Files involved
-
-## Statuses observed
-
-## User-facing labels
-
-## Demo actions / state transitions
-
-## Known gaps
-
-## Safe next improvements
-7. Inspect domain rules
-
-Document:
-
-exploration-cache/02-domain/DOMAIN_GLOSSARY.md
-exploration-cache/02-domain/BUSINESS_RULES.md
-exploration-cache/02-domain/STATUSES.md
-exploration-cache/02-domain/ROLES_AND_PERMISSIONS.md
-
-Include at least:
-
-demande
-courrier
-orientation DG
-dossier DN
+bootstrap_admin
+admin
+dn_supervisor
+dn_agent
+dg_secretariat
+reception
+bureau_courrier
 postulant
-organisme
-workflow OMA
-phase
-document
-réunion
-convocation
-paiement
-certificat
-retrait
-notification
 
-Separate:
+For this phase, activation should allow assigning internal roles only:
 
-Internal status
-External/postulant status
-Demo-only status
-8. Inspect backend if present
+admin
+dn_supervisor
+dn_agent
+dg_secretariat
+reception
+bureau_courrier
 
-If backend exists, inspect:
+Do not allow activating an internal personnel account as postulant.
 
-Express/Nest/etc entrypoints
-API route registration
-controllers
-services
-repositories
-auth middleware
-validation
-storage/file upload handling
+Permissions needed in this phase
 
-Document in:
+Make sure these permissions work with middleware/guards:
 
-exploration-cache/04-backend/BACKEND_ARCHITECTURE.md
-exploration-cache/04-backend/API_ROUTES.md
-exploration-cache/04-backend/SERVICES_AND_CONTROLLERS.md
-exploration-cache/04-backend/AUTH_AND_PERMISSIONS.md
+PERSONNEL_SEARCH
+AIDN_USER_ACTIVATE
+AIDN_USER_ASSIGN_ROLE
+AUDIT_VIEW
 
-If no backend exists or prototype is frontend-only/mock-only, state that clearly.
+Bootstrap admin and admin should have these permissions.
 
-9. Inspect integrations
+Other roles can be mapped but should not receive admin activation permissions unless already intended.
 
-Document current reality, not assumptions:
+Required behavior
+1. Bootstrap login
 
-exploration-cache/08-integrations/EMAIL_NOTIFICATIONS.md
-exploration-cache/08-integrations/FILE_STORAGE.md
-exploration-cache/08-integrations/QLOG_OR_EXTERNAL_SYSTEMS.md
+Review and harden:
 
-For each:
+POST /api/v1/auth/bootstrap/login
 
-implemented?
-mocked?
-referenced only?
-not present?
-future requirement?
-10. QA and commands
+Expected input:
 
-Inspect package scripts:
+{
+  email: string;
+  password: string;
+}
 
-cat package.json
-find . -name package.json -maxdepth 4 -print
+Expected behavior:
 
-Document in:
+validates credentials against seeded bootstrap admin;
+rejects inactive users;
+returns JWT and current user payload;
+updates lastLoginAt;
+writes audit log for successful and failed login attempts if audit module is available.
 
-exploration-cache/09-qa/BUILD_AND_TEST_COMMANDS.md
-exploration-cache/09-qa/MANUAL_QA_CHECKLIST.md
-exploration-cache/09-qa/KNOWN_GAPS.md
-exploration-cache/09-qa/RISK_REGISTER.md
+Expected response shape:
 
-Include:
+{
+  token: string;
+  user: {
+    id: string;
+    userType: "internal" | "postulant";
+    fullName: string;
+    email?: string;
+    matricule?: string;
+    role: string;
+    permissions: string[];
+  }
+}
+2. Current user
 
-install command
-dev command
-typecheck command
-build command
-lint/test if available
-verified or not verified
-manual pages to check
+Review and harden:
 
-Do not claim commands passed unless you actually run them.
+GET /api/v1/auth/me
 
-11. Decisions and open questions
+Expected behavior:
 
-Create/update:
+requires valid JWT;
+loads fresh user from DB;
+rejects inactive users;
+returns user identity and permissions;
+does not expose passwordHash.
+3. Personnel search
 
-exploration-cache/10-decisions/DECISIONS_LOG.md
-exploration-cache/10-decisions/OPEN_QUESTIONS.md
+Review and harden:
 
-Record known decisions:
+GET /api/v1/admin/personnel?search=
 
-MVP is semi-digital, not full dematerialization.
-DG does not necessarily need to work directly in app v1.
-DN/Admin may record DG decision from physical courrier.
-Portal uses simplified statuses.
-Portal preview remains read-only for demo.
-OMA is the priority workflow for MVP.
+Expected behavior:
 
-Record open questions discovered from code gaps or unclear implementation.
+requires authentication;
+requires PERSONNEL_SEARCH;
+queries personnel adapter;
+supports search by matricule, name, email if mock adapter supports it;
+returns personnel records without password or sensitive auth fields.
 
-12. Control files
+Suggested response shape:
 
-Update:
+{
+  items: [
+    {
+      personnelId: string;
+      matricule: string;
+      fullName: string;
+      email?: string;
+      phone?: string;
+      service?: string;
+      direction?: string;
+      isActive?: boolean;
+      alreadyActivated: boolean;
+      aidnUserId?: string;
+      aidnRole?: string;
+      activationStatus?: "active" | "disabled";
+    }
+  ]
+}
+4. Internal accounts list
 
-exploration-cache/00-control/INDEX.md
-exploration-cache/00-control/CURRENT_STATE.md
-exploration-cache/00-control/EXPLORATION_PROTOCOL.md
-exploration-cache/00-control/SOURCE_OF_TRUTH.md
-INDEX.md must include:
-folder map
-what each folder is for
-recommended reading order for future agents
-CURRENT_STATE.md must include:
-project status
-implemented modules
-mock/demo limitations
-next recommended implementation target
-EXPLORATION_PROTOCOL.md must include:
-how future agents should update the cache
-what files to read first
-what commands to run
-how to record findings
-what not to do
-SOURCE_OF_TRUTH.md must include:
+Review and harden:
 
-Priority order:
+GET /api/v1/admin/internal-accounts
 
-Actual source code
-Existing exploration-cache files
-Project feasibility study / cahier des charges
-User/stakeholder corrections
-Assumptions clearly marked as assumptions
-Required output quality
+Expected behavior:
 
-Each .md file should be useful to a future coding agent.
+requires authentication;
+requires AIDN_USER_ACTIVATE or admin-level capability;
+returns activated internal accounts;
+supports optional filters if simple to add:
+search
+role
+status
 
-Avoid vague text like:
+Suggested response shape:
 
-This file contains information about routes.
+{
+  items: [
+    {
+      id: string;
+      personnelId: string;
+      matricule: string;
+      userId: string;
+      fullName: string;
+      email?: string;
+      role: string;
+      status: "active" | "disabled";
+      activatedAt?: string;
+      activatedById?: string;
+      lastLoginAt?: string;
+    }
+  ]
+}
+5. Activate internal account
 
-Prefer concrete findings:
+Review and harden:
 
-Route `/portal-preview` is registered in `apps/admin/src/router.tsx` and renders `PortalPreviewPage` from `...`.
-It currently reads demo data from `...`.
-It displays documents, payments, meetings, notifications, and certificate cards on one page.
-File citation convention inside cache
+POST /api/v1/admin/internal-accounts/activate
 
-Whenever possible, include exact source file paths and symbols:
+Expected input:
 
-Source:
-- `apps/admin/src/router.tsx`
-- `apps/admin/src/pages/portal/PortalPreviewPage.tsx`
-- `apps/admin/src/features/aidn-demo/aidn-demo-data.ts`
+{
+  personnelId: string;
+  role: "admin" | "dn_supervisor" | "dn_agent" | "dg_secretariat" | "reception" | "bureau_courrier";
+}
 
-No need for line-perfect citations, but include enough path detail for future navigation.
+Expected behavior:
 
-Session note
+requires authentication;
+requires AIDN_USER_ACTIVATE;
+validates personnel exists in official personnel adapter;
+rejects inactive personnel if adapter exposes isActive === false;
+creates or updates local User mirror;
+creates or updates AidnInternalAccount;
+sets status to active;
+links account to local userId;
+preserves external source fields;
+does not create passwordHash for internal user;
+records activatedById;
+creates audit log.
 
-Create:
+Important:
 
-exploration-cache/99-session-notes/exploration-session-YYYY-MM-DD.md
+If user/account already exists, update role/status safely instead of duplicating.
+Enforce unique account per personnelId / matricule.
+Do not allow postulant role here.
 
-Include:
+Suggested response:
 
-# Exploration session — YYYY-MM-DD
+{
+  account: {
+    id: string;
+    personnelId: string;
+    matricule: string;
+    userId: string;
+    fullName: string;
+    email?: string;
+    role: string;
+    status: "active";
+  }
+}
+6. Internal login
 
-## Goal
+Review and harden:
 
-## Commands run
+POST /api/v1/auth/internal/login
 
-## Files inspected
+Expected input:
 
-## Files created/updated
+{
+  matricule: string;
+  password: string;
+}
 
-## Important findings
+Expected behavior:
 
-## Gaps / uncertain points
+validates credentials through personnel adapter;
+does not validate password locally;
+finds matching active AidnInternalAccount;
+loads linked local AIDN user;
+rejects if no active AIDN activation exists;
+rejects if local user is inactive;
+updates lastLoginAt on both user and internal account;
+returns JWT and user payload with permissions;
+writes audit log for success/failure.
 
-## Recommended next task
-Verification
+Expected failure cases:
 
-After creating/updating the cache:
+invalid personnel credentials;
+personnel exists but not activated in AIDN;
+internal account disabled;
+local user inactive;
+missing linked local user.
+Personnel adapter
 
-Run if available:
+Review current adapter interface and mock implementation.
 
-npx tsc --noEmit
+Ensure the interface supports at least:
+
+type PersonnelIdentity = {
+  personnelId: string;
+  matricule: string;
+  fullName: string;
+  email?: string;
+  phone?: string;
+  service?: string;
+  direction?: string;
+  isActive?: boolean;
+};
+
+interface PersonnelAdapter {
+  searchPersonnel(search: string): Promise<PersonnelIdentity[]>;
+  getPersonnelById(personnelId: string): Promise<PersonnelIdentity | null>;
+  authenticateByMatricule(
+    matricule: string,
+    password: string
+  ): Promise<PersonnelIdentity | null>;
+}
+
+Mock adapter may use static users for now.
+
+Do not implement real MySQL/SIGEM connection yet. Add a TODO note for the real adapter.
+
+Audit logging
+
+If audit module/model exists, emit audit logs for:
+
+auth.bootstrap_login_success
+auth.bootstrap_login_failed
+auth.internal_login_success
+auth.internal_login_failed
+admin.internal_account_activated
+admin.internal_account_role_changed
+admin.internal_account_reactivated
+
+Audit metadata should avoid storing passwords.
+
+Security requirements
+Never return passwordHash.
+Never log passwords.
+Validate request bodies.
+Normalize matricule where appropriate.
+Use safe error messages.
+Keep detailed technical errors out of API responses.
+JWT payload should contain minimal identity data:
+userId
+role
+userType
+Permissions should be computed server-side, not trusted from token.
+Frontend is out of scope
+
+Do not wire the admin frontend to the API in this phase.
+
+You may document expected frontend contract, but do not implement frontend screens.
+
+Out of scope
+
+Do not implement:
+
+account request approval/rejection;
+portal account creation;
+postulant login;
+request/courrier submission;
+DG workflow;
+dossier creation;
+phase transitions;
+document upload;
+email sending;
+QLOG integration;
+certificate generation;
+reports.
+Expected deliverables
+
+After implementation, provide a report with:
+
+Files created.
+Files modified.
+Endpoints reviewed/updated.
+Auth flow summary.
+Internal activation flow summary.
+Personnel adapter behavior.
+Permission/capability changes.
+Audit events added.
+Verification commands run.
+Assumptions/TODOs.
+Verification commands
+
+Run from the appropriate workspace/package locations:
+
+npm run typecheck
+npm run lint
 npm run build
 
-If the project is large and these commands are expensive, at minimum run:
+If API-specific commands exist, also run:
 
-git status --short
+cd apps/api
+npm run typecheck
+npm run lint
+npm run build
+Update tracking
 
-Then report:
+Update TASK.md.
 
-files created/updated
-commands run
-pass/fail/not run
-key findings
-next recommended implementation task
-Final response format
+Also update or create exploration-cache notes under:
 
-Return a concise implementation report:
+exploration-cache/04-backend/
+exploration-cache/05-data/
+exploration-cache/10-decisions/
 
-## Exploration Cache Report
+Add a short note documenting:
 
-### Files created/updated
-
-### Project state summary
-
-### Key findings
-
-### Commands run
-
-### Verification status
-
-### Recommended next task
-
-Create a manifest.json file which act a a summary or index file if there is not any yet, to guide exploration/navigation through the exploration-cache.
+internal users are personnel-backed;
+AIDN only activates internal personnel accounts;
+internal passwords are never stored locally;
+bootstrap admin is only for initial setup/emergency access;
+Phase préliminaire implementation is still pending and must not be started in this task.
 ```

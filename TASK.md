@@ -2,7 +2,7 @@
 
 ## Current Phase
 
-Phase O8.4 - meeting and payment demo interactions: completed.
+Phase API-1 - auth and internal account activation hardening: completed.
 
 ## Completed Output
 
@@ -48,13 +48,31 @@ Phase O8.4 - meeting and payment demo interactions: completed.
   - added meeting demo actions in `/reunions`
   - added meeting and payment shortcuts in `/dossiers/:id`
   - kept `/portal-preview` read-only while reflecting refreshed local state
+- Phase API-INIT initialized the backend API foundation:
+  - created `apps/api` as a TypeScript Express modular monolith
+  - added MongoDB/Mongoose connection and environment config
+  - added role and permission constants with capability middleware
+  - added auth middleware, current-user endpoint, and internal login foundation
+  - added official personnel DB adapter interface with mock implementation
+  - added bootstrap admin seed script
+  - added Mongoose models for users, internal accounts, organizations, account requests, requests, courriers, DG reviews, dossiers, OMA phases, documents, templates, meetings, notifications, and audit logs
+  - added minimal admin endpoints for personnel search, internal accounts, activation, organizations, and account requests
+  - updated backend/data/workflow/architecture exploration-cache notes
+- Phase API-1 hardened auth and internal account activation:
+  - normalized personnel adapter contract around search, lookup by personnelId, and matricule authentication
+  - hardened bootstrap login, internal login, and current-user payloads
+  - rejected inactive users, disabled internal accounts, inactive personnel, and missing activation records
+  - constrained internal activation roles to admin/DN/DG/reception/bureau courrier roles only
+  - annotated personnel search with AIDN activation status
+  - added internal account filters for search, role, and status
+  - added audit logging for bootstrap login, internal login, and internal account activation/reactivation/role changes
+  - added audit log listing guarded by `AUDIT_VIEW`
+  - updated auth/access, route, data model, and architecture decision cache notes
 
 ## Guardrails
 
-Strictly out of scope unless a later phase explicitly asks for it:
+Historical prototype guardrails before API-INIT:
 
-- No backend implementation.
-- No database/schema model.
 - No UI mutations.
 - No real upload.
 - No real email sending.
@@ -86,20 +104,28 @@ Primary planning sources:
 
 ## Next Action
 
-Phase P - Prototype stakeholder review and correction backlog.
+Phase API-2 / P - Backend contract review and next scoped backend slice.
 
 P should remain validation-focused:
 
 - Review the revised admin flow, demo interactions, and portal preview with stakeholders.
 - Collect wording, workflow, evidence, KPI, and data-model corrections.
 - Keep admin mock flow as the source of truth until a real portal/backend phase is approved.
-- Do not add authentication, backend code, database schema, real upload, email, export, real persistence, payment processing, or certificate generation behavior unless explicitly scoped.
+- Review the backend route/model contracts with stakeholders before implementing full workflow mutations.
+- Keep real upload, email, export, payment processing, and certificate generation behavior out of scope until explicitly approved.
+- Do not implement QLOG integration.
 
 ## Verification
 
 - Passed: `npx tsc --noEmit`
 - Passed: `npm run build`
 - Note: Vite still reports the known large chunk warning after build.
+- Passed in `apps/api`: `npm install`
+- Passed in `apps/api`: `npm run typecheck`
+- Passed in `apps/api`: `npm run lint`
+- Passed in `apps/api`: `npm run build`
+- Passed in `apps/api` after API-1: `npm run typecheck`
+- Passed in `apps/api` after API-1: `npm run lint`
 
 ## Phase O6c Expected Result
 

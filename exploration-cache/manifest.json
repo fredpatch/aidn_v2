@@ -1,13 +1,19 @@
 {
   "name": "aidn-exploration-cache",
   "version": "1.0.0",
-  "lastUpdated": "2026-05-05",
+  "lastUpdated": "2026-05-17",
   "entrypoints": [
     "00-control/SOURCE_OF_TRUTH.md",
     "00-control/CURRENT_STATE.md",
     "00-control/INDEX.md",
     "01-project-map/REPO_STRUCTURE.md",
     "01-project-map/ROUTES_MAP.md",
+    "04-backend/BACKEND_ARCHITECTURE.md",
+    "04-backend/BACKEND_INITIALIZATION_2026-05-17.md",
+    "04-backend/API_ROUTES.md",
+    "04-backend/AUTH_AND_ACCESS.md",
+    "04-backend/AUTH_AND_PERMISSIONS.md",
+    "05-data/DATA_MODELS.md",
     "03-frontend/PORTAL_PREVIEW_MAP.md",
     "05-data/MOCKS_AND_FIXTURES.md",
     "09-qa/BUILD_AND_TEST_COMMANDS.md",
@@ -26,5 +32,111 @@
     "09-qa": "Build commands, gaps, risks, manual checks",
     "10-decisions": "Decisions and open questions",
     "99-session-notes": "Session-level trace"
-  }
+  },
+  "recentExplorationCacheUpdates": [
+    {
+      "date": "2026-05-17",
+      "phase": "API-INIT",
+      "created": [
+        "04-backend/BACKEND_INITIALIZATION_2026-05-17.md"
+      ],
+      "updated": [
+        "04-backend/API_ROUTES.md",
+        "04-backend/BACKEND_ARCHITECTURE.md",
+        "05-data/DATA_MODELS.md",
+        "06-workflows/DEMANDE_TO_DOSSIER.md",
+        "10-decisions/ARCHITECTURE_DECISIONS.md"
+      ]
+    },
+    {
+      "date": "2026-05-17",
+      "phase": "API-1",
+      "created": [],
+      "updated": [
+        "04-backend/API_ROUTES.md",
+        "04-backend/AUTH_AND_ACCESS.md",
+        "04-backend/AUTH_AND_PERMISSIONS.md",
+        "05-data/DATA_MODELS.md",
+        "10-decisions/ARCHITECTURE_DECISIONS.md"
+      ]
+    }
+  ],
+  "newRepoFolders": [
+    "apps/api/",
+    "apps/api/src/",
+    "apps/api/src/modules/",
+    "apps/api/src/modules/account-requests/",
+    "apps/api/src/modules/admin/",
+    "apps/api/src/modules/audit/",
+    "apps/api/src/modules/auth/",
+    "apps/api/src/modules/courriers/",
+    "apps/api/src/modules/dg-reviews/",
+    "apps/api/src/modules/document-templates/",
+    "apps/api/src/modules/documents/",
+    "apps/api/src/modules/dossiers/",
+    "apps/api/src/modules/meetings/",
+    "apps/api/src/modules/notifications/",
+    "apps/api/src/modules/oma-phases/",
+    "apps/api/src/modules/organizations/",
+    "apps/api/src/modules/personnel/",
+    "apps/api/src/modules/reports/",
+    "apps/api/src/modules/requests/",
+    "apps/api/src/modules/users/",
+    "apps/api/src/scripts/",
+    "apps/api/src/shared/",
+    "apps/api/src/shared/config/",
+    "apps/api/src/shared/database/",
+    "apps/api/src/shared/errors/",
+    "apps/api/src/shared/guards/",
+    "apps/api/src/shared/permissions/",
+    "apps/api/src/shared/storage/",
+    "apps/api/src/shared/utils/"
+  ],
+  "newRepoFiles": [
+    "apps/api/.env.example",
+    "apps/api/package-lock.json",
+    "apps/api/package.json",
+    "apps/api/tsconfig.json",
+    "apps/api/src/app.ts",
+    "apps/api/src/server.ts",
+    "apps/api/src/modules/account-requests/account-request.model.ts",
+    "apps/api/src/modules/admin/admin.routes.ts",
+    "apps/api/src/modules/admin/admin.service.ts",
+    "apps/api/src/modules/audit/audit-log.model.ts",
+    "apps/api/src/modules/audit/audit.service.ts",
+    "apps/api/src/modules/auth/auth.routes.ts",
+    "apps/api/src/modules/auth/auth.service.ts",
+    "apps/api/src/modules/courriers/courrier.model.ts",
+    "apps/api/src/modules/dg-reviews/dg-review.model.ts",
+    "apps/api/src/modules/document-templates/document-template.model.ts",
+    "apps/api/src/modules/documents/document.model.ts",
+    "apps/api/src/modules/dossiers/dossier.model.ts",
+    "apps/api/src/modules/meetings/meeting.model.ts",
+    "apps/api/src/modules/notifications/notification.model.ts",
+    "apps/api/src/modules/oma-phases/oma-phase.model.ts",
+    "apps/api/src/modules/organizations/organization-member.model.ts",
+    "apps/api/src/modules/organizations/postulant-organization.model.ts",
+    "apps/api/src/modules/personnel/mock-personnel.adapter.ts",
+    "apps/api/src/modules/personnel/personnel.service.ts",
+    "apps/api/src/modules/personnel/personnel.types.ts",
+    "apps/api/src/modules/reports/reports.placeholder.ts",
+    "apps/api/src/modules/requests/request.model.ts",
+    "apps/api/src/modules/users/aidn-internal-account.model.ts",
+    "apps/api/src/modules/users/user.model.ts",
+    "apps/api/src/scripts/seed-bootstrap-admin.ts",
+    "apps/api/src/shared/config/env.ts",
+    "apps/api/src/shared/database/mongoose.ts",
+    "apps/api/src/shared/errors/error-handler.ts",
+    "apps/api/src/shared/errors/http-error.ts",
+    "apps/api/src/shared/guards/auth-context.ts",
+    "apps/api/src/shared/guards/auth.middleware.ts",
+    "apps/api/src/shared/guards/permission.middleware.ts",
+    "apps/api/src/shared/permissions/permissions.ts",
+    "apps/api/src/shared/storage/storage.adapter.ts",
+    "apps/api/src/shared/utils/async-handler.ts"
+  ],
+  "generatedOrInstalledFoldersNotTracked": [
+    "apps/api/dist/",
+    "apps/api/node_modules/"
+  ]
 }

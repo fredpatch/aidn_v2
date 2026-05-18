@@ -4,9 +4,7 @@ import { HttpError } from "../../shared/errors/http-error.js";
 import { Roles, type Role } from "../../shared/permissions/permissions.js";
 import bcrypt from "bcryptjs";
 import crypto from "node:crypto";
-import { AccountRequestModel } from "../account-requests/account-request.model.js";
 import { writeAuditLog } from "../audit/audit.service.js";
-import { PostulantOrganizationModel } from "../organizations/postulant-organization.model.js";
 import { personnelAdapter } from "../personnel/personnel.service.js";
 import { AidnInternalAccountModel } from "../users/aidn-internal-account.model.js";
 import { UserModel } from "../users/user.model.js";
@@ -276,14 +274,6 @@ export const activateInternalAccount = async (input: {
     },
     temporaryPassword,
   };
-};
-
-export const listOrganizations = async () => {
-  return PostulantOrganizationModel.find().sort({ canonicalName: 1 }).lean();
-};
-
-export const listAccountRequests = async () => {
-  return AccountRequestModel.find().sort({ createdAt: -1 }).lean();
 };
 
 export const listSiUsers = async (params: ListParams) => {

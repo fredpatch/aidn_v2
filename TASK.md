@@ -2,7 +2,7 @@
 
 ## Current Phase
 
-Phase API-1C - real personnel directory plus AIDN-owned internal login: completed.
+Phase API-2 - postulant account request review and canonical organization linking: completed.
 
 ## Completed Output
 
@@ -81,6 +81,17 @@ Phase API-1C - real personnel directory plus AIDN-owned internal login: complete
   - the official personnel DB only confirms existence/legitimacy
   - Maria personnel identities omit `isActive` unless the official source exposes it later
   - AIDN account activity remains controlled by `AidnInternalAccount.status`
+- Phase API-2 implemented backend postulant account onboarding:
+  - added public `POST /api/v1/portal/account-requests`
+  - stores raw requested organization and contact fields on `account_requests`
+  - hashes the submitted password and never returns `passwordHash`
+  - keeps submission review-only: no user, organization, membership, demande, courrier, dossier, upload, email, or QLOG behavior
+  - added admin account request list, detail, approve, and reject endpoints
+  - approval links to an existing active canonical organization or creates a new one
+  - canonical organization creation normalizes names and rejects active duplicate normalized names
+  - approval creates the postulant user and active organization membership
+  - rejection requires a reason and creates no downstream records
+  - added audit events for submission, approval, rejection, and organization link/create decisions
 
 ## Guardrails
 
@@ -117,16 +128,13 @@ Primary planning sources:
 
 ## Next Action
 
-Phase API-2 / P - Backend contract review and next scoped backend slice.
+Phase API-2 runtime validation and next scoped backend slice.
 
 P should remain validation-focused:
 
-- Review the revised admin flow, demo interactions, and portal preview with stakeholders.
-- Collect wording, workflow, evidence, KPI, and data-model corrections.
-- Keep admin mock flow as the source of truth until a real portal/backend phase is approved.
-- Review the backend route/model contracts with stakeholders before implementing full workflow mutations.
-- Keep real upload, email, export, payment processing, and certificate generation behavior out of scope until explicitly approved.
-- Do not implement QLOG integration.
+- Validate API-2 with a live MongoDB instance using curl/Postman.
+- Review account request approval wording and canonical organization matching with stakeholders.
+- Keep request/courrier submission, DG workflow, dossier opening, upload, email, export, payment processing, certificate generation, and QLOG integration out of scope until explicitly approved.
 
 ## Verification
 
@@ -139,6 +147,9 @@ P should remain validation-focused:
 - Passed in `apps/api`: `npm run build`
 - Passed in `apps/api` after API-1: `npm run typecheck`
 - Passed in `apps/api` after API-1: `npm run lint`
+- Passed in `apps/api` after API-2: `npm run typecheck`
+- Passed in `apps/api` after API-2: `npm run lint`
+- Passed in `apps/api` after API-2: `npm run build`
 
 ## Phase O6c Expected Result
 

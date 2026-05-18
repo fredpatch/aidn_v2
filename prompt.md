@@ -1,424 +1,476 @@
-# AIDN UI-AUTH-1 Prompt — Wire Admin Auth + Internal Account Activation UI
+# AIDN API-2 Prompt — Postulant Account Request + Validation + Canonical Organization
 
 You are working inside the existing `AIDN_V2` repository.
 
-API-INIT, API-1, and API-1C are completed and tested with Postman/cURL.
+Current validated state:
 
-The backend auth/personnel/account activation flow is ready.
+- API-INIT completed.
+- API-1 completed.
+- API-1C completed.
+- Admin UI auth/internal account activation works end-to-end.
+- Internal users are activated from the official ANAC personnel DB.
+- AIDN owns its app credentials for internal users.
+- Internal auth flow has been validated through UI:
+  - search personnel from official DB;
+  - activate account;
+  - temporary password first login;
+  - password change;
+  - normal login.
 
+Now implement API-2.
+
+Do not implement frontend UI in this task.
 Do not implement Phase préliminaire.
-Do not implement account request approval.
-Do not implement request/courrier/DG/dossier workflow.
+Do not implement request/courrier submission.
+Do not implement DG workflow.
+Do not implement dossier opening.
 Do not implement file upload.
-Do not implement postulant portal authentication yet.
-
-This task is only to wire the admin frontend to the implemented backend auth and internal account activation endpoints.
+Do not implement email sending.
+Do not implement QLOG integration.
 
 ---
 
-## Backend endpoints available
+## Objective
 
-Use:
+Implement backend API for:
 
-```http
-POST /api/v1/auth/bootstrap/login
-POST /api/v1/auth/internal/login
-POST /api/v1/auth/internal/change-password
-GET  /api/v1/auth/me
+1. External postulant account request submission.
+2. Admin/DN review of account requests.
+3. Approval by linking to existing canonical organization or creating a new canonical organization.
+4. Creation of postulant user account.
+5. Organization membership creation.
+6. Rejection with reason.
+7. Audit logging.
 
-GET  /api/v1/admin/personnel?search=
-GET  /api/v1/admin/internal-accounts
-POST /api/v1/admin/internal-accounts/activate
-GET  /api/v1/admin/audit-logs
+This is the foundation required before external postulants can submit demandes.
 
-Use the existing frontend API base URL env:
+---
 
-VITE_API_BASE_URL=http://localhost:4000
-Current frontend state
+## Business rules
 
-The admin frontend is still mock/demo-oriented.
+AIDN distinguishes:
 
-There is already:
+````txt
+Raw requested organization name
+Canonical organization
+Postulant user
+Organization membership
 
-apps/admin/src/lib/api/client.ts
-apps/admin/src/lib/data/data-mode.ts
-existing auth context / login page if present
-mock/demo token behavior
+The raw organization name submitted by the postulant must not be used directly for statistics or dossier ownership.
 
-Inspect existing structure before coding.
+On approval, admin must either:
 
-Preserve mock mode behavior.
+link the request to an existing canonical organization; or
+create a new canonical organization.
 
-Only call the real API when data mode or env says API mode is enabled.
+Future demandes/dossiers must use organizationId, not raw organization name.
 
-Objective
+A postulant account request must not automatically create an active account without review.
 
-Implement the real UI flow for:
+Existing models to inspect first
 
-Bootstrap admin login.
-Internal ANAC login by matricule/password.
-Auth session loading with /auth/me.
-First-login password change.
-Personnel search from real official personnel DB through API.
-Internal account activation.
-Internal account listing.
-Optional read-only audit logs page if route already exists or can be added simply.
-Required behavior
-1. API client
+Inspect and reuse existing models if already created:
 
-Ensure the frontend API client:
+apps/api/src/modules/account-requests/
+apps/api/src/modules/organizations/
+apps/api/src/modules/users/
+apps/api/src/modules/audit/
 
-uses VITE_API_BASE_URL;
-attaches Authorization: Bearer <token>;
-handles JSON errors safely;
-does not leak token in logs.
+Likely models/collections:
 
-If an API helper already exists, extend it instead of replacing it.
+account_requests
+postulant_organizations
+organization_members
+users
+audit_logs
 
-2. Auth context/session
+Do not duplicate models if they already exist.
 
-Update the frontend auth layer to support real API mode.
+Required endpoint group
+Public / portal-facing API
 
-Expected state:
+Add:
 
-type AuthUser = {
-  id: string;
-  userType: "internal" | "postulant";
-  fullName: string;
-  email?: string;
-  matricule?: string;
-  role: string;
-  permissions: string[];
-  mustChangePassword?: boolean;
-};
+POST /api/v1/portal/account-requests
 
-Token storage:
+This endpoint is public for now.
 
-use existing token storage convention if present;
-do not create competing token keys.
-
-Required auth functions:
-
-loginBootstrap(email, password)
-loginInternal(matricule, password)
-loadCurrentUser()
-changePassword(currentPassword, newPassword)
-logout()
-
-On app startup:
-
-if token exists → GET /api/v1/auth/me
-if invalid → clear token and redirect login
-3. Login page
-
-Update or create the admin login page.
-
-UI must be in French.
-
-Provide two modes/tabs:
-
-Administrateur initial
-Agent ANAC
-
-Bootstrap mode:
-
-Email
-Mot de passe
-
-Internal mode:
-
-Matricule
-Mot de passe
-
-On internal login response:
-
-If requiresPasswordChange === true:
-
-store token
-redirect to /changer-mot-de-passe
-
-Else:
-
-redirect to dashboard/admin home
-
-Do not expose raw backend error details.
-
-Use French messages:
-
-Connexion impossible.
-Identifiants invalides ou compte non activé.
-4. First-login password change
-
-Create route/page if missing:
-
-/changer-mot-de-passe
-
-Fields:
-
-Mot de passe actuel
-Nouveau mot de passe
-Confirmer le nouveau mot de passe
-
-Rules:
-
-new password length >= 8;
-confirmation must match;
-call POST /api/v1/auth/internal/change-password;
-on success, refresh /auth/me;
-redirect to dashboard.
-
-French helper text:
-
-Votre compte AIDN nécessite un changement de mot de passe avant de continuer.
-5. Personnel search page
-
-Create or update:
-
-/admin/personnel
-
-or use the existing admin route convention.
-
-UI:
-
-title: Personnel ANAC
-search input placeholder:
-Rechercher par matricule, nom, direction ou fonction
-button: Rechercher
-
-Call:
-
-GET /api/v1/admin/personnel?search=<term>
-
-Show columns:
-
-Matricule
-Nom complet
-Email
-Direction
-Fonction
-Statut AIDN
-Action
-
-Activation status:
-
-Non activé
-Activé
-Désactivé
-Première connexion en attente
-
-If already activated, show role/status and disable activation button unless update role is already supported.
-
-6. Activation dialog
-
-When clicking Activer le compte:
-
-Fields:
-
-Personnel
-Matricule
-Email
-Rôle AIDN
-
-Allowed roles:
-
-admin
-dn_supervisor
-dn_agent
-dg_secretariat
-reception
-bureau_courrier
-
-French labels:
-
-admin: "Administrateur"
-dn_supervisor: "Superviseur DN"
-dn_agent: "Agent DN"
-dg_secretariat: "Secrétariat DG"
-reception: "Réception"
-bureau_courrier: "Bureau courrier"
-
-Submit:
-
-POST /api/v1/admin/internal-accounts/activate
-
-Payload:
+Expected payload:
 
 {
-  "personnelId": "<matricule>",
-  "role": "dn_agent"
+  requestedOrganizationName: string;
+  requestedLegalAddress?: string;
+  requestedEmail?: string;
+  requestedPhone?: string;
+  approvalNumberOrigin?: string;
+
+  contactFullName: string;
+  contactEmail: string;
+  contactPhone?: string;
+
+  password: string;
 }
 
-On success, show the temporary password once:
+Expected behavior:
 
-Compte activé
+validates required fields;
+normalizes email;
+hashes password;
+creates AccountRequest with status submitted;
+does not create User yet;
+does not create Organization yet;
+does not create OrganizationMember yet;
+does not auto-login;
+returns sanitized request data.
 
-Le mot de passe temporaire ci-dessous ne sera affiché qu’une seule fois.
-Copiez-le et transmettez-le à l’agent par un canal sécurisé.
+Suggested response:
 
-Matricule: XXXX
-Mot de passe temporaire: XXXXXXXX
+{
+  request: {
+    id: string;
+    requestedOrganizationName: string;
+    contactFullName: string;
+    contactEmail: string;
+    status: "submitted";
+    createdAt: string;
+  }
+}
 
-Buttons:
+Password must never be returned.
 
-Copier le mot de passe
-J’ai copié
+Admin API
 
-Do not store temporary password after modal closes.
+Update or implement:
 
-Refresh personnel search/list after activation.
+GET /api/v1/admin/account-requests
+GET /api/v1/admin/account-requests/:id
+POST /api/v1/admin/account-requests/:id/approve
+POST /api/v1/admin/account-requests/:id/reject
 
-7. Internal accounts page
+All admin routes require auth.
 
-Create or update:
+Recommended permission:
 
-/admin/internal-accounts
+POSTULANT_ACCOUNT_REVIEW
 
-Call:
+Admin and bootstrap_admin should have this permission.
 
-GET /api/v1/admin/internal-accounts
+GET /api/v1/admin/account-requests
 
-Support filters if API already supports them:
+Supports filters:
+
+status
+search
+from
+to
+
+Search should match:
+
+requestedOrganizationName
+contactFullName
+contactEmail
+requestedEmail
+
+Suggested response:
+
+{
+  items: [
+    {
+      id: string;
+      requestedOrganizationName: string;
+      requestedLegalAddress?: string;
+      requestedEmail?: string;
+      requestedPhone?: string;
+      approvalNumberOrigin?: string;
+
+      contactFullName: string;
+      contactEmail: string;
+      contactPhone?: string;
+
+      status: "submitted" | "under_review" | "approved" | "rejected";
+
+      matchedOrganizationId?: string;
+      createdOrganizationId?: string;
+      resultingUserId?: string;
+
+      reviewedById?: string;
+      reviewedAt?: string;
+      rejectionReason?: string;
+
+      createdAt: string;
+      updatedAt: string;
+    }
+  ]
+}
+
+Never return passwordHash.
+
+GET /api/v1/admin/account-requests/:id
+
+Returns full sanitized request details.
+
+Never return passwordHash.
+
+POST /api/v1/admin/account-requests/:id/approve
+
+Expected payload:
+
+type ApproveAccountRequestPayload =
+  | {
+      organizationMode: "existing";
+      organizationId: string;
+      memberRole?: "primary_contact" | "representative" | "viewer";
+    }
+  | {
+      organizationMode: "create";
+      organization: {
+        canonicalName: string;
+        legalAddress?: string;
+        email?: string;
+        phone?: string;
+        approvalNumberOrigin?: string;
+        aliases?: string[];
+      };
+      memberRole?: "primary_contact" | "representative" | "viewer";
+    };
+
+Default member role:
+
+primary_contact
+
+Expected behavior:
+
+requires POSTULANT_ACCOUNT_REVIEW;
+rejects if request is already approved/rejected;
+if organizationMode=existing, validates organization exists and is active;
+if organizationMode=create, creates canonical organization;
+creates local User with:
+userType = "postulant"
+fullName = contactFullName
+email = contactEmail
+phone = contactPhone
+role = "postulant"
+organizationId = resolved organization id
+passwordHash = accountRequest.passwordHash
+isActive = true
+creates OrganizationMember:
+organizationId
+userId
+memberRole
+status = "active"
+approvedById
+approvedAt
+updates AccountRequest:
+status = "approved"
+matchedOrganizationId or createdOrganizationId
+resultingUserId
+reviewedById
+reviewedAt
+writes audit event;
+operation should be atomic via Mongo transaction if the current DB connection supports it.
+
+Suggested response:
+
+{
+  request: {...sanitized},
+  user: {
+    id: string;
+    fullName: string;
+    email: string;
+    role: "postulant";
+    organizationId: string;
+  },
+  organization: {
+    id: string;
+    canonicalName: string;
+  },
+  membership: {
+    id: string;
+    memberRole: string;
+    status: "active";
+  }
+}
+POST /api/v1/admin/account-requests/:id/reject
+
+Expected payload:
+
+{
+  reason: string;
+}
+
+Expected behavior:
+
+requires POSTULANT_ACCOUNT_REVIEW;
+reason is required;
+rejects if already approved/rejected;
+updates AccountRequest:
+status = "rejected"
+rejectionReason
+reviewedById
+reviewedAt
+does not create User;
+does not create Organization;
+writes audit event.
+
+Suggested response:
+
+{
+  request: {
+    id: string;
+    status: "rejected";
+    rejectionReason: string;
+    reviewedAt: string;
+  }
+}
+Organizations API support
+
+Existing:
+
+GET /api/v1/admin/organizations
+
+Ensure it supports:
 
 search
-role
 status
 
-Columns:
+Suggested response:
 
-Nom complet
-Matricule
-Email
-Rôle
-Statut
-Activé le
-Dernière connexion
+{
+  items: [
+    {
+      id: string;
+      canonicalName: string;
+      normalizedName: string;
+      aliases: string[];
+      legalAddress?: string;
+      email?: string;
+      phone?: string;
+      approvalNumberOrigin?: string;
+      status: "active" | "suspended" | "archived";
+      createdAt: string;
+      updatedAt: string;
+    }
+  ]
+}
 
-Status labels:
+If organization create is only needed inside account approval, do not expose standalone create endpoint yet unless it already exists.
 
-pending_first_login: "Première connexion en attente"
-active: "Actif"
-disabled: "Désactivé"
-8. Audit logs page
+Normalization rules
 
-If simple, add or update read-only page:
+Add helper if missing:
 
-/admin/audit-logs
+normalizeOrganizationName(name)
 
-Call:
+Behavior:
 
-GET /api/v1/admin/audit-logs
+trim;
+lowercase;
+collapse spaces;
+remove accents if simple;
+use for normalizedName.
 
-Show:
+When creating organization:
 
-Date
-Acteur
-Action
-Entité
-Statut
+reject duplicate normalizedName if active organization already exists;
+allow aliases to include raw submitted name;
+ensure aliases are unique normalized values if implemented.
+Security requirements
+Never return passwordHash.
+Never log password.
+Public account request endpoint should have basic validation.
+Do not auto-approve account requests.
+Do not auto-create organization on submission.
+Do not expose internal audit metadata publicly.
+Admin approval/rejection must use authenticated actor id.
+Reject invalid organization mode.
+Reject postulant creation through internal account activation; this remains separate.
+Audit events
 
-This is optional if the app already has no admin audit route yet. Do not overbuild.
+Add:
 
-Data mode guard
+portal.account_request_submitted
+admin.account_request_approved
+admin.account_request_rejected
+admin.organization_created_from_account_request
+admin.organization_linked_from_account_request
 
-Preserve mock/demo mode.
+Metadata should not include password or passwordHash.
 
-When mock mode is enabled:
+Optional but useful
 
-existing demo behavior should continue;
-real API calls should not run unless API mode is active.
+If there is no public route group yet, add:
 
-When API mode is enabled:
+apps/api/src/modules/portal/
 
-auth/personnel/internal accounts should use real API.
+or add route registration under the account-requests module.
 
-Do not convert all AIDN mock screens to API mode yet.
+Keep it simple.
 
-Security/UI constraints
-Do not log JWT.
-Do not store temporary password.
-Do not show password in tables.
-Do not expose backend stack traces.
-Do not allow activation as postulant.
-Do not add frontend-only permission bypasses.
-Route guards should use permissions from /auth/me.
-Suggested route guards
+Documentation updates
 
-Admin personnel page requires one of:
+Update:
 
-PERSONNEL_SEARCH
-AIDN_USER_ACTIVATE
+TASK.md
+exploration-cache/04-backend/API_ROUTES.md
+exploration-cache/05-data/DATA_MODELS.md
+exploration-cache/04-backend/AUTH_AND_PERMISSIONS.md
+exploration-cache/10-decisions/
 
-Internal accounts page requires:
+Create/update decision note:
 
-AIDN_USER_ACTIVATE
+exploration-cache/10-decisions/postulant-account-organization-linking.md
 
-Audit logs page requires:
+Document:
 
-AUDIT_VIEW
+raw organization names are not reporting entities;
+approval links/creates canonical organization;
+User is created only after approval;
+passwordHash is transferred from AccountRequest to resulting postulant user;
+account request approval is separate from initial demande/courrier workflow;
+dedicated postulant frontend will come later.
+Verification commands
 
-If the frontend route guard does not yet support permissions, add a minimal helper:
+Run:
 
-hasPermission(user, permission)
-
-Do not overbuild a full ACL framework.
-
-Expected deliverables
-
-Return an implementation report with:
-
-Files created.
-Files modified.
-Routes added/updated.
-Auth UI behavior.
-Password-change behavior.
-Personnel search behavior.
-Activation behavior.
-Internal accounts behavior.
-Data mode behavior.
-Commands run.
-Known limitations/TODOs.
-Verification
-
-Run from frontend app:
-
-cd apps/admin
+cd apps/api
 npm run typecheck
 npm run lint
 npm run build
 
-If scripts differ, inspect package.json and run the equivalent.
+If runtime checks are possible, run API and test with curl/Postman.
 
-Runtime manual checks:
+Expected implementation report
 
-Start API.
-Start admin frontend with:
-VITE_API_BASE_URL=http://localhost:4000
-Login as bootstrap admin.
-Search a real personnel record.
-Activate the account.
-Copy temporary password.
-Logout.
-Login as activated personnel.
-Confirm redirect to password change.
-Change password.
-Confirm normal login works.
-Confirm internal account appears in list.
-Confirm no temporary password remains visible after closing modal.
-```
+Return:
 
-# Acceptance Checklist
+Files created.
+Files modified.
+Routes added/updated.
+Account request lifecycle implemented.
+Organization linking behavior.
+User/membership creation behavior.
+Audit events.
+Security checks.
+Verification commands run.
+Runtime tests run or not run.
+Risks/TODOs.
+
+# Review checklist before accepting API-2
 
 ```txt
-✅ Bootstrap login works from UI
-✅ Internal login works from UI
-✅ First login redirects to password change
-✅ Password change activates account
-✅ /auth/me restores session after refresh
-✅ Personnel search uses backend API
-✅ Account activation creates pending_first_login account
-✅ Temporary password shown once only
-✅ Internal accounts list loads from API
-✅ Mock mode still works
-✅ No Phase préliminaire UI was touched
+✅ Public account request submission works
+✅ Request stores raw organization data only
+✅ No user is created before approval
+✅ No organization is created before approval
+✅ Admin can list requests
+✅ Admin can approve with existing organization
+✅ Admin can approve by creating organization
+✅ Organization normalizedName prevents obvious duplicates
+✅ User role is postulant
+✅ OrganizationMember is created
+✅ Request becomes approved
+✅ Admin can reject with reason
+✅ PasswordHash never returned
+✅ Audit logs created
 ✅ Build passes
-```
+````

@@ -19,6 +19,7 @@ Last reviewed: 2026-05-18
 ## Permission model
 - Capability checks are enforced with `requirePermission(...)`.
 - `bootstrap_admin` and `admin` receive the full permission set.
+- `POSTULANT_ACCOUNT_REVIEW` guards admin review of external account requests. `bootstrap_admin`, `admin`, and `dn_supervisor` currently have this capability through the role permission map.
 - Internal account activation is limited to users with `AIDN_USER_ACTIVATE`.
 - `dn_supervisor` no longer receives internal account activation/role-assignment capability by default.
 
@@ -29,6 +30,8 @@ Last reviewed: 2026-05-18
 - AIDN does not copy, validate, or store official DB passwords.
 - Activation creates or updates the local user/account, sets `mustChangePassword`, stores a hash of the generated temporary password, and puts the account in `pending_first_login`.
 - Activating an internal account requires matching official personnel data and cannot assign the `postulant` role.
+- Postulant account creation is separate from internal personnel activation. It happens only after an admin/DN reviewer approves a public account request and resolves the canonical organization.
+- Public account request submission has no authentication requirement for now and never returns or logs the submitted password or `passwordHash`.
 
 ## Audit events
 - `auth.bootstrap_login_success`
@@ -40,3 +43,8 @@ Last reviewed: 2026-05-18
 - `admin.internal_account_activated`
 - `admin.internal_account_role_changed`
 - `admin.internal_account_reactivated`
+- `portal.account_request_submitted`
+- `admin.account_request_approved`
+- `admin.account_request_rejected`
+- `admin.organization_created_from_account_request`
+- `admin.organization_linked_from_account_request`

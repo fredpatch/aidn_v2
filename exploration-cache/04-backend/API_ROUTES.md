@@ -8,12 +8,16 @@ Last reviewed: 2026-05-18
 - `POST /api/v1/auth/bootstrap/login`
 - `POST /api/v1/auth/internal/login`
 - `POST /api/v1/auth/internal/change-password`
+- `POST /api/v1/portal/account-requests`
 - `GET /api/v1/admin/si-users`
 - `GET /api/v1/admin/personnel?search=&page=&limit=`
 - `GET /api/v1/admin/internal-accounts`
 - `POST /api/v1/admin/internal-accounts/activate`
-- `GET /api/v1/admin/organizations`
-- `GET /api/v1/admin/account-requests`
+- `GET /api/v1/admin/organizations?search=&status=`
+- `GET /api/v1/admin/account-requests?status=&search=&from=&to=`
+- `GET /api/v1/admin/account-requests/:id`
+- `POST /api/v1/admin/account-requests/:id/approve`
+- `POST /api/v1/admin/account-requests/:id/reject`
 - `GET /api/v1/admin/audit-logs?page=&limit=`
 
 ## Route notes
@@ -22,6 +26,11 @@ Last reviewed: 2026-05-18
 - `auth/internal/change-password` requires a JWT, accepts `{ currentPassword, newPassword }`, enforces a minimum of 8 characters, clears `mustChangePassword`, and activates a `pending_first_login` internal account.
 - `admin/internal-accounts/activate` returns `{ account, temporaryPassword }` for local/dev delivery. Production should send the temporary password through a secure channel instead of exposing it in the API response.
 - `admin/personnel` reads through the selected personnel adapter. In official mode this is MariaDB via `employee_directory`; response shape is `{ items, page, limit, total }`.
+- `portal/account-requests` is public for now. It validates required fields, normalizes email, hashes the supplied password, stores raw requested organization data, returns sanitized request data, and does not create a user, organization, membership, session, or demande.
+- `admin/account-requests` is guarded by `POSTULANT_ACCOUNT_REVIEW` and supports `status`, `search`, `from`, and `to`. Search covers requested organization name, contact name, contact email, and requested organization email.
+- `admin/account-requests/:id/approve` links to an existing active canonical organization or creates a new canonical organization, then creates the postulant user and active organization membership.
+- `admin/account-requests/:id/reject` requires a reason and finalizes the request without creating user, organization, or membership records.
+- `admin/organizations` supports `search` and `status`; search covers canonical name, normalized name, aliases, and email.
 - `admin/audit-logs` is guarded by `AUDIT_VIEW`, paginated with `{ items, page, limit, total }`, and enriches actors from `User` records when `actorId` resolves.
 - The requested verification endpoints are intentionally read/scaffold-heavy; full request/dossier workflow endpoints are not implemented yet.
 

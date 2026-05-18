@@ -7,12 +7,17 @@ import {
   type Role,
 } from "../../shared/permissions/permissions.js";
 import { asyncHandler } from "../../shared/utils/async-handler.js";
+import {
+  approveAccountRequest,
+  getAccountRequestDetails,
+  listAccountRequests,
+  listOrganizations,
+  rejectAccountRequest,
+} from "../account-requests/account-request.service.js";
 import { listAuditLogs } from "../audit/audit.service.js";
 import {
   activateInternalAccount,
-  listAccountRequests,
   listInternalAccounts,
-  listOrganizations,
   listSiUsers,
   searchPersonnel,
 } from "./admin.service.js";
@@ -92,16 +97,66 @@ adminRouter.post(
 adminRouter.get(
   "/organizations",
   requirePermission(Permissions.ORGANIZATION_MANAGE),
-  asyncHandler(async (_req, res) => {
-    res.json({ items: await listOrganizations() });
+  asyncHandler(async (req, res) => {
+    res.json({
+      items: await listOrganizations({
+        search:
+          typeof req.query.search === "string" ? req.query.search : undefined,
+        status:
+          typeof req.query.status === "string" ? req.query.status : undefined,
+      }),
+    });
   }),
 );
 
 adminRouter.get(
   "/account-requests",
   requirePermission(Permissions.POSTULANT_ACCOUNT_REVIEW),
-  asyncHandler(async (_req, res) => {
-    res.json({ items: await listAccountRequests() });
+  asyncHandler(async (req, res) => {
+    res.json({
+      items: await listAccountRequests({
+        status:
+          typeof req.query.status === "string" ? req.query.status : undefined,
+        search:
+          typeof req.query.search === "string" ? req.query.search : undefined,
+        from: typeof req.query.from === "string" ? req.query.from : undefined,
+        to: typeof req.query.to === "string" ? req.query.to : undefined,
+      }),
+    });
+  }),
+);
+
+adminRouter.get(
+  "/account-requests/:id",
+  requirePermission(Permissions.POSTULANT_ACCOUNT_REVIEW),
+  asyncHandler(async (req, res) => {
+    res.json({ request: await getAccountRequestDetails(String(req.params.id)) });
+  }),
+);
+
+adminRouter.post(
+  "/account-requests/:id/approve",
+  requirePermission(Permissions.POSTULANT_ACCOUNT_REVIEW),
+  asyncHandler(async (req, res) => {
+    res.json(
+      await approveAccountRequest(String(req.params.id), req.body, {
+        actorId: req.user!.id,
+        actorRole: req.user!.role,
+      }),
+    );
+  }),
+);
+
+adminRouter.post(
+  "/account-requests/:id/reject",
+  requirePermission(Permissions.POSTULANT_ACCOUNT_REVIEW),
+  asyncHandler(async (req, res) => {
+    res.json(
+      await rejectAccountRequest(String(req.params.id), req.body, {
+        actorId: req.user!.id,
+        actorRole: req.user!.role,
+      }),
+    );
   }),
 );
 

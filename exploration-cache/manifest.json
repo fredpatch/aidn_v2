@@ -20,7 +20,8 @@
     "05-data/MOCKS_AND_FIXTURES.md",
     "09-qa/BUILD_AND_TEST_COMMANDS.md",
     "10-decisions/DECISIONS_LOG.md",
-    "10-decisions/internal-auth-flow.md"
+    "10-decisions/internal-auth-flow.md",
+    "10-decisions/postulant-account-organization-linking.md"
   ],
   "sections": {
     "00-control": "Global context, reading order, protocol",
@@ -110,6 +111,28 @@
         "10-decisions/internal-auth-flow.md",
         "00-control/INDEX.md"
       ]
+    },
+    {
+      "date": "2026-05-18",
+      "phase": "API-2",
+      "created": [
+        "apps/api/src/modules/account-requests/account-request.service.ts",
+        "apps/api/src/modules/organizations/organization-name.ts",
+        "apps/api/src/modules/portal/portal.routes.ts",
+        "10-decisions/postulant-account-organization-linking.md"
+      ],
+      "updated": [
+        "apps/api/src/modules/account-requests/account-request.model.ts",
+        "apps/api/src/modules/admin/admin.routes.ts",
+        "apps/api/src/modules/admin/admin.service.ts",
+        "apps/api/src/modules/audit/audit.service.ts",
+        "apps/api/src/modules/organizations/postulant-organization.model.ts",
+        "apps/api/src/router/routes.ts",
+        "04-backend/API_ROUTES.md",
+        "04-backend/AUTH_AND_PERMISSIONS.md",
+        "05-data/DATA_MODELS.md",
+        "TASK.md"
+      ]
     }
   ],
   "newRepoFolders": [
@@ -130,6 +153,7 @@
     "apps/api/src/modules/oma-phases/",
     "apps/api/src/modules/organizations/",
     "apps/api/src/modules/personnel/",
+    "apps/api/src/modules/portal/",
     "apps/api/src/modules/reports/",
     "apps/api/src/modules/requests/",
     "apps/api/src/modules/users/",
@@ -151,6 +175,7 @@
     "apps/api/src/app.ts",
     "apps/api/src/server.ts",
     "apps/api/src/modules/account-requests/account-request.model.ts",
+    "apps/api/src/modules/account-requests/account-request.service.ts",
     "apps/api/src/modules/admin/admin.routes.ts",
     "apps/api/src/modules/admin/admin.service.ts",
     "apps/api/src/modules/audit/audit-log.model.ts",
@@ -166,12 +191,14 @@
     "apps/api/src/modules/notifications/notification.model.ts",
     "apps/api/src/modules/oma-phases/oma-phase.model.ts",
     "apps/api/src/modules/organizations/organization-member.model.ts",
+    "apps/api/src/modules/organizations/organization-name.ts",
     "apps/api/src/modules/organizations/postulant-organization.model.ts",
     "apps/api/src/modules/personnel/mock-personnel.adapter.ts",
     "apps/api/src/modules/personnel/maria-personnel.adapter.ts",
     "apps/api/src/modules/personnel/personnel-email.ts",
     "apps/api/src/modules/personnel/personnel.service.ts",
     "apps/api/src/modules/personnel/personnel.types.ts",
+    "apps/api/src/modules/portal/portal.routes.ts",
     "apps/api/src/modules/reports/reports.placeholder.ts",
     "apps/api/src/modules/requests/request.model.ts",
     "apps/api/src/modules/users/aidn-internal-account.model.ts",

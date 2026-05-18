@@ -1,4 +1,4 @@
-import type { Types } from "mongoose";
+import type { ClientSession, Types } from "mongoose";
 
 import { UserModel } from "../users/user.model.js";
 import { AuditLogModel } from "./audit-log.model.js";
@@ -12,17 +12,23 @@ export const writeAuditLog = async (input: {
   before?: unknown;
   after?: unknown;
   metadata?: Record<string, unknown>;
+  session?: ClientSession;
 }): Promise<void> => {
-  await AuditLogModel.create({
-    actorId: input.actorId,
-    actorRole: input.actorRole,
-    action: input.action,
-    entityType: input.entityType,
-    entityId: input.entityId,
-    before: input.before,
-    after: input.after,
-    metadata: input.metadata
-  });
+  await AuditLogModel.create(
+    [
+      {
+        actorId: input.actorId,
+        actorRole: input.actorRole,
+        action: input.action,
+        entityType: input.entityType,
+        entityId: input.entityId,
+        before: input.before,
+        after: input.after,
+        metadata: input.metadata,
+      },
+    ],
+    input.session ? { session: input.session } : undefined,
+  );
 };
 
 export const listAuditLogs = async (filters: { action?: string; actorId?: string; limit?: number; page?: number }) => {

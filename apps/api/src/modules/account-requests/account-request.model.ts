@@ -6,6 +6,7 @@ const accountRequestSchema = new Schema(
     requestedLegalAddress: { type: String, trim: true },
     requestedEmail: { type: String, trim: true, lowercase: true },
     requestedPhone: { type: String, trim: true },
+    approvalNumberOrigin: { type: String, trim: true },
     contactFullName: { type: String, required: true, trim: true },
     contactEmail: { type: String, required: true, trim: true, lowercase: true },
     contactPhone: { type: String, trim: true },
@@ -25,6 +26,13 @@ const accountRequestSchema = new Schema(
   },
   { timestamps: true }
 );
+
+accountRequestSchema.index({
+  requestedOrganizationName: "text",
+  contactFullName: "text",
+  contactEmail: "text",
+  requestedEmail: "text",
+});
 
 export type AccountRequest = InferSchemaType<typeof accountRequestSchema> & { _id: Types.ObjectId };
 export const AccountRequestModel = model("AccountRequest", accountRequestSchema, "account_requests");

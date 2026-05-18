@@ -1,7 +1,7 @@
 {
   "name": "aidn-exploration-cache",
   "version": "1.0.0",
-  "lastUpdated": "2026-05-17",
+  "lastUpdated": "2026-05-18",
   "entrypoints": [
     "00-control/SOURCE_OF_TRUTH.md",
     "00-control/CURRENT_STATE.md",
@@ -13,11 +13,13 @@
     "04-backend/API_ROUTES.md",
     "04-backend/AUTH_AND_ACCESS.md",
     "04-backend/AUTH_AND_PERMISSIONS.md",
+    "04-backend/personnel-mariadb-adapter.md",
     "05-data/DATA_MODELS.md",
     "03-frontend/PORTAL_PREVIEW_MAP.md",
     "05-data/MOCKS_AND_FIXTURES.md",
     "09-qa/BUILD_AND_TEST_COMMANDS.md",
-    "10-decisions/DECISIONS_LOG.md"
+    "10-decisions/DECISIONS_LOG.md",
+    "10-decisions/internal-auth-flow.md"
   ],
   "sections": {
     "00-control": "Global context, reading order, protocol",
@@ -58,6 +60,34 @@
         "04-backend/AUTH_AND_PERMISSIONS.md",
         "05-data/DATA_MODELS.md",
         "10-decisions/ARCHITECTURE_DECISIONS.md"
+      ]
+    },
+    {
+      "date": "2026-05-18",
+      "phase": "API-1C",
+      "created": [
+        "04-backend/personnel-mariadb-adapter.md",
+        "10-decisions/internal-auth-flow.md"
+      ],
+      "updated": [
+        "04-backend/API_ROUTES.md",
+        "04-backend/AUTH_AND_ACCESS.md",
+        "04-backend/AUTH_AND_PERMISSIONS.md",
+        "05-data/DATA_MODELS.md",
+        "TASK.md"
+      ]
+    },
+    {
+      "date": "2026-05-18",
+      "phase": "API-1C-correction",
+      "created": [],
+      "updated": [
+        "04-backend/personnel-mariadb-adapter.md",
+        "04-backend/AUTH_AND_ACCESS.md",
+        "04-backend/AUTH_AND_PERMISSIONS.md",
+        "05-data/DATA_MODELS.md",
+        "10-decisions/internal-auth-flow.md",
+        "TASK.md"
       ]
     }
   ],
@@ -117,6 +147,8 @@
     "apps/api/src/modules/organizations/organization-member.model.ts",
     "apps/api/src/modules/organizations/postulant-organization.model.ts",
     "apps/api/src/modules/personnel/mock-personnel.adapter.ts",
+    "apps/api/src/modules/personnel/maria-personnel.adapter.ts",
+    "apps/api/src/modules/personnel/personnel-email.ts",
     "apps/api/src/modules/personnel/personnel.service.ts",
     "apps/api/src/modules/personnel/personnel.types.ts",
     "apps/api/src/modules/reports/reports.placeholder.ts",
@@ -125,7 +157,9 @@
     "apps/api/src/modules/users/user.model.ts",
     "apps/api/src/scripts/seed-bootstrap-admin.ts",
     "apps/api/src/shared/config/env.ts",
+    "apps/api/src/shared/database/maria.datasource.ts",
     "apps/api/src/shared/database/mongoose.ts",
+    "apps/api/src/shared/database/views/employee-directory.view.ts",
     "apps/api/src/shared/errors/error-handler.ts",
     "apps/api/src/shared/errors/http-error.ts",
     "apps/api/src/shared/guards/auth-context.ts",

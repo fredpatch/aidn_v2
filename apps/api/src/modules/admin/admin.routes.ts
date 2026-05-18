@@ -69,14 +69,14 @@ adminRouter.post(
   requirePermission(Permissions.AIDN_USER_ACTIVATE),
   asyncHandler(async (req, res) => {
     const body = req.body as { personnelId?: string; role?: Role };
-    const account = await activateInternalAccount({
+    const result = await activateInternalAccount({
       personnelId: body.personnelId ?? "",
       role: body.role as Role,
       activatedById: req.user!.id,
       activatedByRole: req.user!.role,
     });
 
-    res.status(201).json({ account });
+    res.status(201).json(result);
   }),
 );
 

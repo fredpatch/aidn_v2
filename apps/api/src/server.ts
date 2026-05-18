@@ -19,3 +19,7 @@ void start().catch((error) => {
   console.error("Failed to start AIDN API", error);
   process.exit(1);
 });
+
+/*
+ * Bootstrap admin ready: admin@aidn.local (6a09d77d2895907e44e115e2)
+ */

@@ -14,8 +14,12 @@ const userSchema = new Schema(
     matricule: { type: String, trim: true, uppercase: true, index: true },
     service: { type: String, trim: true },
     direction: { type: String, trim: true },
+    fonction: { type: String, trim: true },
     organizationId: { type: Schema.Types.ObjectId, ref: "PostulantOrganization" },
     passwordHash: { type: String },
+    mustChangePassword: { type: Boolean, default: false, index: true },
+    temporaryPasswordExpiresAt: { type: Date },
+    passwordChangedAt: { type: Date },
     isActive: { type: Boolean, default: false, index: true },
     lastLoginAt: { type: Date },
     lastSyncedAt: { type: Date }

@@ -31,6 +31,7 @@ export const env = {
     email: process.env.BOOTSTRAP_ADMIN_EMAIL ?? "admin@aidn.local",
     password: process.env.BOOTSTRAP_ADMIN_PASSWORD ?? "change-me-now"
   },
+  officialPersonnelDbEnabled: process.env.OFFICIAL_PERSONNEL_DB_ENABLED === "true",
   mockPersonnelEnabled: process.env.MOCK_PERSONNEL_ENABLED !== "false"
 };
 

@@ -7,6 +7,7 @@ const personnel: PersonnelIdentity[] = [
     fullName: "Aminata Diallo",
     email: "aminata.diallo@anac.local",
     service: "Navigabilite",
+    fonction: "Agent DN",
     direction: "DN",
     isActive: true
   },
@@ -16,6 +17,7 @@ const personnel: PersonnelIdentity[] = [
     fullName: "Moussa Traore",
     email: "moussa.traore@anac.local",
     service: "Bureau courrier",
+    fonction: "Agent courrier",
     direction: "DG",
     isActive: true
   },
@@ -25,6 +27,7 @@ const personnel: PersonnelIdentity[] = [
     fullName: "Fatou Sow",
     email: "fatou.sow@anac.local",
     service: "Secretariat DG",
+    fonction: "Secretariat",
     direction: "DG",
     isActive: true
   }
@@ -49,18 +52,8 @@ export class MockPersonnelDbAdapter implements PersonnelAdapter {
     return personnel.find((record) => record.personnelId === personnelId) ?? null;
   }
 
-  async findByMatricule(matricule: string): Promise<PersonnelIdentity | null> {
+  async getPersonnelByMatricule(matricule: string): Promise<PersonnelIdentity | null> {
     const normalized = matricule.trim().toUpperCase();
     return personnel.find((record) => record.matricule === normalized) ?? null;
-  }
-
-  async authenticateByMatricule(matricule: string, password: string): Promise<PersonnelIdentity | null> {
-    const record = await this.findByMatricule(matricule);
-
-    if (!record || !record.isActive) {
-      return null;
-    }
-
-    return password === "mock-password" ? record : null;
   }
 }

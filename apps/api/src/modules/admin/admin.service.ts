@@ -2,6 +2,8 @@ import { MariaDataSource } from "../../shared/database/maria.datasource.js";
 import { EmployeeDirectory } from "../../shared/database/views/employee-directory.view.js";
 import { HttpError } from "../../shared/errors/http-error.js";
 import { Roles, type Role } from "../../shared/permissions/permissions.js";
+import bcrypt from "bcryptjs";
+import crypto from "node:crypto";
 import { AccountRequestModel } from "../account-requests/account-request.model.js";
 import { writeAuditLog } from "../audit/audit.service.js";
 import { PostulantOrganizationModel } from "../organizations/postulant-organization.model.js";
@@ -17,6 +19,11 @@ const activatableInternalRoles: Role[] = [
   Roles.RECEPTION,
   Roles.BUREAU_COURRIER,
 ];
+
+const normalizeMatricule = (matricule: string) => matricule.trim().toUpperCase();
+
+const generateTemporaryPassword = () =>
+  crypto.randomInt(100000, 1000000).toString();
 
 type ListParams = {
   q?: string;
@@ -55,6 +62,7 @@ export const searchPersonnel = async (search: string) => {
       email: personnel.email,
       phone: personnel.phone,
       service: personnel.service,
+      fonction: personnel.fonction,
       direction: personnel.direction,
       isActive: personnel.isActive,
       alreadyActivated: Boolean(account),
@@ -167,6 +175,10 @@ export const activateInternalAccount = async (input: {
     personnelSource: "official_personnel_db",
     personnelId: personnel.personnelId,
   }).lean();
+  const temporaryPassword = generateTemporaryPassword();
+  const passwordHash = await bcrypt.hash(temporaryPassword, 12);
+  const now = new Date();
+  const temporaryPasswordExpiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
 
   const user = await UserModel.findOneAndUpdate(
     {
@@ -181,11 +193,14 @@ export const activateInternalAccount = async (input: {
       role,
       externalSource: "official_personnel_db",
       externalUserId: personnel.personnelId,
-      matricule: personnel.matricule.trim().toUpperCase(),
+      matricule: normalizeMatricule(personnel.matricule),
       service: personnel.service,
       direction: personnel.direction,
+      passwordHash,
+      mustChangePassword: true,
+      temporaryPasswordExpiresAt,
       isActive: true,
-      lastSyncedAt: new Date(),
+      lastSyncedAt: now,
     },
     { upsert: true, new: true, setDefaultsOnInsert: true },
   );
@@ -198,10 +213,10 @@ export const activateInternalAccount = async (input: {
     {
       personnelSource: "official_personnel_db",
       personnelId: personnel.personnelId,
-      matricule: personnel.matricule.trim().toUpperCase(),
+      matricule: normalizeMatricule(personnel.matricule),
       userId: user._id,
       role,
-      status: "active",
+      status: "pending_first_login",
       activatedById: input.activatedById,
     },
     { upsert: true, new: true, setDefaultsOnInsert: true },
@@ -235,19 +250,22 @@ export const activateInternalAccount = async (input: {
     },
     metadata: {
       personnelId: personnel.personnelId,
-      matricule: personnel.matricule.trim().toUpperCase(),
+      matricule: normalizeMatricule(personnel.matricule),
     },
   });
 
   return {
-    id: account._id.toString(),
-    personnelId: account.personnelId,
-    matricule: account.matricule,
-    userId: user._id.toString(),
-    fullName: user.fullName,
-    email: user.email,
-    role: account.role,
-    status: account.status,
+    account: {
+      id: account._id.toString(),
+      personnelId: account.personnelId,
+      matricule: account.matricule,
+      userId: user._id.toString(),
+      fullName: user.fullName,
+      email: user.email,
+      role: account.role,
+      status: account.status,
+    },
+    temporaryPassword,
   };
 };
 

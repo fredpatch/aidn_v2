@@ -1,9 +1,10 @@
 import "dotenv/config";
 import "reflect-metadata";
 import { DataSource } from "typeorm";
+import { env } from "../config/env.js";
 import { EmployeeDirectory } from "./views/employee-directory.view.js";
 
-function hasMariaConfig() {
+export function hasMariaConfig() {
   return Boolean(
     process.env.OFFICIAL_PERSONNEL_DB_HOST &&
     process.env.OFFICIAL_PERSONNEL_DB_USER &&
@@ -56,9 +57,12 @@ export async function ensureMariaViews() {
 
 export async function initializeMariaIfConfigured() {
   if (!hasMariaConfig()) {
-    // console.log(`[mariadb] MariaDB is not configured, skipping initialization: ${process.env.OFFICIAL_PERSONNEL_DB_HOST} &&
-    // ${process.env.OFFICIAL_PERSONNEL_DB_USER} &&
-    // ${process.env.OFFICIAL_PERSONNEL_DB_NAME},`);
+    if (env.officialPersonnelDbEnabled) {
+      throw new Error(
+        "OFFICIAL_PERSONNEL_DB_ENABLED=true requires OFFICIAL_PERSONNEL_DB_HOST, OFFICIAL_PERSONNEL_DB_USER, and OFFICIAL_PERSONNEL_DB_NAME",
+      );
+    }
+
     console.warn(
       "[mariadb] MariaDB is not configured, skipping initialization",
     );

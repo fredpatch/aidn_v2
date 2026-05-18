@@ -9,7 +9,7 @@ const aidnInternalAccountSchema = new Schema(
     matricule: { type: String, required: true, trim: true, uppercase: true },
     userId: { type: Schema.Types.ObjectId, ref: "User", required: true },
     role: { type: String, enum: Object.values(Roles), required: true },
-    status: { type: String, enum: ["active", "disabled"], default: "active", index: true },
+    status: { type: String, enum: ["pending_first_login", "active", "disabled"], default: "pending_first_login", index: true },
     activatedById: { type: Schema.Types.ObjectId, ref: "User", required: true },
     disabledById: { type: Schema.Types.ObjectId, ref: "User" },
     disabledAt: { type: Date },

@@ -2,7 +2,7 @@
 
 ## Current Phase
 
-Phase API-1 - auth and internal account activation hardening: completed.
+Phase API-1C - real personnel directory plus AIDN-owned internal login: completed.
 
 ## Completed Output
 
@@ -68,6 +68,19 @@ Phase API-1 - auth and internal account activation hardening: completed.
   - added audit logging for bootstrap login, internal login, and internal account activation/reactivation/role changes
   - added audit log listing guarded by `AUDIT_VIEW`
   - updated auth/access, route, data model, and architecture decision cache notes
+- Phase API-1C connected internal identity to the local MariaDB personnel mirror:
+  - added `MariaPersonnelAdapter` over the `employee_directory` view
+  - selected MariaDB when `OFFICIAL_PERSONNEL_DB_ENABLED=true`, otherwise mock only when `MOCK_PERSONNEL_ENABLED=true`
+  - made missing MariaDB configuration fatal when official personnel mode is enabled
+  - switched internal login away from official DB password validation
+  - activated AIDN-owned local credentials with a one-time temporary password and `pending_first_login`
+  - added first-login password change support at `POST /api/v1/auth/internal/change-password`
+  - documented that matricule is the current `personnelId`, email is derived, phone is omitted, and AIDN account activity is determined by `AidnInternalAccount.status`
+- Phase API-1C correction clarified the personnel active-status boundary:
+  - `employee_directory` has no active-status field
+  - the official personnel DB only confirms existence/legitimacy
+  - Maria personnel identities omit `isActive` unless the official source exposes it later
+  - AIDN account activity remains controlled by `AidnInternalAccount.status`
 
 ## Guardrails
 

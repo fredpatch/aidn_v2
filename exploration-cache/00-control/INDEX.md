@@ -10,8 +10,10 @@ Purpose: durable map of the current AIDN prototype so future agents can start fr
 5. 03-frontend/PORTAL_PREVIEW_MAP.md (for portal tasks)
 6. 05-data/MOCKS_AND_FIXTURES.md
 7. 06-workflows/*.md relevant to your task
-8. 09-qa/BUILD_AND_TEST_COMMANDS.md
-9. 10-decisions/DECISIONS_LOG.md
+8. 04-backend/personnel-mariadb-adapter.md (for official personnel DB/auth tasks)
+9. 10-decisions/internal-auth-flow.md (for internal login/account activation tasks)
+10. 09-qa/BUILD_AND_TEST_COMMANDS.md
+11. 10-decisions/DECISIONS_LOG.md
 
 ## Folder map
 - 00-control: global orientation and update protocol
@@ -28,6 +30,6 @@ Purpose: durable map of the current AIDN prototype so future agents can start fr
 - 99-session-notes: per-session trace log
 
 ## This cache was refreshed from source code on
-- Date: 2026-05-05
-- Main app: apps/admin
-- Router source: apps/admin/src/App.tsx
+- Date: 2026-05-18
+- Main apps: apps/admin, apps/api
+- Backend auth/personnel source: apps/api/src/modules/auth, apps/api/src/modules/admin, apps/api/src/modules/personnel

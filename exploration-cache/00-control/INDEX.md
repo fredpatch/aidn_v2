@@ -8,12 +8,13 @@ Purpose: durable map of the current AIDN prototype so future agents can start fr
 3. 01-project-map/REPO_STRUCTURE.md
 4. 01-project-map/ROUTES_MAP.md
 5. 03-frontend/PORTAL_PREVIEW_MAP.md (for portal tasks)
-6. 05-data/MOCKS_AND_FIXTURES.md
-7. 06-workflows/*.md relevant to your task
-8. 04-backend/personnel-mariadb-adapter.md (for official personnel DB/auth tasks)
-9. 10-decisions/internal-auth-flow.md (for internal login/account activation tasks)
-10. 09-qa/BUILD_AND_TEST_COMMANDS.md
-11. 10-decisions/DECISIONS_LOG.md
+6. 03-frontend/ADMIN_APP_MAP.md (for admin auth/account/personnel/audit UI tasks)
+7. 05-data/MOCKS_AND_FIXTURES.md
+8. 06-workflows/*.md relevant to your task
+9. 04-backend/personnel-mariadb-adapter.md (for official personnel DB/auth tasks)
+10. 10-decisions/internal-auth-flow.md (for internal login/account activation tasks)
+11. 09-qa/BUILD_AND_TEST_COMMANDS.md
+12. 10-decisions/DECISIONS_LOG.md
 
 ## Folder map
 - 00-control: global orientation and update protocol
@@ -33,3 +34,4 @@ Purpose: durable map of the current AIDN prototype so future agents can start fr
 - Date: 2026-05-18
 - Main apps: apps/admin, apps/api
 - Backend auth/personnel source: apps/api/src/modules/auth, apps/api/src/modules/admin, apps/api/src/modules/personnel
+- Admin UI auth/personnel/audit source: apps/admin/src/contexts/AuthContext.tsx, apps/admin/src/lib/api, apps/admin/src/pages

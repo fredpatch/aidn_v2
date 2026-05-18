@@ -44,7 +44,16 @@ adminRouter.get(
   "/personnel",
   requirePermission(Permissions.PERSONNEL_SEARCH),
   asyncHandler(async (req, res) => {
-    res.json({ items: await searchPersonnel(String(req.query.search ?? "")) });
+    const limit = typeof req.query.limit === "string" ? Number(req.query.limit) : 20;
+    const page = typeof req.query.page === "string" ? Number(req.query.page) : 1;
+
+    res.json(
+      await searchPersonnel({
+        search: String(req.query.search ?? ""),
+        limit: Number.isFinite(limit) ? limit : 20,
+        page: Number.isFinite(page) ? page : 1,
+      }),
+    );
   }),
 );
 
@@ -102,15 +111,18 @@ adminRouter.get(
   asyncHandler(async (req, res) => {
     const limit =
       typeof req.query.limit === "string" ? Number(req.query.limit) : undefined;
+    const page =
+      typeof req.query.page === "string" ? Number(req.query.page) : undefined;
 
-    res.json({
-      items: await listAuditLogs({
+    res.json(
+      await listAuditLogs({
         action:
           typeof req.query.action === "string" ? req.query.action : undefined,
         actorId:
           typeof req.query.actorId === "string" ? req.query.actorId : undefined,
         limit: Number.isFinite(limit) ? limit : undefined,
+        page: Number.isFinite(page) ? page : undefined,
       }),
-    });
+    );
   }),
 );

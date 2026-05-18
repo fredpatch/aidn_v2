@@ -1,4 +1,4 @@
-import type { PersonnelAdapter, PersonnelIdentity } from "./personnel.types.js";
+import type { PersonnelAdapter, PersonnelIdentity, PersonnelSearchParams, PersonnelSearchResult } from "./personnel.types.js";
 
 const personnel: PersonnelIdentity[] = [
   {
@@ -34,18 +34,26 @@ const personnel: PersonnelIdentity[] = [
 ];
 
 export class MockPersonnelDbAdapter implements PersonnelAdapter {
-  async searchPersonnel(search: string): Promise<PersonnelIdentity[]> {
-    const normalized = search.trim().toLowerCase();
+  async searchPersonnel(params: PersonnelSearchParams): Promise<PersonnelSearchResult> {
+    const normalized = params.search.trim().toLowerCase();
+    const limit = Math.min(Math.max(params.limit ?? 20, 1), 100);
+    const page = Math.max(params.page ?? 1, 1);
+    const skip = (page - 1) * limit;
 
-    if (!normalized) {
-      return personnel;
-    }
+    const filtered = !normalized
+      ? personnel
+      : personnel.filter((record) =>
+          [record.matricule, record.fullName, record.email, record.service, record.direction, record.fonction]
+            .filter(Boolean)
+            .some((value) => value?.toLowerCase().includes(normalized))
+        );
 
-    return personnel.filter((record) =>
-      [record.matricule, record.fullName, record.email, record.service, record.direction]
-        .filter(Boolean)
-        .some((value) => value?.toLowerCase().includes(normalized))
-    );
+    return {
+      items: filtered.slice(skip, skip + limit),
+      total: filtered.length,
+      page,
+      limit,
+    };
   }
 
   async getPersonnelById(personnelId: string): Promise<PersonnelIdentity | null> {

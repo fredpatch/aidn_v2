@@ -1,7 +1,7 @@
 import { MariaDataSource } from "../../shared/database/maria.datasource.js";
 import { EmployeeDirectory } from "../../shared/database/views/employee-directory.view.js";
 import { derivePersonnelEmail } from "./personnel-email.js";
-import type { PersonnelAdapter, PersonnelIdentity } from "./personnel.types.js";
+import type { PersonnelAdapter, PersonnelIdentity, PersonnelSearchParams, PersonnelSearchResult } from "./personnel.types.js";
 
 const normalizeMatricule = (matricule: string) => matricule.trim().toUpperCase();
 
@@ -25,9 +25,16 @@ export class MariaPersonnelAdapter implements PersonnelAdapter {
     return MariaDataSource.getRepository(EmployeeDirectory);
   }
 
-  async searchPersonnel(search: string): Promise<PersonnelIdentity[]> {
-    const qb = this.repo.createQueryBuilder("employee").orderBy("employee.matricule", "ASC").take(50);
-    const normalized = search.trim();
+  async searchPersonnel(params: PersonnelSearchParams): Promise<PersonnelSearchResult> {
+    const limit = Math.min(Math.max(params.limit ?? 20, 1), 100);
+    const page = Math.max(params.page ?? 1, 1);
+    const skip = (page - 1) * limit;
+    const qb = this.repo
+      .createQueryBuilder("employee")
+      .orderBy("employee.matricule", "ASC")
+      .skip(skip)
+      .take(limit);
+    const normalized = params.search.trim();
 
     if (normalized) {
       const q = `%${normalized}%`;
@@ -37,8 +44,14 @@ export class MariaPersonnelAdapter implements PersonnelAdapter {
       );
     }
 
-    const employees = await qb.getMany();
-    return employees.map(toIdentity);
+    const [employees, total] = await qb.getManyAndCount();
+
+    return {
+      items: employees.map(toIdentity),
+      total,
+      page,
+      limit,
+    };
   }
 
   async getPersonnelById(personnelId: string): Promise<PersonnelIdentity | null> {

@@ -10,8 +10,21 @@ export interface PersonnelIdentity {
   isActive?: boolean;
 }
 
+export interface PersonnelSearchParams {
+  search: string;
+  page: number;
+  limit: number;
+}
+
+export interface PersonnelSearchResult {
+  items: PersonnelIdentity[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
 export interface PersonnelAdapter {
-  searchPersonnel(search: string): Promise<PersonnelIdentity[]>;
+  searchPersonnel(params: PersonnelSearchParams): Promise<PersonnelSearchResult>;
   getPersonnelById(personnelId: string): Promise<PersonnelIdentity | null>;
   getPersonnelByMatricule(matricule: string): Promise<PersonnelIdentity | null>;
 }

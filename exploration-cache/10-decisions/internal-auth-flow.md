@@ -14,6 +14,14 @@ AIDN treats the official ANAC personnel database as the identity and legitimacy 
 6. Login confirms the matricule still exists in official personnel, finds the local AIDN account, uses `AidnInternalAccount.status` for application activity, rejects disabled accounts, and checks the local password hash.
 7. Password change verifies the current local password, requires at least 8 new characters, clears `mustChangePassword`, and activates the account.
 
+## Frontend Wiring
+- Admin UI now supports bootstrap login and internal ANAC login in API mode while preserving mock mode.
+- First-login password change is handled at `/changer-mot-de-passe`.
+- Personnel search, account activation, internal account listing, and audit logs are available under `/admin/*`.
+- Personnel and internal-account tables intentionally hide email; matricule is the operational login identifier.
+- Personnel and audit logs are paginated from the backend with `{ items, page, limit, total }`.
+- Audit logs enrich `actorId` to `actor.fullName`/`matricule`/`role` when the user exists.
+
 ## Non-Goals
 - Do not copy official DB passwords.
 - Do not validate login passwords against the official DB.

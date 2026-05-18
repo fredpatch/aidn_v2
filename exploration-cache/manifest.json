@@ -15,6 +15,7 @@
     "04-backend/AUTH_AND_PERMISSIONS.md",
     "04-backend/personnel-mariadb-adapter.md",
     "05-data/DATA_MODELS.md",
+    "03-frontend/ADMIN_APP_MAP.md",
     "03-frontend/PORTAL_PREVIEW_MAP.md",
     "05-data/MOCKS_AND_FIXTURES.md",
     "09-qa/BUILD_AND_TEST_COMMANDS.md",
@@ -88,6 +89,26 @@
         "05-data/DATA_MODELS.md",
         "10-decisions/internal-auth-flow.md",
         "TASK.md"
+      ]
+    },
+    {
+      "date": "2026-05-18",
+      "phase": "UI-AUTH-1",
+      "created": [
+        "apps/admin/src/lib/api/admin.api.ts",
+        "apps/admin/src/lib/api/auth.api.ts",
+        "apps/admin/src/lib/auth/permissions.ts",
+        "apps/admin/src/pages/AuditLogsPage.tsx",
+        "apps/admin/src/pages/ChangePasswordPage.tsx",
+        "apps/admin/src/pages/InternalAccountsPage.tsx",
+        "apps/admin/src/pages/PersonnelPage.tsx"
+      ],
+      "updated": [
+        "03-frontend/ADMIN_APP_MAP.md",
+        "04-backend/API_ROUTES.md",
+        "09-qa/BUILD_AND_TEST_COMMANDS.md",
+        "10-decisions/internal-auth-flow.md",
+        "00-control/INDEX.md"
       ]
     }
   ],
@@ -168,6 +189,14 @@
     "apps/api/src/shared/permissions/permissions.ts",
     "apps/api/src/shared/storage/storage.adapter.ts",
     "apps/api/src/shared/utils/async-handler.ts"
+    ,
+    "apps/admin/src/lib/api/admin.api.ts",
+    "apps/admin/src/lib/api/auth.api.ts",
+    "apps/admin/src/lib/auth/permissions.ts",
+    "apps/admin/src/pages/AuditLogsPage.tsx",
+    "apps/admin/src/pages/ChangePasswordPage.tsx",
+    "apps/admin/src/pages/InternalAccountsPage.tsx",
+    "apps/admin/src/pages/PersonnelPage.tsx"
   ],
   "generatedOrInstalledFoldersNotTracked": [
     "apps/api/dist/",

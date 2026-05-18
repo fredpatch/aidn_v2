@@ -41,9 +41,13 @@ export type EmployeeDirectoryItem = {
   fonction: string | null;
 };
 
-export const searchPersonnel = async (search: string) => {
-  const personnelItems = await personnelAdapter.searchPersonnel(search);
-  const personnelIds = personnelItems.map((item) => item.personnelId);
+export const searchPersonnel = async (params: {
+  search: string;
+  page: number;
+  limit: number;
+}) => {
+  const result = await personnelAdapter.searchPersonnel(params);
+  const personnelIds = result.items.map((item) => item.personnelId);
   const accounts = await AidnInternalAccountModel.find({
     personnelSource: "official_personnel_db",
     personnelId: { $in: personnelIds },
@@ -52,25 +56,30 @@ export const searchPersonnel = async (search: string) => {
     accounts.map((account) => [account.personnelId, account]),
   );
 
-  return personnelItems.map((personnel) => {
-    const account = accountByPersonnelId.get(personnel.personnelId);
+  return {
+    items: result.items.map((personnel) => {
+      const account = accountByPersonnelId.get(personnel.personnelId);
 
-    return {
-      personnelId: personnel.personnelId,
-      matricule: personnel.matricule,
-      fullName: personnel.fullName,
-      email: personnel.email,
-      phone: personnel.phone,
-      service: personnel.service,
-      fonction: personnel.fonction,
-      direction: personnel.direction,
-      isActive: personnel.isActive,
-      alreadyActivated: Boolean(account),
-      aidnUserId: account?.userId?.toString(),
-      aidnRole: account?.role,
-      activationStatus: account?.status,
-    };
-  });
+      return {
+        personnelId: personnel.personnelId,
+        matricule: personnel.matricule,
+        fullName: personnel.fullName,
+        email: personnel.email,
+        phone: personnel.phone,
+        service: personnel.service,
+        fonction: personnel.fonction,
+        direction: personnel.direction,
+        isActive: personnel.isActive,
+        alreadyActivated: Boolean(account),
+        aidnUserId: account?.userId?.toString(),
+        aidnRole: account?.role,
+        activationStatus: account?.status,
+      };
+    }),
+    total: result.total,
+    page: result.page,
+    limit: result.limit,
+  };
 };
 
 export const listInternalAccounts = async (filters: {

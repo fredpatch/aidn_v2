@@ -63,7 +63,7 @@ export function Header({ onMenuToggle }: HeaderProps): React.JSX.Element {
           </time>
         </div>
         <div className="hidden text-right sm:block">
-          <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">{user?.name ?? 'Agent DN'}</p>
+          <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">{user?.fullName ?? 'Agent DN'}</p>
           <p className="text-xs text-slate-500 dark:text-slate-400">Suivi des dossiers OMA</p>
         </div>
         <button className="btn btn-secondary" type="button" onClick={handleLogout}>

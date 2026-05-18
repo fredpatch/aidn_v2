@@ -4,6 +4,8 @@ import { NavGroup } from '../components/nav/NavGroup';
 import { NavLinkItem } from '../components/nav/NavLinkItem';
 import { APP_NAME } from '../config/app';
 import { NAV_GROUPS } from '../config/nav';
+import { useAuth } from '../hooks/useAuth';
+import { hasAnyPermission } from '../lib/auth/permissions';
 
 interface SidebarProps {
   open: boolean;
@@ -11,6 +13,12 @@ interface SidebarProps {
 }
 
 function SidebarPanel({ onClose }: Pick<SidebarProps, 'onClose'>): React.JSX.Element {
+  const { user } = useAuth();
+  const visibleGroups = NAV_GROUPS.map((group) => ({
+    ...group,
+    items: group.items.filter((item) => !item.permissions || hasAnyPermission(user, item.permissions)),
+  })).filter((group) => group.items.length > 0);
+
   return (
     <aside className="flex h-full w-64 flex-col border-r border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
       <div className="flex h-16 items-center justify-between border-b border-slate-200 px-4 dark:border-slate-800">
@@ -29,7 +37,7 @@ function SidebarPanel({ onClose }: Pick<SidebarProps, 'onClose'>): React.JSX.Ele
       </div>
 
       <nav className="flex-1 space-y-3 overflow-y-auto p-3">
-        {NAV_GROUPS.map((group) => (
+        {visibleGroups.map((group) => (
           <NavGroup key={group.storageKey} label={group.label} storageKey={group.storageKey} paths={group.items.map((item) => item.to)}>
             {group.items.map((item) => (
               <NavLinkItem key={item.to} to={item.to} label={item.label} icon={item.icon} onClick={onClose} />

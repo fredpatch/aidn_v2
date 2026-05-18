@@ -1,13 +1,12 @@
 const normalizeNamePart = (value?: string | null) =>
   (value ?? "")
     .trim()
-    .toLowerCase()
+    .split(/[\s-]+/)
+    .find(Boolean)
+    ?.toLowerCase()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9\s-]/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "");
+    .replace(/[^a-z0-9]/g, "") ?? "";
 
 export const derivePersonnelEmail = (firstName?: string | null, lastName?: string | null): string | undefined => {
   const parts = [normalizeNamePart(firstName), normalizeNamePart(lastName)].filter(Boolean);

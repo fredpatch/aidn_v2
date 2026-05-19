@@ -2,12 +2,12 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { AuthRoute } from "./components/auth/AuthRoute";
 import { ProtectedRoute } from "./components/auth/ProtectedRoute";
 import { AdminLayout } from "./layouts/AdminLayout";
+import { AccountRequestsPage } from "./pages/AccountRequestsPage";
 import { AuditLogsPage } from "./pages/AuditLogsPage";
 import { CertificatsPage } from "./pages/CertificatsPage";
 import { ChangePasswordPage } from "./pages/ChangePasswordPage";
 import { CourriersPage } from "./pages/CourriersPage";
 import { DashboardPage } from "./pages/DashboardPage";
-import { DemandesPage } from "./pages/DemandesPage";
 import { DocumentsPage } from "./pages/DocumentsPage";
 import { DossierDetailPage } from "./pages/DossierDetailPage";
 import { DossiersPage } from "./pages/DossiersPage";
@@ -19,6 +19,7 @@ import { PortalPreviewDossierPage } from "./pages/PortalPreviewDossierPage";
 import { PortalPreviewPage } from "./pages/PortalPreviewPage";
 import { ReunionsPage } from "./pages/ReunionsPage";
 import { ReportsPage } from "./pages/ReportsPage";
+import { RequestsPage } from "./pages/RequestsPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { WorkflowOmaPage } from "./pages/WorkflowOmaPage";
 
@@ -33,7 +34,6 @@ export function App(): React.JSX.Element {
         <Route element={<AdminLayout />}>
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route path="/dashboard" element={<DashboardPage />} />
-          <Route path="/demandes" element={<DemandesPage />} />
           <Route path="/courriers" element={<CourriersPage />} />
           <Route path="/dossiers" element={<DossiersPage />} />
           <Route path="/dossiers/:id" element={<DossierDetailPage />} />
@@ -64,6 +64,16 @@ export function App(): React.JSX.Element {
       <Route element={<ProtectedRoute permissions={["AUDIT_VIEW"]} />}>
         <Route element={<AdminLayout />}>
           <Route path="/admin/audit-logs" element={<AuditLogsPage />} />
+        </Route>
+      </Route>
+      <Route element={<ProtectedRoute permissions={["POSTULANT_ACCOUNT_REVIEW"]} />}>
+        <Route element={<AdminLayout />}>
+          <Route path="/admin/demandes-comptes" element={<AccountRequestsPage />} />
+        </Route>
+      </Route>
+      <Route element={<ProtectedRoute permissions={["REQUEST_VIEW_ALL"]} />}>
+        <Route element={<AdminLayout />}>
+          <Route path="/demandes" element={<RequestsPage />} />
         </Route>
       </Route>
       <Route path="*" element={<Navigate to="/dashboard" replace />} />

@@ -2,6 +2,12 @@ import { Router } from "express";
 
 import { requireAuth } from "../../shared/guards/auth.middleware.js";
 import { asyncHandler } from "../../shared/utils/async-handler.js";
+import { clearAuthCookie, setAuthCookie } from "./auth.cookies.js";
+import {
+  clearCsrfCookie,
+  generateCsrfToken,
+  setCsrfCookie,
+} from "./auth.csrf.js";
 import {
   getCurrentUser,
   changeInternalPassword,
@@ -13,7 +19,7 @@ export const authRouter = Router();
 
 authRouter.get(
   "/me",
-  requireAuth,
+  requireAuth({ scope: "admin" }),
   asyncHandler(async (req, res) => {
     res.json(await getCurrentUser(req.user!.id));
   }),
@@ -26,13 +32,28 @@ authRouter.post(
       matricule?: string;
       password?: string;
     };
-    res.json(await loginInternalUser(matricule ?? "", password ?? ""));
+    const result = await loginInternalUser(matricule ?? "", password ?? "");
+    setAuthCookie(res, result.token, "admin");
+    setCsrfCookie(res, generateCsrfToken(), "admin");
+    res.json({
+      requiresPasswordChange: result.requiresPasswordChange,
+      user: result.user,
+    });
+  }),
+);
+
+authRouter.post(
+  "/logout",
+  asyncHandler(async (_req, res) => {
+    clearAuthCookie(res, "admin");
+    clearCsrfCookie(res, "admin");
+    res.json({ ok: true });
   }),
 );
 
 authRouter.post(
   "/internal/change-password",
-  requireAuth,
+  requireAuth({ scope: "admin" }),
   asyncHandler(async (req, res) => {
     const { currentPassword, newPassword } = req.body as {
       currentPassword?: string;
@@ -55,6 +76,11 @@ authRouter.post(
       email?: string;
       password?: string;
     };
-    res.json(await loginBootstrapAdmin(email ?? "", password ?? ""));
+    const result = await loginBootstrapAdmin(email ?? "", password ?? "");
+    setAuthCookie(res, result.token, "admin");
+    setCsrfCookie(res, generateCsrfToken(), "admin");
+    res.json({
+      user: result.user,
+    });
   }),
 );

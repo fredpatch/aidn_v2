@@ -18,7 +18,7 @@ const courrierSchema = new Schema(
     physicalDepositDate: { type: Date },
     scannedAt: { type: Date },
     uploadedAt: { type: Date },
-    documentId: { type: Schema.Types.ObjectId, ref: "Document", required: true },
+    documentId: { type: Schema.Types.ObjectId, ref: "Document" },
     registeredById: { type: Schema.Types.ObjectId, ref: "User" },
     notes: { type: String, trim: true }
   },

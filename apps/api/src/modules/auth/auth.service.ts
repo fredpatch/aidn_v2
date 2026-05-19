@@ -1,34 +1,31 @@
-import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 
-import { env } from "../../shared/config/env.js";
 import { HttpError } from "../../shared/errors/http-error.js";
 import { getPermissionsForRole, Roles, type Role } from "../../shared/permissions/permissions.js";
 import { writeAuditLog } from "../audit/audit.service.js";
 import { AidnInternalAccountModel } from "../users/aidn-internal-account.model.js";
 import { UserModel } from "../users/user.model.js";
 import { personnelAdapter } from "../personnel/personnel.service.js";
-
-export const signSessionToken = (user: { id: string; role: Role; userType: "internal" | "postulant" }): string =>
-  jwt.sign({ userId: user.id, role: user.role, userType: user.userType }, env.jwtSecret, {
-    subject: user.id,
-    expiresIn: env.jwtExpiresIn
-  });
+import { signSessionToken } from "./auth.tokens.js";
 
 const toCurrentUserPayload = (user: {
   _id: { toString(): string };
   userType: "internal" | "postulant";
   fullName: string;
   email?: string | null;
+  phone?: string | null;
   matricule?: string | null;
   role: Role;
+  organizationId?: { toString(): string } | string | null;
 }) => ({
   id: user._id.toString(),
   userType: user.userType,
   fullName: user.fullName,
   email: user.email ?? undefined,
+  phone: user.phone ?? undefined,
   matricule: user.matricule ?? undefined,
   role: user.role,
+  organizationId: user.organizationId?.toString(),
   permissions: getPermissionsForRole(user.role)
 });
 
@@ -44,6 +41,100 @@ export const getCurrentUser = async (userId: string) => {
   }
 
   return toCurrentUserPayload(user);
+};
+
+export const getCurrentPortalUser = async (userId: string) => {
+  const user = await UserModel.findById(userId).lean();
+
+  if (!user) {
+    throw new HttpError(404, "Current user not found");
+  }
+
+  if (
+    user.userType !== "postulant" ||
+    user.role !== Roles.POSTULANT ||
+    !user.isActive
+  ) {
+    throw new HttpError(403, "Portal access denied");
+  }
+
+  return toCurrentUserPayload(user);
+};
+
+export const loginPortalUser = async (email: string, password: string) => {
+  const normalizedEmail = email.trim().toLowerCase();
+  const auditBase = {
+    actorRole: "anonymous",
+    entityType: "auth",
+    metadata: { email: normalizedEmail }
+  };
+
+  if (!normalizedEmail || !password) {
+    await writeAuditLog({
+      ...auditBase,
+      action: "auth.portal_login_failed",
+      metadata: { email: normalizedEmail, reason: "missing_credentials" }
+    });
+    throw new HttpError(400, "Email and password are required");
+  }
+
+  const user = await UserModel.findOne({
+    email: normalizedEmail,
+    userType: "postulant",
+    role: Roles.POSTULANT
+  });
+
+  if (!user?.passwordHash) {
+    await writeAuditLog({
+      ...auditBase,
+      action: "auth.portal_login_failed",
+      metadata: { email: normalizedEmail, reason: "invalid_credentials" }
+    });
+    throw new HttpError(401, "Invalid portal credentials");
+  }
+
+  if (!user.isActive) {
+    await writeAuditLog({
+      actorId: user._id,
+      actorRole: user.role,
+      action: "auth.portal_login_failed",
+      entityType: "user",
+      entityId: user._id,
+      metadata: { email: normalizedEmail, reason: "inactive_user" }
+    });
+    throw new HttpError(403, "Portal access denied");
+  }
+
+  const isValidPassword = await bcrypt.compare(password, user.passwordHash);
+
+  if (!isValidPassword) {
+    await writeAuditLog({
+      actorId: user._id,
+      actorRole: user.role,
+      action: "auth.portal_login_failed",
+      entityType: "user",
+      entityId: user._id,
+      metadata: { email: normalizedEmail, reason: "invalid_credentials" }
+    });
+    throw new HttpError(401, "Invalid portal credentials");
+  }
+
+  user.lastLoginAt = new Date();
+  await user.save();
+
+  await writeAuditLog({
+    actorId: user._id,
+    actorRole: user.role,
+    action: "auth.portal_login_success",
+    entityType: "user",
+    entityId: user._id,
+    metadata: { email: normalizedEmail }
+  });
+
+  return {
+    token: signSessionToken({ id: user._id.toString(), role: user.role, userType: "postulant" }),
+    user: toCurrentUserPayload(user)
+  };
 };
 
 export const loginInternalUser = async (matricule: string, password: string) => {

@@ -1,7 +1,7 @@
 {
   "name": "aidn-exploration-cache",
   "version": "1.0.0",
-  "lastUpdated": "2026-05-18",
+  "lastUpdated": "2026-05-19",
   "entrypoints": [
     "00-control/SOURCE_OF_TRUTH.md",
     "00-control/CURRENT_STATE.md",
@@ -15,7 +15,10 @@
     "04-backend/AUTH_AND_PERMISSIONS.md",
     "04-backend/personnel-mariadb-adapter.md",
     "05-data/DATA_MODELS.md",
+    "06-workflows/PORTAL_REQUEST_WORKFLOW.md",
+    "06-workflows/ADMIN_INTAKE_WORKFLOW.md",
     "03-frontend/ADMIN_APP_MAP.md",
+    "03-frontend/PORTAL_APP_MAP.md",
     "03-frontend/PORTAL_PREVIEW_MAP.md",
     "05-data/MOCKS_AND_FIXTURES.md",
     "09-qa/BUILD_AND_TEST_COMMANDS.md",
@@ -133,6 +136,342 @@
         "05-data/DATA_MODELS.md",
         "TASK.md"
       ]
+    },
+    {
+      "date": "2026-05-18",
+      "phase": "PORTAL-INIT",
+      "created": [
+        "apps/portal/package.json",
+        "apps/portal/package-lock.json",
+        "apps/portal/index.html",
+        "apps/portal/vite.config.ts",
+        "apps/portal/tsconfig.json",
+        "apps/portal/.env.example",
+        "apps/portal/src/App.tsx",
+        "apps/portal/src/main.tsx",
+        "apps/portal/src/components/PortalHeader.tsx",
+        "apps/portal/src/components/PortalSidebar.tsx",
+        "apps/portal/src/components/PortalStatusBadge.tsx",
+        "apps/portal/src/components/EmptyState.tsx",
+        "apps/portal/src/layouts/PortalLayout.tsx",
+        "apps/portal/src/layouts/PublicLayout.tsx",
+        "apps/portal/src/pages/LandingPage.tsx",
+        "apps/portal/src/pages/AccountRequestPage.tsx",
+        "apps/portal/src/pages/LoginPage.tsx",
+        "apps/portal/src/pages/PortalDashboardPage.tsx",
+        "apps/portal/src/pages/MyRequestsPage.tsx",
+        "apps/portal/src/pages/RequestDetailPage.tsx",
+        "apps/portal/src/pages/NotFoundPage.tsx",
+        "apps/portal/src/lib/api/http.ts",
+        "apps/portal/src/lib/api/portal.api.ts",
+        "apps/portal/src/lib/auth/PortalAuthContext.tsx",
+        "apps/portal/src/lib/routes.ts",
+        "apps/portal/src/styles.css",
+        "apps/portal/src/vite-env.d.ts",
+        "03-frontend/PORTAL_APP_MAP.md"
+      ],
+      "updated": [
+        "03-frontend/PORTAL_PREVIEW_MAP.md",
+        "01-project-map/ROUTES_MAP.md",
+        "09-qa/BUILD_AND_TEST_COMMANDS.md",
+        "TASK.md",
+        "manifest.json"
+      ]
+    },
+    {
+      "date": "2026-05-18",
+      "phase": "PORTAL-1",
+      "created": [],
+      "updated": [
+        "apps/portal/src/pages/AccountRequestPage.tsx",
+        "apps/portal/src/lib/api/http.ts",
+        "apps/portal/src/lib/api/portal.api.ts",
+        "03-frontend/PORTAL_APP_MAP.md",
+        "04-backend/API_ROUTES.md",
+        "09-qa/BUILD_AND_TEST_COMMANDS.md",
+        "TASK.md",
+        "manifest.json"
+      ]
+    },
+    {
+      "date": "2026-05-18",
+      "phase": "ADMIN-2A",
+      "created": [
+        "apps/admin/src/lib/api/account-requests.api.ts",
+        "apps/admin/src/pages/AccountRequestsPage.tsx"
+      ],
+      "updated": [
+        "apps/admin/src/App.tsx",
+        "apps/admin/src/config/nav.tsx",
+        "apps/admin/src/lib/api/client.ts",
+        "03-frontend/ADMIN_APP_MAP.md",
+        "01-project-map/ROUTES_MAP.md",
+        "04-backend/API_ROUTES.md",
+        "09-qa/BUILD_AND_TEST_COMMANDS.md",
+        "TASK.md",
+        "manifest.json"
+      ]
+    },
+    {
+      "date": "2026-05-19",
+      "phase": "PORTAL-2",
+      "created": [],
+      "updated": [
+        "apps/api/src/modules/auth/auth.service.ts",
+        "apps/api/src/modules/portal/portal.routes.ts",
+        "apps/admin/src/contexts/AuthContext.tsx",
+        "apps/portal/src/App.tsx",
+        "apps/portal/src/components/PortalHeader.tsx",
+        "apps/portal/src/components/PortalSidebar.tsx",
+        "apps/portal/src/lib/api/http.ts",
+        "apps/portal/src/lib/api/portal.api.ts",
+        "apps/portal/src/lib/auth/PortalAuthContext.tsx",
+        "apps/portal/src/pages/LoginPage.tsx",
+        "apps/portal/src/pages/PortalDashboardPage.tsx",
+        "03-frontend/PORTAL_APP_MAP.md",
+        "04-backend/API_ROUTES.md",
+        "04-backend/AUTH_AND_ACCESS.md",
+        "04-backend/AUTH_AND_PERMISSIONS.md",
+        "09-qa/BUILD_AND_TEST_COMMANDS.md",
+        "TASK.md",
+        "manifest.json"
+      ]
+    },
+    {
+      "date": "2026-05-19",
+      "phase": "AUTH-2A",
+      "created": [
+        "apps/api/src/modules/auth/auth.cookies.ts",
+        "apps/api/src/modules/auth/auth.tokens.ts"
+      ],
+      "updated": [
+        "apps/api/.env.example",
+        "apps/api/src/app.ts",
+        "apps/api/src/middlewares/init.ts",
+        "apps/api/src/modules/admin/admin.routes.ts",
+        "apps/api/src/modules/auth/auth.routes.ts",
+        "apps/api/src/modules/auth/auth.service.ts",
+        "apps/api/src/modules/portal/portal.routes.ts",
+        "apps/api/src/shared/config/env.ts",
+        "apps/api/src/shared/guards/auth.middleware.ts",
+        "04-backend/API_ROUTES.md",
+        "04-backend/AUTH_AND_ACCESS.md",
+        "04-backend/AUTH_AND_PERMISSIONS.md",
+        "09-qa/BUILD_AND_TEST_COMMANDS.md",
+        "TASK.md",
+        "manifest.json"
+      ]
+    },
+    {
+      "date": "2026-05-19",
+      "phase": "AUTH-2B",
+      "created": [],
+      "updated": [
+        "apps/admin/src/contexts/AuthContext.tsx",
+        "apps/admin/src/layouts/Header.tsx",
+        "apps/admin/src/lib/api/auth.api.ts",
+        "apps/admin/src/lib/api/client.ts",
+        "03-frontend/ADMIN_APP_MAP.md",
+        "04-backend/AUTH_AND_ACCESS.md",
+        "09-qa/BUILD_AND_TEST_COMMANDS.md",
+        "TASK.md",
+        "manifest.json"
+      ]
+    },
+    {
+      "date": "2026-05-19",
+      "phase": "AUTH-2C",
+      "created": [],
+      "updated": [
+        "apps/portal/src/components/PortalHeader.tsx",
+        "apps/portal/src/components/PortalSidebar.tsx",
+        "apps/portal/src/lib/api/http.ts",
+        "apps/portal/src/lib/api/portal.api.ts",
+        "apps/portal/src/lib/auth/PortalAuthContext.tsx",
+        "apps/portal/src/pages/LoginPage.tsx",
+        "apps/portal/src/pages/PortalDashboardPage.tsx",
+        "03-frontend/PORTAL_APP_MAP.md",
+        "04-backend/API_ROUTES.md",
+        "04-backend/AUTH_AND_ACCESS.md",
+        "09-qa/BUILD_AND_TEST_COMMANDS.md",
+        "TASK.md",
+        "manifest.json"
+      ]
+    },
+    {
+      "date": "2026-05-19",
+      "phase": "AUTH-2D",
+      "created": [],
+      "updated": [
+        "apps/api/src/shared/guards/auth.middleware.ts",
+        "apps/api/src/modules/auth/auth.routes.ts",
+        "apps/api/src/modules/portal/portal.routes.ts",
+        "apps/admin/src/lib/api/auth.api.ts",
+        "apps/portal/src/lib/api/portal.api.ts",
+        "03-frontend/ADMIN_APP_MAP.md",
+        "03-frontend/PORTAL_APP_MAP.md",
+        "04-backend/AUTH_AND_ACCESS.md",
+        "04-backend/API_ROUTES.md",
+        "04-backend/AUTH_AND_PERMISSIONS.md",
+        "09-qa/BUILD_AND_TEST_COMMANDS.md",
+        "TASK.md",
+        "manifest.json"
+      ]
+    },
+    {
+      "date": "2026-05-19",
+      "phase": "AUTH-2E",
+      "created": [
+        "apps/api/src/modules/auth/auth.csrf.ts",
+        "apps/api/src/shared/guards/csrf.middleware.ts"
+      ],
+      "updated": [
+        "apps/api/.env.example",
+        "apps/api/src/app.ts",
+        "apps/api/src/modules/auth/auth.routes.ts",
+        "apps/api/src/modules/portal/portal.routes.ts",
+        "apps/api/src/shared/config/env.ts",
+        "apps/admin/src/lib/api/client.ts",
+        "apps/portal/src/lib/api/http.ts",
+        "03-frontend/ADMIN_APP_MAP.md",
+        "03-frontend/PORTAL_APP_MAP.md",
+        "04-backend/API_ROUTES.md",
+        "04-backend/AUTH_AND_ACCESS.md",
+        "04-backend/AUTH_AND_PERMISSIONS.md",
+        "09-qa/BUILD_AND_TEST_COMMANDS.md",
+        "TASK.md",
+        "manifest.json"
+      ]
+    },
+    {
+      "date": "2026-05-19",
+      "phase": "AUTH-2F",
+      "created": [
+        "apps/api/src/modules/portal/portal-rate-limit.middleware.ts"
+      ],
+      "updated": [
+        "apps/api/package.json",
+        "apps/api/package-lock.json",
+        "apps/api/.env.example",
+        "apps/api/src/app.ts",
+        "apps/api/src/modules/account-requests/account-request.model.ts",
+        "apps/api/src/modules/account-requests/account-request.service.ts",
+        "apps/api/src/modules/portal/portal.routes.ts",
+        "apps/api/src/shared/config/env.ts",
+        "apps/portal/src/lib/api/portal.api.ts",
+        "apps/portal/src/pages/AccountRequestPage.tsx",
+        "03-frontend/PORTAL_APP_MAP.md",
+        "04-backend/API_ROUTES.md",
+        "04-backend/AUTH_AND_ACCESS.md",
+        "09-qa/BUILD_AND_TEST_COMMANDS.md",
+        "TASK.md",
+        "manifest.json"
+      ]
+    },
+    {
+      "date": "2026-05-19",
+      "phase": "PORTAL-3",
+      "created": [
+        "apps/api/src/modules/requests/request.service.ts",
+        "exploration-cache/06-workflows/PORTAL_REQUEST_WORKFLOW.md"
+      ],
+      "updated": [
+        "apps/api/package.json",
+        "apps/api/package-lock.json",
+        "apps/api/.env.example",
+        "apps/api/src/modules/admin/admin.routes.ts",
+        "apps/api/src/modules/courriers/courrier.model.ts",
+        "apps/api/src/modules/portal/portal.routes.ts",
+        "apps/api/src/modules/requests/request.model.ts",
+        "apps/api/src/shared/config/env.ts",
+        "apps/api/src/shared/storage/storage.adapter.ts",
+        "apps/portal/src/lib/api/http.ts",
+        "apps/portal/src/lib/api/portal.api.ts",
+        "04-backend/API_ROUTES.md",
+        "05-data/DATA_MODELS.md",
+        "06-workflows/PORTAL_REQUEST_WORKFLOW.md",
+        "03-frontend/PORTAL_APP_MAP.md",
+        "09-qa/BUILD_AND_TEST_COMMANDS.md",
+        "TASK.md",
+        "manifest.json"
+      ]
+    },
+    {
+      "date": "2026-05-19",
+      "phase": "PORTAL-3B",
+      "created": [
+        "apps/portal/src/components/RequestStatusBadge.tsx",
+        "apps/portal/src/components/RequestTypeLabel.tsx",
+        "apps/portal/src/pages/NewRequestPage.tsx"
+      ],
+      "updated": [
+        "apps/portal/src/App.tsx",
+        "apps/portal/src/lib/routes.ts",
+        "apps/portal/src/pages/MyRequestsPage.tsx",
+        "apps/portal/src/pages/RequestDetailPage.tsx",
+        "apps/portal/src/styles.css",
+        "03-frontend/PORTAL_APP_MAP.md",
+        "06-workflows/PORTAL_REQUEST_WORKFLOW.md",
+        "09-qa/BUILD_AND_TEST_COMMANDS.md",
+        "TASK.md",
+        "manifest.json"
+      ]
+    },
+    {
+      "date": "2026-05-19",
+      "phase": "ADMIN-3",
+      "created": [
+        "exploration-cache/06-workflows/ADMIN_INTAKE_WORKFLOW.md"
+      ],
+      "updated": [
+        "apps/api/src/modules/admin/admin.routes.ts",
+        "apps/api/src/modules/requests/request.model.ts",
+        "apps/api/src/modules/requests/request.service.ts",
+        "apps/api/src/shared/permissions/permissions.ts",
+        "apps/portal/src/components/RequestStatusBadge.tsx",
+        "apps/portal/src/lib/api/portal.api.ts",
+        "04-backend/API_ROUTES.md",
+        "04-backend/AUTH_AND_PERMISSIONS.md",
+        "05-data/DATA_MODELS.md",
+        "06-workflows/PORTAL_REQUEST_WORKFLOW.md",
+        "06-workflows/ADMIN_INTAKE_WORKFLOW.md",
+        "09-qa/BUILD_AND_TEST_COMMANDS.md",
+        "TASK.md",
+        "manifest.json"
+      ]
+    },
+    {
+      "date": "2026-05-19",
+      "phase": "ADMIN-3B",
+      "created": [
+        "apps/admin/src/lib/api/requests.api.ts",
+        "apps/admin/src/pages/RequestsPage.tsx"
+      ],
+      "updated": [
+        "apps/admin/src/App.tsx",
+        "apps/admin/src/config/nav.tsx",
+        "apps/admin/src/contexts/AuthContext.tsx",
+        "apps/admin/src/lib/api/client.ts",
+        "03-frontend/ADMIN_APP_MAP.md",
+        "06-workflows/ADMIN_INTAKE_WORKFLOW.md",
+        "09-qa/BUILD_AND_TEST_COMMANDS.md",
+        "TASK.md",
+        "manifest.json"
+      ]
+    },
+    {
+      "date": "2026-05-19",
+      "phase": "ADMIN-3B-route-correction",
+      "created": [],
+      "updated": [
+        "apps/admin/src/App.tsx",
+        "apps/admin/src/config/nav.tsx",
+        "03-frontend/ADMIN_APP_MAP.md",
+        "06-workflows/ADMIN_INTAKE_WORKFLOW.md",
+        "09-qa/BUILD_AND_TEST_COMMANDS.md",
+        "TASK.md",
+        "manifest.json"
+      ]
     }
   ],
   "newRepoFolders": [
@@ -165,7 +504,15 @@
     "apps/api/src/shared/guards/",
     "apps/api/src/shared/permissions/",
     "apps/api/src/shared/storage/",
-    "apps/api/src/shared/utils/"
+    "apps/api/src/shared/utils/",
+    "apps/portal/",
+    "apps/portal/src/",
+    "apps/portal/src/components/",
+    "apps/portal/src/layouts/",
+    "apps/portal/src/lib/",
+    "apps/portal/src/lib/api/",
+    "apps/portal/src/lib/auth/",
+    "apps/portal/src/pages/"
   ],
   "newRepoFiles": [
     "apps/api/.env.example",
@@ -180,8 +527,10 @@
     "apps/api/src/modules/admin/admin.service.ts",
     "apps/api/src/modules/audit/audit-log.model.ts",
     "apps/api/src/modules/audit/audit.service.ts",
+    "apps/api/src/modules/auth/auth.cookies.ts",
     "apps/api/src/modules/auth/auth.routes.ts",
     "apps/api/src/modules/auth/auth.service.ts",
+    "apps/api/src/modules/auth/auth.tokens.ts",
     "apps/api/src/modules/courriers/courrier.model.ts",
     "apps/api/src/modules/dg-reviews/dg-review.model.ts",
     "apps/api/src/modules/document-templates/document-template.model.ts",
@@ -218,15 +567,51 @@
     "apps/api/src/shared/utils/async-handler.ts"
     ,
     "apps/admin/src/lib/api/admin.api.ts",
+    "apps/admin/src/lib/api/account-requests.api.ts",
     "apps/admin/src/lib/api/auth.api.ts",
+    "apps/admin/src/lib/api/requests.api.ts",
     "apps/admin/src/lib/auth/permissions.ts",
     "apps/admin/src/pages/AuditLogsPage.tsx",
+    "apps/admin/src/pages/AccountRequestsPage.tsx",
     "apps/admin/src/pages/ChangePasswordPage.tsx",
     "apps/admin/src/pages/InternalAccountsPage.tsx",
-    "apps/admin/src/pages/PersonnelPage.tsx"
+    "apps/admin/src/pages/PersonnelPage.tsx",
+    "apps/admin/src/pages/RequestsPage.tsx",
+    "apps/portal/.env.example",
+    "apps/portal/index.html",
+    "apps/portal/package-lock.json",
+    "apps/portal/package.json",
+    "apps/portal/tsconfig.json",
+    "apps/portal/vite.config.ts",
+    "apps/portal/src/App.tsx",
+    "apps/portal/src/main.tsx",
+    "apps/portal/src/styles.css",
+    "apps/portal/src/vite-env.d.ts",
+    "apps/portal/src/components/EmptyState.tsx",
+    "apps/portal/src/components/PortalHeader.tsx",
+    "apps/portal/src/components/PortalSidebar.tsx",
+    "apps/portal/src/components/PortalStatusBadge.tsx",
+    "apps/portal/src/components/RequestStatusBadge.tsx",
+    "apps/portal/src/components/RequestTypeLabel.tsx",
+    "apps/portal/src/layouts/PortalLayout.tsx",
+    "apps/portal/src/layouts/PublicLayout.tsx",
+    "apps/portal/src/lib/api/http.ts",
+    "apps/portal/src/lib/api/portal.api.ts",
+    "apps/portal/src/lib/auth/PortalAuthContext.tsx",
+    "apps/portal/src/lib/routes.ts",
+    "apps/portal/src/pages/AccountRequestPage.tsx",
+    "apps/portal/src/pages/LandingPage.tsx",
+    "apps/portal/src/pages/LoginPage.tsx",
+    "apps/portal/src/pages/MyRequestsPage.tsx",
+    "apps/portal/src/pages/NewRequestPage.tsx",
+    "apps/portal/src/pages/NotFoundPage.tsx",
+    "apps/portal/src/pages/PortalDashboardPage.tsx",
+    "apps/portal/src/pages/RequestDetailPage.tsx"
   ],
   "generatedOrInstalledFoldersNotTracked": [
     "apps/api/dist/",
-    "apps/api/node_modules/"
+    "apps/api/node_modules/",
+    "apps/portal/dist/",
+    "apps/portal/node_modules/"
   ]
 }

@@ -6,6 +6,7 @@ import {
   getCurrentUser,
   loginBootstrap,
   loginInternal,
+  logoutAdmin,
   type AuthUser,
 } from '../lib/api/auth.api';
 
@@ -16,12 +17,12 @@ interface AuthContextValue {
   isLoading: boolean;
   user: AuthUser | null;
   requiresPasswordChange: boolean;
-  login: (token: string) => void;
+  login: () => void;
   loginBootstrap: (email: string, password: string) => Promise<AuthUser>;
   loginInternal: (matricule: string, password: string) => Promise<{ user: AuthUser; requiresPasswordChange: boolean }>;
   loadCurrentUser: () => Promise<AuthUser | null>;
   changePassword: (currentPassword: string, newPassword: string) => Promise<AuthUser>;
-  logout: () => void;
+  logout: () => Promise<void>;
 }
 
 export const AuthContext = createContext<AuthContextValue | null>(null);
@@ -35,7 +36,15 @@ const mockUser: AuthUser = {
   email: 'agent@aidn.local',
   matricule: 'DEMO',
   role: 'admin',
-  permissions: ['PERSONNEL_SEARCH', 'AIDN_USER_ACTIVATE', 'AUDIT_VIEW'],
+  permissions: [
+    'PERSONNEL_SEARCH',
+    'AIDN_USER_ACTIVATE',
+    'AUDIT_VIEW',
+    'REQUEST_VIEW_ALL',
+    'REQUEST_INTAKE_REVIEW',
+    'COURRIER_REGISTER_PHYSICAL',
+    'DG_CIRCUIT_HANDLE',
+  ],
 };
 
 interface AuthProviderProps {
@@ -55,19 +64,19 @@ export function AuthProvider({ children }: AuthProviderProps): React.JSX.Element
     setIsAuthenticated(false);
   }, []);
 
-  const storeSession = useCallback((token: string, nextUser: AuthUser, mustChangePassword = false) => {
-    localStorage.setItem(TOKEN_KEY, token);
+  const storeSession = useCallback((nextUser: AuthUser, mustChangePassword = false) => {
+    if (nextUser.userType !== 'internal') {
+      clearSession();
+      throw new Error('Admin access is restricted to internal users.');
+    }
+
     setUser({ ...nextUser, mustChangePassword });
     setRequiresPasswordChange(mustChangePassword);
     setIsAuthenticated(true);
-  }, []);
+  }, [clearSession]);
 
   const loadCurrentUser = useCallback(async () => {
-    const token = localStorage.getItem(TOKEN_KEY);
-    if (!token) {
-      clearSession();
-      return null;
-    }
+    localStorage.removeItem(TOKEN_KEY);
 
     if (isMockMode()) {
       setUser(mockUser);
@@ -78,6 +87,12 @@ export function AuthProvider({ children }: AuthProviderProps): React.JSX.Element
 
     try {
       const currentUser = await getCurrentUser();
+      if (currentUser.userType !== 'internal') {
+        clearSession();
+        await logoutAdmin().catch(() => undefined);
+        return null;
+      }
+
       setUser(currentUser);
       setRequiresPasswordChange(currentUser.mustChangePassword === true);
       setIsAuthenticated(true);
@@ -86,6 +101,13 @@ export function AuthProvider({ children }: AuthProviderProps): React.JSX.Element
       clearSession();
       return null;
     }
+  }, [clearSession]);
+
+  const logout = useCallback(async () => {
+    if (!isMockMode()) {
+      await logoutAdmin().catch(() => undefined);
+    }
+    clearSession();
   }, [clearSession]);
 
   useEffect(() => {
@@ -110,28 +132,28 @@ export function AuthProvider({ children }: AuthProviderProps): React.JSX.Element
       isLoading,
       user,
       requiresPasswordChange,
-      login: (token: string) => {
-        storeSession(token, mockUser, false);
+      login: () => {
+        storeSession(mockUser, false);
       },
       loginBootstrap: async (email: string, password: string) => {
         if (isMockMode()) {
-          storeSession('aidn-demo-token', mockUser, false);
+          storeSession(mockUser, false);
           return mockUser;
         }
 
         const response = await loginBootstrap(email, password);
-        storeSession(response.token, response.user, false);
+        storeSession(response.user, false);
         return response.user;
       },
       loginInternal: async (matricule: string, password: string) => {
         if (isMockMode()) {
-          storeSession('aidn-demo-token', mockUser, false);
+          storeSession(mockUser, false);
           return { user: mockUser, requiresPasswordChange: false };
         }
 
         const response = await loginInternal(matricule, password);
         const mustChangePassword = response.requiresPasswordChange === true;
-        storeSession(response.token, response.user, mustChangePassword);
+        storeSession(response.user, mustChangePassword);
         return { user: response.user, requiresPasswordChange: mustChangePassword };
       },
       loadCurrentUser,
@@ -148,9 +170,9 @@ export function AuthProvider({ children }: AuthProviderProps): React.JSX.Element
         setIsAuthenticated(true);
         return response.user;
       },
-      logout: clearSession,
+      logout,
     }),
-    [clearSession, isAuthenticated, isLoading, loadCurrentUser, requiresPasswordChange, storeSession, user],
+    [isAuthenticated, isLoading, loadCurrentUser, logout, requiresPasswordChange, storeSession, user],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -2,6 +2,7 @@ import bcrypt from "bcryptjs";
 import mongoose, { type ClientSession, Types } from "mongoose";
 
 import { HttpError } from "../../shared/errors/http-error.js";
+import { env } from "../../shared/config/env.js";
 import { Roles, type Role } from "../../shared/permissions/permissions.js";
 import { writeAuditLog } from "../audit/audit.service.js";
 import { normalizeOrganizationName } from "../organizations/organization-name.js";
@@ -26,6 +27,8 @@ type CreateAccountRequestInput = {
   contactEmail?: string;
   contactPhone?: string;
   password?: string;
+  website?: string;
+  formStartedAt?: number;
 };
 
 type ListAccountRequestsFilters = {
@@ -188,6 +191,23 @@ const runWithOptionalTransaction = async <T>(
 };
 
 export const submitAccountRequest = async (input: CreateAccountRequestInput) => {
+  if (trimmed(input.website)) {
+    throw new HttpError(400, "Demande invalide.");
+  }
+
+  const formStartedAt =
+    typeof input.formStartedAt === "number" ? input.formStartedAt : Number.NaN;
+  const submittedAt = Date.now();
+
+  if (
+    !Number.isFinite(formStartedAt) ||
+    formStartedAt <= 0 ||
+    formStartedAt > submittedAt ||
+    submittedAt - formStartedAt < env.publicAccountRequestMinSubmitMs
+  ) {
+    throw new HttpError(400, "Demande invalide.");
+  }
+
   const requestedOrganizationName = trimmed(input.requestedOrganizationName);
   const contactFullName = trimmed(input.contactFullName);
   const contactEmail = normalizeEmail(input.contactEmail);
@@ -212,6 +232,24 @@ export const submitAccountRequest = async (input: CreateAccountRequestInput) => 
 
   if (password.length < 8) {
     throw new HttpError(400, "password must contain at least 8 characters");
+  }
+
+  const existingOpenRequest = await AccountRequestModel.findOne({
+    contactEmail,
+    status: { $in: ["submitted", "under_review"] },
+  }).lean();
+
+  if (existingOpenRequest) {
+    throw new HttpError(409, "Une demande est deja en cours pour cet email.");
+  }
+
+  const existingPostulant = await UserModel.findOne({
+    email: contactEmail,
+    userType: "postulant",
+  }).lean();
+
+  if (existingPostulant) {
+    throw new HttpError(409, "Un compte existe deja pour cet email.");
   }
 
   const passwordHash = await bcrypt.hash(password, 12);

@@ -33,6 +33,7 @@ accountRequestSchema.index({
   contactEmail: "text",
   requestedEmail: "text",
 });
+accountRequestSchema.index({ contactEmail: 1, status: 1 });
 
 export type AccountRequest = InferSchemaType<typeof accountRequestSchema> & { _id: Types.ObjectId };
 export const AccountRequestModel = model("AccountRequest", accountRequestSchema, "account_requests");

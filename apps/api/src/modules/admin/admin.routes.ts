@@ -1,7 +1,10 @@
 import { Router } from "express";
+import type { RequestHandler } from "express";
+import multer from "multer";
 
 import { requireAuth } from "../../shared/guards/auth.middleware.js";
 import { requirePermission } from "../../shared/guards/permission.middleware.js";
+import { HttpError } from "../../shared/errors/http-error.js";
 import {
   Permissions,
   type Role,
@@ -16,6 +19,16 @@ import {
 } from "../account-requests/account-request.service.js";
 import { listAuditLogs } from "../audit/audit.service.js";
 import {
+  getAdminRequest,
+  getPortalRequestMaxFileSizeBytes,
+  listAdminRequests,
+  markAdminRequestPrintedForDg,
+  registerAdminPhysicalCourrier,
+  requestAdminRequestCorrection,
+  sendAdminRequestToDg,
+  startAdminRequestIntake,
+} from "../requests/request.service.js";
+import {
   activateInternalAccount,
   listInternalAccounts,
   listSiUsers,
@@ -23,8 +36,27 @@ import {
 } from "./admin.service.js";
 
 export const adminRouter = Router();
+const physicalCourrierUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: getPortalRequestMaxFileSizeBytes() },
+});
+const handlePhysicalCourrierUpload: RequestHandler = (req, res, next) => {
+  physicalCourrierUpload.single("file")(req, res, (error) => {
+    if (error instanceof multer.MulterError && error.code === "LIMIT_FILE_SIZE") {
+      next(new HttpError(413, "Courrier file is too large"));
+      return;
+    }
 
-adminRouter.use(requireAuth);
+    if (error) {
+      next(error);
+      return;
+    }
+
+    next();
+  });
+};
+
+adminRouter.use(requireAuth({ scope: "admin" }));
 
 /* Test connection to SI_ANAC Database */
 adminRouter.get(
@@ -106,6 +138,91 @@ adminRouter.get(
           typeof req.query.status === "string" ? req.query.status : undefined,
       }),
     });
+  }),
+);
+
+adminRouter.get(
+  "/requests",
+  requirePermission(Permissions.REQUEST_VIEW_ALL),
+  asyncHandler(async (req, res) => {
+    res.json(
+      await listAdminRequests({
+        status: typeof req.query.status === "string" ? req.query.status : undefined,
+        requestType: typeof req.query.requestType === "string" ? req.query.requestType : undefined,
+        organizationId: typeof req.query.organizationId === "string" ? req.query.organizationId : undefined,
+        submittedById: typeof req.query.submittedById === "string" ? req.query.submittedById : undefined,
+        courrierSource: typeof req.query.courrierSource === "string" ? req.query.courrierSource : undefined,
+        search: typeof req.query.search === "string" ? req.query.search : undefined,
+        from: typeof req.query.from === "string" ? req.query.from : undefined,
+        to: typeof req.query.to === "string" ? req.query.to : undefined,
+      }),
+    );
+  }),
+);
+
+adminRouter.get(
+  "/requests/:id",
+  requirePermission(Permissions.REQUEST_VIEW_ALL),
+  asyncHandler(async (req, res) => {
+    res.json(await getAdminRequest(String(req.params.id), req.user!));
+  }),
+);
+
+adminRouter.post(
+  "/requests/:id/start-intake",
+  requirePermission(Permissions.REQUEST_INTAKE_REVIEW),
+  asyncHandler(async (req, res) => {
+    res.json(await startAdminRequestIntake(String(req.params.id), req.body, req.user!));
+  }),
+);
+
+adminRouter.post(
+  "/requests/:id/request-correction",
+  requirePermission(Permissions.REQUEST_INTAKE_REVIEW),
+  asyncHandler(async (req, res) => {
+    res.json(await requestAdminRequestCorrection(String(req.params.id), req.body, req.user!));
+  }),
+);
+
+adminRouter.post(
+  "/requests/:id/register-physical-courrier",
+  requirePermission(Permissions.COURRIER_REGISTER_PHYSICAL),
+  handlePhysicalCourrierUpload,
+  asyncHandler(async (req, res) => {
+    res.json(
+      await registerAdminPhysicalCourrier(
+        String(req.params.id),
+        req.file,
+        {
+          physicalDepositDate:
+            typeof req.body.physicalDepositDate === "string"
+              ? req.body.physicalDepositDate
+              : undefined,
+          officialReference:
+            typeof req.body.officialReference === "string"
+              ? req.body.officialReference
+              : undefined,
+          notes: typeof req.body.notes === "string" ? req.body.notes : undefined,
+        },
+        req.user!,
+      ),
+    );
+  }),
+);
+
+adminRouter.post(
+  "/requests/:id/mark-printed-for-dg",
+  requirePermission(Permissions.DG_CIRCUIT_HANDLE),
+  asyncHandler(async (req, res) => {
+    res.json(await markAdminRequestPrintedForDg(String(req.params.id), req.body, req.user!));
+  }),
+);
+
+adminRouter.post(
+  "/requests/:id/send-to-dg",
+  requirePermission(Permissions.DG_CIRCUIT_HANDLE),
+  asyncHandler(async (req, res) => {
+    res.json(await sendAdminRequestToDg(String(req.params.id), req.body, req.user!));
   }),
 );
 

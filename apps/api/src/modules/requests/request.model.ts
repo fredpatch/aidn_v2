@@ -17,7 +17,9 @@ const requestSchema = new Schema(
         "draft",
         "submitted",
         "courrier_uploaded",
-        "courrier_physical_recorded",
+        "courrier_physical_declared",
+        "intake_in_review",
+        "intake_requires_correction",
         "initial_sent_to_dg",
         "initial_dg_returned",
         "initial_dg_decision_recorded",
@@ -32,6 +34,27 @@ const requestSchema = new Schema(
     },
     courrierSource: { type: String, enum: ["portal_upload", "physical_deposit"] },
     initialCourrierId: { type: Schema.Types.ObjectId, ref: "Courrier" },
+    initialDocumentId: { type: Schema.Types.ObjectId, ref: "Document" },
+    physicalDeposit: {
+      declaredAt: { type: Date },
+      declaredById: { type: Schema.Types.ObjectId, ref: "User" },
+      expectedDepositDate: { type: Date },
+      physicalDepositDate: { type: Date },
+      location: { type: String, enum: ["ANAC", "DG", "DN", "other"] },
+      notes: { type: String, trim: true }
+    },
+    intake: {
+      startedAt: { type: Date },
+      startedById: { type: Schema.Types.ObjectId, ref: "User" },
+      correctionRequestedAt: { type: Date },
+      correctionRequestedById: { type: Schema.Types.ObjectId, ref: "User" },
+      correctionReason: { type: String, trim: true },
+      printedForDgAt: { type: Date },
+      printedForDgById: { type: Schema.Types.ObjectId, ref: "User" },
+      sentToDgAt: { type: Date },
+      sentToDgById: { type: Schema.Types.ObjectId, ref: "User" },
+      notes: { type: String, trim: true }
+    },
     initialDgReviewId: { type: Schema.Types.ObjectId, ref: "DGReview" },
     dossierId: { type: Schema.Types.ObjectId, ref: "Dossier" },
     submittedAt: { type: Date },
@@ -39,6 +62,9 @@ const requestSchema = new Schema(
   },
   { timestamps: true }
 );
+
+requestSchema.index({ submittedAt: 1 });
+requestSchema.index({ createdAt: 1 });
 
 export type AidnRequest = InferSchemaType<typeof requestSchema> & { _id: Types.ObjectId };
 export const RequestModel = model("Request", requestSchema, "requests");

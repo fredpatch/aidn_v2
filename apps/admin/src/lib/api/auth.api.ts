@@ -12,7 +12,6 @@ export type AuthUser = {
 };
 
 type LoginResponse = {
-  token: string;
   requiresPasswordChange?: boolean;
   user: AuthUser;
 };
@@ -31,4 +30,8 @@ export function getCurrentUser(): Promise<AuthUser> {
 
 export function changeInternalPassword(currentPassword: string, newPassword: string): Promise<{ user: AuthUser }> {
   return apiPost<{ user: AuthUser }>('/api/v1/auth/internal/change-password', { currentPassword, newPassword });
+}
+
+export function logoutAdmin(): Promise<{ ok: true }> {
+  return apiPost<{ ok: true }>('/api/v1/auth/logout', {});
 }

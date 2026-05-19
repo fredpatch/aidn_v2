@@ -50,7 +50,13 @@ Source: apps/admin/src/features/aidn/types/aidn.types.ts
 - Approval also creates an `organization_members` record with member role `primary_contact`, `representative`, or `viewer`; default is `primary_contact`.
 - Canonical organizations use `normalizedName = trim + lowercase + collapsed spaces + simple accent removal`; active duplicate normalized names are rejected when creating from approval.
 - `dossiers` store both `organizationId` and `postulantUserId`.
-- `requests` represent demande/courrier intake before a DN dossier exists.
+- `requests` represent demande/courrier intake before a DN dossier exists. PORTAL-3 creates and submits `Request` records only; a DN dossier is opened later only after DG orientation toward DN.
+- `requests` now include `submittedById`, `organizationId`, request type, subject/message, status, `courrierSource`, `initialCourrierId`, `initialDocumentId`, physical deposit metadata, and submission/closure timestamps.
+- `requests.status` now includes internal intake statuses `intake_in_review` and `intake_requires_correction` before `initial_sent_to_dg`.
+- `requests.intake` stores internal-only intake metadata: started date/actor, correction request date/actor/reason, printed-for-DG date/actor, sent-to-DG date/actor, and notes.
+- `courriers` can reference either an uploaded initial courrier document or a physical deposit declaration. For physical deposits, `documentId` is optional until a scan exists.
+- Internal physical courrier registration can update initial `courriers` with `source=physical_deposit` or `source=internal_scan`, optional official reference, physical deposit date, scan date, document id, registering actor, and notes.
+- Uploaded initial courrier creates a `documents` record with `ownerType=request`, `category=courrier`, `documentType=initial_courrier`, `visibility=internal_only`, and `status=uploaded`.
 - `dg_reviews` is reusable across initial request, phase, closure, and certificate review targets.
 - Internal users are personnel-backed: `users.externalSource`, `users.externalUserId`, `users.matricule`, and `aidn_internal_accounts.personnelId` link local access to official personnel identity.
 - For now `personnelId` is the official `matricule`.

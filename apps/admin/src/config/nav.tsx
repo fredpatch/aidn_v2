@@ -11,6 +11,7 @@ import {
   ScrollText,
   Settings,
   ShieldCheck,
+  UserCheck,
   Users,
   Workflow,
 } from 'lucide-react';
@@ -41,7 +42,7 @@ export const NAV_GROUPS: NavGroupConfig[] = [
     label: 'Traitement',
     storageKey: 'traitement',
     items: [
-      { label: 'Demandes', to: '/demandes', icon: <ScrollText className="h-4 w-4" aria-hidden="true" /> },
+      { label: 'Demandes', to: '/demandes', icon: <ScrollText className="h-4 w-4" aria-hidden="true" />, permissions: ['REQUEST_VIEW_ALL'] },
       { label: 'Courriers / Orientation DG', to: '/courriers', icon: <MailCheck className="h-4 w-4" aria-hidden="true" /> },
       { label: 'Dossiers DN', to: '/dossiers', icon: <FolderOpen className="h-4 w-4" aria-hidden="true" /> },
       { label: 'Workflow OMA', to: '/workflow-oma', icon: <Workflow className="h-4 w-4" aria-hidden="true" /> },
@@ -69,6 +70,7 @@ export const NAV_GROUPS: NavGroupConfig[] = [
     items: [
       { label: 'Personnel ANAC', to: '/admin/personnel', icon: <Search className="h-4 w-4" aria-hidden="true" />, permissions: ['PERSONNEL_SEARCH', 'AIDN_USER_ACTIVATE'] },
       { label: 'Comptes internes', to: '/admin/internal-accounts', icon: <Users className="h-4 w-4" aria-hidden="true" />, permissions: ['AIDN_USER_ACTIVATE'] },
+      { label: 'Comptes postulants', to: '/admin/demandes-comptes', icon: <UserCheck className="h-4 w-4" aria-hidden="true" />, permissions: ['POSTULANT_ACCOUNT_REVIEW'] },
       { label: "Journal d'audit", to: '/admin/audit-logs', icon: <ShieldCheck className="h-4 w-4" aria-hidden="true" />, permissions: ['AUDIT_VIEW'] },
       { label: 'Parametres', to: '/settings', icon: <Settings className="h-4 w-4" aria-hidden="true" /> },
     ],

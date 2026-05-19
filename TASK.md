@@ -2,7 +2,7 @@
 
 ## Current Phase
 
-Phase API-2 - postulant account request review and canonical organization linking: completed.
+Phase ADMIN-3B - admin UI for request intake and send-to-DG: completed.
 
 ## Completed Output
 
@@ -92,6 +92,145 @@ Phase API-2 - postulant account request review and canonical organization linkin
   - approval creates the postulant user and active organization membership
   - rejection requires a reason and creates no downstream records
   - added audit events for submission, approval, rejection, and organization link/create decisions
+- Phase PORTAL-INIT created the standalone external portal skeleton:
+  - added `apps/portal` as a separate React/Vite app
+  - added public routes `/`, `/demande-compte`, and `/connexion`
+  - added protected placeholder routes `/tableau-de-bord`, `/demandes`, and `/demandes/:id`
+  - added `PortalAuthContext` with placeholder auth state only
+  - added a public account request form shell without API submission
+  - added minimal portal API placeholders for future `POST /api/v1/portal/account-requests` wiring
+  - kept admin account request validation UI, login, demande/courrier submission, upload, DG workflow, dossier tracking, and notifications out of scope
+- Phase PORTAL-1 wired the public portal account request form:
+  - `/demande-compte` now posts to `POST /api/v1/portal/account-requests`
+  - client-side validation covers required fields, contact email, optional organization email, password length, and password confirmation
+  - confirm password is never sent to the backend
+  - success state clears/locks the form and shows `Statut : Soumise`
+  - error state keeps entered values and shows a visible French alert
+  - no portal login, auth state creation, dashboard data, demande/courrier submission, upload, notification, or DG workflow behavior was added
+- Phase ADMIN-2A added the internal review UI for postulant account requests:
+  - added `/admin/demandes-comptes` guarded by `POSTULANT_ACCOUNT_REVIEW`
+  - added admin navigation label `Comptes postulants`
+  - added typed account request API client methods for list, detail, approve, reject, and organization search
+  - list supports search, status, start date, and end date filters
+  - detail drawer shows sanitized organization/contact/status/decision data only
+  - approval supports linking to an existing active canonical organization or creating a new canonical organization
+  - rejection requires a reason
+  - finalized requests disable approve/reject actions
+  - password and `passwordHash` are not displayed
+- Phase PORTAL-2 enabled approved postulant portal login:
+  - added `POST /api/v1/portal/auth/login` and `GET /api/v1/portal/auth/me`
+  - restricts portal auth to active users with `userType=postulant` and `role=postulant`
+  - returns JWT plus sanitized user data and never returns `passwordHash`
+  - stores the MVP portal token under `aidn_portal_token`
+  - restores portal sessions on refresh via `/portal/auth/me`
+  - avoids attaching the portal bearer token to public account request submission
+  - protects `/tableau-de-bord`, `/demandes`, and `/demandes/:id`
+  - added logout controls in the portal header/sidebar
+  - tightened admin session restore to reject non-internal users client-side
+  - kept demande/courrier submission, upload, DG workflow, dossier tracking, notifications, and password reset out of scope
+- Phase AUTH-2A added backend HttpOnly cookie session support with RS256:
+  - introduced RS256 JWT signing and verification using `JWT_PRIVATE_KEY_BASE64` and `JWT_PUBLIC_KEY_BASE64`
+  - added admin/internal cookie `aidn_admin_session` and portal cookie `aidn_portal_session`
+  - login endpoints set HttpOnly cookies
+  - auth middleware was initially kept compatible with `Authorization: Bearer` until frontend cookie migration completed
+  - added `POST /api/v1/auth/logout` and `POST /api/v1/portal/auth/logout` to clear cookies
+  - CORS origins are now explicit through `CORS_ORIGINS` while credentials remain enabled
+  - admin/portal frontend migration, CSRF protection, refresh tokens, and bearer fallback removal were deferred to later auth slices
+- Phase AUTH-2B migrated the admin frontend to cookie auth:
+  - admin API client now sends `credentials: "include"` on API calls
+  - admin API client no longer reads localStorage tokens or sends `Authorization: Bearer`
+  - admin auth context stores only user/session state in React
+  - admin session restore calls `GET /api/v1/auth/me` without requiring a localStorage token
+  - admin login ignores the temporary token in backend responses and trusts the HttpOnly cookie
+  - admin logout calls `POST /api/v1/auth/logout` and clears local user state
+  - old `${STORAGE_PREFIX}_token` is removed during startup/logout cleanup only
+  - portal frontend migration, CSRF protection, refresh tokens, and backend bearer fallback removal were deferred to later auth slices
+- Phase AUTH-2C migrated the portal frontend to cookie auth:
+  - portal API helpers now send `credentials: "include"` on API calls
+  - portal API helpers no longer read localStorage tokens or send `Authorization: Bearer`
+  - portal auth context stores only the postulant user in React state
+  - portal startup restore calls `GET /api/v1/portal/auth/me` without requiring a localStorage token
+  - portal login calls `POST /api/v1/portal/auth/login`, ignores the temporary token, and trusts the HttpOnly cookie
+  - portal logout calls `POST /api/v1/portal/auth/logout` and clears local user state
+  - old `aidn_portal_token` is removed during startup/logout cleanup only
+  - protected portal pages still redirect unauthenticated users to `/connexion`
+  - CSRF protection, refresh tokens, runtime browser validation, and backend bearer fallback removal were deferred to later auth slices
+- Phase AUTH-2D removed JWTs from login response bodies:
+  - `POST /api/v1/auth/bootstrap/login` returns only `{ user }` while setting `aidn_admin_session`
+  - `POST /api/v1/auth/internal/login` returns `{ user, requiresPasswordChange }` while setting `aidn_admin_session`
+  - `POST /api/v1/portal/auth/login` returns only `{ user }` while setting `aidn_portal_session`
+  - frontend auth response types no longer include `token`
+  - auth middleware no longer accepts `Authorization: Bearer`
+  - admin routes require `aidn_admin_session`
+  - portal routes require `aidn_portal_session`
+- Phase AUTH-2E added double-submit CSRF protection:
+  - added readable admin CSRF cookie `aidn_admin_csrf`
+  - added readable portal CSRF cookie `aidn_portal_csrf`
+  - unsafe protected requests require matching `X-CSRF-Token`
+  - safe methods do not require CSRF
+  - login, logout, bootstrap login, and public portal account request submission are explicitly exempt
+  - login sets both the HttpOnly session cookie and readable CSRF cookie
+  - logout clears both the session cookie and CSRF cookie
+  - admin and portal clients attach the CSRF header on unsafe requests when the scoped CSRF cookie exists
+  - auth cookies remain HttpOnly; CSRF cookies are readable by frontend code
+- Phase AUTH-2F hardened public portal account request submission:
+  - added route-scoped rate limiting for `POST /api/v1/portal/account-requests`
+  - added env controls for public account request rate limit window, max, and minimum submit delay
+  - reduced API JSON/urlencoded body limit to `100kb`
+  - added hidden `website` honeypot support in the portal form
+  - added `formStartedAt` minimum completion delay support
+  - rejects honeypot or too-fast submissions with generic `Demande invalide.`
+  - blocks duplicate submitted/under_review requests for the same normalized contact email
+  - blocks submission when a postulant user already exists for the same email
+  - anti-abuse fields are not persisted on account requests
+  - public account request remains unauthenticated and CSRF-exempt
+  - CAPTCHA and email verification remain deferred
+- Phase PORTAL-3 implemented initial demande/courrier submission:
+  - added authenticated portal request routes for draft creation, listing, detail, update, courrier upload, physical deposit declaration, and submission
+  - added internal read-only admin request list/detail routes guarded by `REQUEST_VIEW_ALL`
+  - extended `requests` with `initialDocumentId`, physical deposit metadata, and `courrier_physical_declared`
+  - extended `courriers` so physical deposits can exist without a document
+  - implemented local upload storage under `UPLOAD_STORAGE_DIR` with 10 MB default max size
+  - creates `Document` records for uploaded initial courrier and archives replaced documents without deleting files
+  - submit requires uploaded courrier evidence or a physical deposit declaration
+  - submitted requests remain `Request` records only; no `Dossier` record is created in this slice
+  - added portal request API client methods without building full portal UI pages
+  - added audit events for create, update, courrier upload, physical deposit declaration, submit, and optional admin detail view
+- Phase PORTAL-3B implemented the minimal postulant UI:
+  - `/demandes` now lists the logged-in postulant's own demandes
+  - `/demandes/nouvelle` creates a draft request and redirects to the detail page
+  - `/demandes/:id` shows request detail, status, dates, courrier evidence, and edit controls before submission
+  - request type, subject, and message can be updated before submission
+  - initial courrier can be uploaded through multipart form data
+  - physical deposit can be declared with expected date, deposit date, location, and notes
+  - submit is blocked client-side until uploaded courrier or physical deposit declaration exists
+  - submitted demandes hide edit/upload/deposit/submit actions and show the administrative waiting message
+  - added small request type/status label components for portal display
+- Phase ADMIN-3 implemented internal intake before the physical DG circuit:
+  - added request statuses `intake_in_review` and `intake_requires_correction`
+  - added internal `request.intake` timestamps, actor refs, correction reason, print marker, send-to-DG marker, and notes
+  - added `REQUEST_INTAKE_REVIEW` permission and mapped intake/courrier/DG capabilities to internal roles
+  - added `POST /api/v1/admin/requests/:id/start-intake`
+  - added `POST /api/v1/admin/requests/:id/request-correction`
+  - added `POST /api/v1/admin/requests/:id/register-physical-courrier`
+  - added `POST /api/v1/admin/requests/:id/mark-printed-for-dg`
+  - added `POST /api/v1/admin/requests/:id/send-to-dg`
+  - physical courrier registration can record reception only or attach an internal scan document
+  - portal-uploaded courrier must be marked printed before send-to-DG
+  - correction and sent-to-DG transitions create in-app notifications for the postulant
+  - admin request detail now includes intake metadata with actor summaries when available
+  - no `Dossier` records are created by this slice
+- Phase ADMIN-3B implemented the internal intake UI:
+  - implemented the intake UI on the existing `/demandes` route guarded by `REQUEST_VIEW_ALL`
+  - reused the existing `Demandes` navigation entry instead of adding a second demandes screen
+  - added `apps/admin/src/lib/api/requests.api.ts` for list/detail and intake actions
+  - extended the admin API client with multipart `apiPostForm`
+  - added `RequestsPage` with status/type/source/search filters
+  - added detail drawer for demande, postulant, organization, courrier, and internal verification metadata
+  - added permission-aware action buttons for intake start, correction request, physical courrier registration, printed-for-DG marker, and send-to-DG
+  - physical courrier registration supports optional internal scan upload
+  - action buttons refresh from API after mutations and do not create dossiers
+  - DG return/decision and dossier opening remain deferred
 
 ## Guardrails
 
@@ -128,13 +267,17 @@ Primary planning sources:
 
 ## Next Action
 
-Phase API-2 runtime validation and next scoped backend slice.
+Phase ADMIN-3B runtime validation and next workflow planning.
 
 P should remain validation-focused:
 
-- Validate API-2 with a live MongoDB instance using curl/Postman.
-- Review account request approval wording and canonical organization matching with stakeholders.
-- Keep request/courrier submission, DG workflow, dossier opening, upload, email, export, payment processing, certificate generation, and QLOG integration out of scope until explicitly approved.
+- Runtime-test `/demandes`, start intake, correction request, physical courrier registration, printed-for-DG marker, send-to-DG, and no dossier creation.
+- Runtime-test permission guards for `REQUEST_INTAKE_REVIEW`, `COURRIER_REGISTER_PHYSICAL`, and `DG_CIRCUIT_HANDLE`.
+- Confirm portal-uploaded requests cannot be sent to DG until marked printed.
+- Confirm physical-deposit requests can register reception/scan before send-to-DG.
+- Confirm requests after `initial_sent_to_dg` reject further intake mutation.
+- Plan DG return/decision recording next; dossier opening must remain deferred until DG orientation toward DN.
+- Keep DG decision endpoints, DN dossier opening, OMA phases, email, export, payment processing, certificate generation, and QLOG integration out of scope until explicitly approved.
 
 ## Verification
 
@@ -150,6 +293,90 @@ P should remain validation-focused:
 - Passed in `apps/api` after API-2: `npm run typecheck`
 - Passed in `apps/api` after API-2: `npm run lint`
 - Passed in `apps/api` after API-2: `npm run build`
+- Passed in `apps/portal` after PORTAL-INIT: `npm install`
+- Passed in `apps/portal` after PORTAL-INIT: `npm run typecheck`
+- Passed in `apps/portal` after PORTAL-INIT: `npm run lint`
+- Passed in `apps/portal` after PORTAL-INIT: `npm run build`
+- Note: portal build needed the known outside-sandbox rerun for the Tailwind/Vite native Windows binary.
+- Passed in `apps/portal` after PORTAL-1: `npm run typecheck`
+- Passed in `apps/portal` after PORTAL-1: `npm run lint`
+- Passed in `apps/portal` after PORTAL-1: `npm run build`
+- Runtime PORTAL-1 check: `POST /api/v1/portal/account-requests` returned `201` for `Afrijet Test Portal`; Mongo check found `account_requests=1`, `users=0`, `postulant_organizations=0` for the test identity.
+- Passed in `apps/admin` after ADMIN-2A: `npx tsc --noEmit`
+- Passed in `apps/admin` after ADMIN-2A: `npm run build`
+- Note: admin build needed the known outside-sandbox rerun for the Tailwind/Vite native Windows binary.
+- Runtime ADMIN-2A API check: account request list found the generated test request; approve-create returned `approved`; approve-existing returned `approved`; reject returned `rejected`; Mongo check found `requestCount=3`, `userCount=2`, `organizationCount=1`, and `membershipCountForCreatedOrganization=2`.
+- Runtime ADMIN-2A route check: `http://localhost:5173/admin/demandes-comptes` returned `200`; manual browser interaction was not performed.
+- Passed in `apps/api` after PORTAL-2: `npm run typecheck`
+- Passed in `apps/api` after PORTAL-2: `npm run lint`
+- Passed in `apps/api` after PORTAL-2: `npm run build`
+- Passed in `apps/portal` after PORTAL-2: `npm run typecheck`
+- Passed in `apps/portal` after PORTAL-2: `npm run lint`
+- Passed in `apps/portal` after PORTAL-2: `npm run build` after rerunning outside the sandbox for the known Tailwind/Vite native Windows binary issue.
+- Passed in `apps/admin` after PORTAL-2 guard tightening: `npx tsc --noEmit`
+- Passed in `apps/admin` after PORTAL-2 guard tightening: `npm run build` after rerunning outside the sandbox for the known Tailwind/Vite native Windows binary issue.
+- Runtime PORTAL-2 API check: submitted a new account request, approved it through the admin API, logged in through `POST /api/v1/portal/auth/login`, restored the user through `GET /api/v1/portal/auth/me`, confirmed `passwordHash` was absent, confirmed unapproved request credentials failed, and confirmed bootstrap/internal credentials cannot log into the portal endpoint.
+- PORTAL-2 browser redirect/refresh/logout interaction not manually run in this session.
+- Passed in `apps/api` after AUTH-2A: `npm run typecheck`
+- Passed in `apps/api` after AUTH-2A: `npm run lint`
+- Passed in `apps/api` after AUTH-2A: `npm run build`
+- AUTH-2A runtime cookie endpoint check was attempted on a temporary API process with generated in-process RS256 keys, but Windows denied starting the background process in this sandbox. Manual runtime check remains pending after setting `JWT_PRIVATE_KEY_BASE64` and `JWT_PUBLIC_KEY_BASE64`.
+- Passed in `apps/admin` after AUTH-2B: `npx tsc --noEmit`
+- Not available in `apps/admin`: `npm run typecheck` script is not defined.
+- Not available in `apps/admin`: `npm run lint` script is not defined.
+- Passed in `apps/admin` after AUTH-2B: `npm run build` after rerunning outside the sandbox for the known Tailwind/Vite native Windows binary issue.
+- AUTH-2B browser runtime cookie test was not run in this session.
+- Passed in `apps/portal` after AUTH-2C: `npm run typecheck`
+- Passed in `apps/portal` after AUTH-2C: `npm run lint`
+- Passed in `apps/portal` after AUTH-2C: `npm run build` after rerunning outside the sandbox for the known Tailwind/Vite native Windows binary issue.
+- AUTH-2C browser runtime cookie test was not run in this session.
+- Passed in `apps/api` after AUTH-2D: `npm run typecheck`
+- Passed in `apps/api` after AUTH-2D: `npm run lint`
+- Passed in `apps/api` after AUTH-2D: `npm run build`
+- Passed in `apps/admin` after AUTH-2D: `npx tsc --noEmit`
+- Passed in `apps/admin` after AUTH-2D: `npm run build` after rerunning outside the sandbox for the known Tailwind/Vite native Windows binary issue.
+- Passed in `apps/portal` after AUTH-2D: `npm run typecheck`
+- Passed in `apps/portal` after AUTH-2D: `npm run lint`
+- Passed in `apps/portal` after AUTH-2D: `npm run build` after rerunning outside the sandbox for the known Tailwind/Vite native Windows binary issue.
+- AUTH-2D runtime bearer rejection and browser cookie validation were not run in this session.
+- Passed in `apps/api` after AUTH-2E: `npm run typecheck`
+- Passed in `apps/api` after AUTH-2E: `npm run lint`
+- Passed in `apps/api` after AUTH-2E: `npm run build`
+- Passed in `apps/admin` after AUTH-2E: `npx tsc --noEmit`
+- Passed in `apps/admin` after AUTH-2E: `npm run build` after rerunning outside the sandbox for the known Tailwind/Vite native Windows binary issue.
+- Passed in `apps/portal` after AUTH-2E: `npm run typecheck`
+- Passed in `apps/portal` after AUTH-2E: `npm run lint`
+- Passed in `apps/portal` after AUTH-2E: `npm run build` after rerunning outside the sandbox for the known Tailwind/Vite native Windows binary issue.
+- AUTH-2E runtime browser/API CSRF validation was not run in this session.
+- Passed in `apps/api` after AUTH-2F: `npm run typecheck`
+- Passed in `apps/api` after AUTH-2F: `npm run lint`
+- Passed in `apps/api` after AUTH-2F: `npm run build`
+- Passed in `apps/portal` after AUTH-2F: `npm run typecheck`
+- Passed in `apps/portal` after AUTH-2F: `npm run lint`
+- Passed in `apps/portal` after AUTH-2F: `npm run build` after rerunning outside the sandbox for the known Tailwind/Vite native Windows binary issue.
+- Passed in `apps/api` after PORTAL-3: `npm run typecheck`
+- Passed in `apps/api` after PORTAL-3: `npm run lint`
+- Passed in `apps/api` after PORTAL-3: `npm run build`
+- Passed in `apps/portal` after PORTAL-3: `npm run typecheck`
+- Passed in `apps/portal` after PORTAL-3: `npm run lint`
+- Passed in `apps/portal` after PORTAL-3: `npm run build` after rerunning outside the sandbox for the known Tailwind/Vite native Windows binary issue.
+- PORTAL-3 runtime demande/courrier API flow was not run in this session.
+- Passed in `apps/portal` after PORTAL-3B: `npm run typecheck`
+- Passed in `apps/portal` after PORTAL-3B: `npm run lint`
+- Passed in `apps/portal` after PORTAL-3B: `npm run build` after rerunning outside the sandbox for the known Tailwind/Vite native Windows binary issue.
+- PORTAL-3B runtime browser/API validation was not run in this session.
+- Passed in `apps/api` after ADMIN-3: `npm run typecheck`
+- Passed in `apps/api` after ADMIN-3: `npm run lint`
+- Passed in `apps/api` after ADMIN-3: `npm run build`
+- Passed in `apps/portal` after ADMIN-3 status-label contract update: `npm run typecheck`
+- Passed in `apps/portal` after ADMIN-3 status-label contract update: `npm run lint`
+- Passed in `apps/portal` after ADMIN-3 status-label contract update: `npm run build` after rerunning outside the sandbox for the known Tailwind/Vite native Windows binary issue.
+- ADMIN-3 runtime API validation was not run in this session.
+- Passed in `apps/admin` after ADMIN-3B: `npx tsc --noEmit`
+- Not available in `apps/admin` after ADMIN-3B: `npm run typecheck` script is not defined.
+- Not available in `apps/admin` after ADMIN-3B: `npm run lint` script is not defined.
+- Passed in `apps/admin` after ADMIN-3B: `npm run build` after rerunning outside the sandbox for the known Tailwind/Vite native Windows binary issue.
+- ADMIN-3B runtime browser/API validation was not run in this session.
 
 ## Phase O6c Expected Result
 

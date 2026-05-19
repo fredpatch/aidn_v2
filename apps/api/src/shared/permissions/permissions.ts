@@ -5,6 +5,7 @@ export const Permissions = {
   POSTULANT_ACCOUNT_REVIEW: "POSTULANT_ACCOUNT_REVIEW",
   ORGANIZATION_MANAGE: "ORGANIZATION_MANAGE",
   REQUEST_VIEW_ALL: "REQUEST_VIEW_ALL",
+  REQUEST_INTAKE_REVIEW: "REQUEST_INTAKE_REVIEW",
   REQUEST_SUBMIT: "REQUEST_SUBMIT",
   COURRIER_REGISTER_PHYSICAL: "COURRIER_REGISTER_PHYSICAL",
   DG_CIRCUIT_HANDLE: "DG_CIRCUIT_HANDLE",
@@ -54,6 +55,9 @@ export const rolePermissions: Record<Role, Permission[]> = {
     Permissions.POSTULANT_ACCOUNT_REVIEW,
     Permissions.ORGANIZATION_MANAGE,
     Permissions.REQUEST_VIEW_ALL,
+    Permissions.REQUEST_INTAKE_REVIEW,
+    Permissions.COURRIER_REGISTER_PHYSICAL,
+    Permissions.DG_CIRCUIT_HANDLE,
     Permissions.DG_DECISION_RECORD,
     Permissions.DG_DECISION_CORRECT,
     Permissions.DOSSIER_OPEN,
@@ -72,6 +76,7 @@ export const rolePermissions: Record<Role, Permission[]> = {
   ],
   [Roles.DN_AGENT]: [
     Permissions.REQUEST_VIEW_ALL,
+    Permissions.REQUEST_INTAKE_REVIEW,
     Permissions.DG_CIRCUIT_HANDLE,
     Permissions.DG_DECISION_RECORD,
     Permissions.DOSSIER_VIEW_ALL,
@@ -82,7 +87,11 @@ export const rolePermissions: Record<Role, Permission[]> = {
     Permissions.MEETING_MANAGE,
     Permissions.NOTIFICATION_SEND
   ],
-  [Roles.DG_SECRETARIAT]: [Permissions.REQUEST_VIEW_ALL, Permissions.DG_CIRCUIT_HANDLE],
+  [Roles.DG_SECRETARIAT]: [
+    Permissions.REQUEST_VIEW_ALL,
+    Permissions.DG_CIRCUIT_HANDLE,
+    Permissions.COURRIER_REGISTER_PHYSICAL
+  ],
   [Roles.RECEPTION]: [Permissions.REQUEST_VIEW_ALL, Permissions.COURRIER_REGISTER_PHYSICAL, Permissions.DG_CIRCUIT_HANDLE],
   [Roles.BUREAU_COURRIER]: [
     Permissions.REQUEST_VIEW_ALL,

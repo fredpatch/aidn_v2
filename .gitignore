@@ -56,3 +56,6 @@ desktop.ini
 .cache/
 tmp/
 temp/
+
+# Local API uploads
+apps/api/storage/

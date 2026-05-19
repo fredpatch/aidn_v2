@@ -1,4 +1,4 @@
-import { API_BASE_URL, STORAGE_PREFIX } from '../../config/app';
+import { API_BASE_URL } from '../../config/app';
 
 export class ApiError extends Error {
   status: number;
@@ -17,10 +17,29 @@ function assertApiConfigured(): void {
 }
 
 export function getApiHeaders(): Record<string, string> {
-  const token = localStorage.getItem(`${STORAGE_PREFIX}_token`);
   return {
     'Content-Type': 'application/json',
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+}
+
+function getCookie(name: string): string | null {
+  if (typeof document === 'undefined') {
+    return null;
+  }
+
+  const cookie = document.cookie
+    .split('; ')
+    .find((entry) => entry.startsWith(`${name}=`));
+
+  return cookie ? decodeURIComponent(cookie.slice(name.length + 1)) : null;
+}
+
+function getUnsafeApiHeaders(): Record<string, string> {
+  const csrfToken = getCookie('aidn_admin_csrf');
+
+  return {
+    ...getApiHeaders(),
+    ...(csrfToken ? { 'X-CSRF-Token': csrfToken } : {}),
   };
 }
 
@@ -48,8 +67,14 @@ async function assertOk(response: Response): Promise<void> {
 
   let message = 'Connexion impossible.';
   try {
-    const payload = await readJson<{ message?: string; error?: string }>(response);
-    message = payload.message || payload.error || message;
+    const payload = await readJson<{
+      message?: string;
+      error?: string | { message?: string };
+    }>(response);
+    message =
+      (typeof payload.error === 'string' ? payload.error : payload.error?.message) ||
+      payload.message ||
+      message;
   } catch {
     // Keep the generic French message when the backend response is not JSON.
   }
@@ -59,7 +84,10 @@ async function assertOk(response: Response): Promise<void> {
 
 export async function apiGet<T>(path: string): Promise<T> {
   assertApiConfigured();
-  const response = await fetch(`${API_BASE_URL}${path}`, { headers: getApiHeaders() });
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    credentials: 'include',
+    headers: getApiHeaders(),
+  });
   await assertOk(response);
   return readJson<T>(response);
 }
@@ -68,8 +96,22 @@ export async function apiPost<T>(path: string, body: unknown): Promise<T> {
   assertApiConfigured();
   const response = await fetch(`${API_BASE_URL}${path}`, {
     method: 'POST',
-    headers: getApiHeaders(),
+    credentials: 'include',
+    headers: getUnsafeApiHeaders(),
     body: JSON.stringify(body),
+  });
+  await assertOk(response);
+  return readJson<T>(response);
+}
+
+export async function apiPostForm<T>(path: string, body: FormData): Promise<T> {
+  assertApiConfigured();
+  const csrfToken = getCookie('aidn_admin_csrf');
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: csrfToken ? { 'X-CSRF-Token': csrfToken } : undefined,
+    body,
   });
   await assertOk(response);
   return readJson<T>(response);
@@ -79,7 +121,8 @@ export async function apiPatch<T>(path: string, body: unknown): Promise<T> {
   assertApiConfigured();
   const response = await fetch(`${API_BASE_URL}${path}`, {
     method: 'PATCH',
-    headers: getApiHeaders(),
+    credentials: 'include',
+    headers: getUnsafeApiHeaders(),
     body: JSON.stringify(body),
   });
   await assertOk(response);
@@ -90,7 +133,8 @@ export async function apiDelete(path: string): Promise<void> {
   assertApiConfigured();
   const response = await fetch(`${API_BASE_URL}${path}`, {
     method: 'DELETE',
-    headers: getApiHeaders(),
+    credentials: 'include',
+    headers: getUnsafeApiHeaders(),
   });
   await assertOk(response);
 }

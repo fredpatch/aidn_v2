@@ -37,8 +37,8 @@ export function Header({ onMenuToggle }: HeaderProps): React.JSX.Element {
     return () => window.clearInterval(intervalId);
   }, []);
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     navigate('/login', { replace: true });
   };
 

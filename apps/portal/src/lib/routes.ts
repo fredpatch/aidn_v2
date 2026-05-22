@@ -6,4 +6,6 @@ export const portalRoutes = {
   requests: "/demandes",
   newRequest: "/demandes/nouvelle",
   requestDetail: (id: string) => `/demandes/${id}`,
+  rendezVous: "/rendez-vous",
+  notifications: "/notifications",
 } as const;

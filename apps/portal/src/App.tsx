@@ -9,7 +9,9 @@ import { LoginPage } from "./pages/LoginPage";
 import { MyRequestsPage } from "./pages/MyRequestsPage";
 import { NewRequestPage } from "./pages/NewRequestPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
+import { NotificationsPage } from "./pages/NotificationsPage";
 import { PortalDashboardPage } from "./pages/PortalDashboardPage";
+import { RendezVousPage } from "./pages/RendezVousPage";
 import { RequestDetailPage } from "./pages/RequestDetailPage";
 import { usePortalAuth } from "./lib/auth/PortalAuthContext";
 import { portalRoutes } from "./lib/routes";
@@ -69,6 +71,11 @@ export function App(): React.JSX.Element {
         <Route path={portalRoutes.requests} element={<MyRequestsPage />} />
         <Route path={portalRoutes.newRequest} element={<NewRequestPage />} />
         <Route path="/demandes/:id" element={<RequestDetailPage />} />
+        <Route
+          path={portalRoutes.notifications}
+          element={<NotificationsPage />}
+        />
+        <Route path={portalRoutes.rendezVous} element={<RendezVousPage />} />
       </Route>
 
       <Route path="*" element={<NotFoundPage />} />

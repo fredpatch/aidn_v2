@@ -1,4 +1,11 @@
-import { Bell, ClipboardList, Home, ListChecks, LogOut } from "lucide-react";
+import {
+  Bell,
+  CalendarDays,
+  ClipboardList,
+  Home,
+  ListChecks,
+  LogOut,
+} from "lucide-react";
 import { NavLink, useNavigate } from "react-router-dom";
 
 import { usePortalAuth } from "../lib/auth/PortalAuthContext";
@@ -17,12 +24,17 @@ const navItems = [
   },
   {
     label: "Actions requises",
-    to: portalRoutes.dashboard,
+    to: portalRoutes.requests,
     icon: ListChecks,
   },
   {
+    label: "Rendez-vous",
+    to: portalRoutes.rendezVous,
+    icon: CalendarDays,
+  },
+  {
     label: "Notifications",
-    to: portalRoutes.dashboard,
+    to: portalRoutes.notifications,
     icon: Bell,
   },
 ];
@@ -73,7 +85,7 @@ export function PortalSidebar(): React.JSX.Element {
           onClick={handleLogout}
         >
           <LogOut size={16} aria-hidden="true" />
-          Se deconnecter
+          Se déconnecter
         </button>
       </div>
     </aside>

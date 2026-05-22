@@ -1,4 +1,4 @@
-import { portalGet, portalPatch, portalPost, portalPostForm } from "./http";
+import { portalGet, portalGetBlob, portalPatch, portalPost, portalPostForm } from "./http";
 
 export type PortalUser = {
   id: string;
@@ -107,9 +107,11 @@ export type PortalRequest = {
   courrierSource?: "portal_upload" | "physical_deposit";
   initialCourrierId?: string;
   initialDocumentId?: string;
+  dossierId?: string;
   physicalDeposit?: {
     declaredAt?: string;
     declaredById?: string;
+    status?: "planned" | "received";
     expectedDepositDate?: string;
     physicalDepositDate?: string;
     location?: "ANAC" | "DG" | "DN" | "other";
@@ -118,6 +120,35 @@ export type PortalRequest = {
   submittedAt?: string;
   createdAt: string;
   updatedAt: string;
+};
+
+export type PortalDossierMeeting = {
+  scheduledAt: string | null;
+  location: string | null;
+  status: string;
+  notes: string | null;
+};
+
+export type PortalDossierPreliminary = {
+  status: string | null;
+  portalLabel: string;
+  preEvaluationFormDocumentId: string | null;
+  firstMeetingReportDocumentId: string | null;
+  hasCompletedForm: boolean;
+  canSubmitForm: boolean;
+  firstMeeting: PortalDossierMeeting | null;
+  preliminaryMeeting: PortalDossierMeeting | null;
+};
+
+export type PortalDossierDetail = {
+  dossier: {
+    id: string;
+    dossierNumber: string;
+    dossierType: string;
+    status: string;
+    openedAt: string;
+  };
+  preliminary: PortalDossierPreliminary;
 };
 
 export type PortalCourrier = {
@@ -223,4 +254,129 @@ export function declarePhysicalDeposit(
 
 export function submitRequest(id: string): Promise<{ request: PortalRequest }> {
   return portalPost(`/api/v1/portal/requests/${id}/submit`, {});
+}
+
+export function getPortalDossier(id: string): Promise<PortalDossierDetail> {
+  return portalGet<PortalDossierDetail>(`/api/v1/portal/dossiers/${id}`);
+}
+
+export function uploadPreEvaluationForm(
+  dossierId: string,
+  file: File,
+): Promise<{ ok: boolean }> {
+  const form = new FormData();
+  form.set("file", file);
+  return portalPostForm(
+    `/api/v1/portal/dossiers/${dossierId}/preliminary/upload-pre-evaluation-form`,
+    form,
+  );
+}
+
+export function downloadPortalDossierDocument(
+  dossierId: string,
+  documentId: string,
+): Promise<Blob> {
+  return portalGetBlob(
+    `/api/v1/portal/dossiers/${dossierId}/documents/${documentId}`,
+  );
+}
+
+export type PortalMeetingStatus =
+  | "planned"
+  | "invited"
+  | "held"
+  | "postponed"
+  | "cancelled";
+
+export type PortalMeeting = {
+  id: string;
+  dossierId: string;
+  dossierNumber: string;
+  dossierType: string;
+  meetingType: string;
+  title: string;
+  scheduledAt?: string;
+  location?: string;
+  status: PortalMeetingStatus;
+  notes?: string;
+  phaseKey?: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export function listPortalMeetings(params: {
+  from?: string;
+  to?: string;
+  status?: PortalMeetingStatus | "all";
+} = {}): Promise<{ items: PortalMeeting[] }> {
+  const query = new URLSearchParams();
+  if (params.from) query.set("from", params.from);
+  if (params.to) query.set("to", params.to);
+  if (params.status) query.set("status", params.status);
+  const qs = query.toString();
+  return portalGet(`/api/v1/portal/meetings${qs ? `?${qs}` : ""}`);
+}
+
+export type PortalNotificationStatus = "unread" | "read";
+
+export type PortalNotification = {
+  id: string;
+  title: string;
+  message: string;
+  relatedType: string;
+  relatedId?: string;
+  status: PortalNotificationStatus;
+  createdAt: string;
+  readAt?: string;
+};
+
+export function listPortalNotifications(params: {
+  status?: "unread" | "read" | "all";
+  limit?: number;
+} = {}): Promise<{ items: PortalNotification[]; unreadCount: number }> {
+  const query = new URLSearchParams();
+  if (params.status) query.set("status", params.status);
+  if (params.limit) query.set("limit", String(params.limit));
+  const qs = query.toString();
+  return portalGet(`/api/v1/portal/notifications${qs ? `?${qs}` : ""}`);
+}
+
+export function markPortalNotificationRead(
+  id: string,
+): Promise<{ notification: PortalNotification }> {
+  return portalPost(`/api/v1/portal/notifications/${id}/read`, {});
+}
+
+export function markAllPortalNotificationsRead(): Promise<{
+  updatedCount: number;
+}> {
+  return portalPost("/api/v1/portal/notifications/read-all", {});
+}
+
+export function submitRequestWithCourrier(
+  id: string,
+  payload: {
+    requestType: PortalRequestType;
+    subject: string;
+    message?: string;
+    courrierSource: "portal_upload" | "physical_deposit";
+    file?: File;
+    plannedPhysicalDepositDate?: string;
+    depositLocation?: "ANAC" | "DG" | "DN" | "other";
+    notes?: string;
+  },
+): Promise<{ request: PortalRequest }> {
+  const form = new FormData();
+  form.set("requestType", payload.requestType);
+  form.set("subject", payload.subject);
+  if (payload.message) form.set("message", payload.message);
+  form.set("courrierSource", payload.courrierSource);
+  if (payload.file) form.set("file", payload.file);
+  if (payload.plannedPhysicalDepositDate) {
+    form.set("plannedPhysicalDepositDate", payload.plannedPhysicalDepositDate);
+  }
+  if (payload.depositLocation) form.set("depositLocation", payload.depositLocation);
+  if (payload.notes) form.set("notes", payload.notes);
+
+  return portalPostForm(`/api/v1/portal/requests/${id}/submit`, form);
 }

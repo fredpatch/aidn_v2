@@ -1,11 +1,12 @@
 {
   "name": "aidn-exploration-cache",
   "version": "1.0.0",
-  "lastUpdated": "2026-05-19",
+  "lastUpdated": "2026-05-22",
   "entrypoints": [
     "00-control/SOURCE_OF_TRUTH.md",
     "00-control/CURRENT_STATE.md",
     "00-control/INDEX.md",
+    "QUICK-REFERENCE.md",
     "01-project-map/REPO_STRUCTURE.md",
     "01-project-map/ROUTES_MAP.md",
     "04-backend/BACKEND_ARCHITECTURE.md",
@@ -41,6 +42,317 @@
     "99-session-notes": "Session-level trace"
   },
   "recentExplorationCacheUpdates": [
+    {
+      "date": "2026-05-22",
+      "phase": "PORTAL-H1D-1-MEETING-CONVOCATION-PRINTABLE-CARD-IMPLEMENTATION",
+      "created": [
+        "exploration-cache/tasks/summaries/2026-05-22-PORTAL-H1D-1-meeting-convocation-printable-card-implementation.md",
+        "exploration-cache/tasks/history/2026-05-22-PORTAL-H1D-1-meeting-convocation-printable-card-implementation.md"
+      ],
+      "updated": [
+        "apps/portal/src/pages/RendezVousPage.tsx",
+        "apps/portal/src/components/PortalCalendar.tsx",
+        "apps/portal/src/styles.css",
+        "exploration-cache/03-frontend/PORTAL_APP_MAP.md",
+        "exploration-cache/06-workflows/PORTAL_REQUEST_WORKFLOW.md",
+        "exploration-cache/09-qa/BUILD_AND_TEST_COMMANDS.md",
+        "exploration-cache/QUICK-REFERENCE.md",
+        "exploration-cache/tasks/current-task.md",
+        "exploration-cache/manifest.json"
+      ]
+    },
+    {
+      "date": "2026-05-22",
+      "phase": "PORTAL-H1D-RENDEZ-VOUS-CALENDAR-IMPLEMENTATION",
+      "created": [
+        "apps/api/src/modules/meetings/meeting.service.ts",
+        "apps/portal/src/components/PortalCalendar.tsx",
+        "apps/portal/src/pages/RendezVousPage.tsx",
+        "exploration-cache/tasks/summaries/2026-05-22-PORTAL-H1D-rendez-vous-calendar-implementation.md",
+        "exploration-cache/tasks/history/2026-05-22-PORTAL-H1D-rendez-vous-calendar-implementation.md"
+      ],
+      "updated": [
+        "apps/api/src/modules/portal/portal.routes.ts",
+        "apps/portal/src/lib/api/portal.api.ts",
+        "apps/portal/src/lib/routes.ts",
+        "apps/portal/src/App.tsx",
+        "apps/portal/src/components/PortalSidebar.tsx",
+        "apps/portal/src/pages/PortalDashboardPage.tsx",
+        "exploration-cache/03-frontend/PORTAL_APP_MAP.md",
+        "exploration-cache/04-backend/API_ROUTES.md",
+        "exploration-cache/06-workflows/PORTAL_REQUEST_WORKFLOW.md",
+        "exploration-cache/09-qa/BUILD_AND_TEST_COMMANDS.md",
+        "exploration-cache/QUICK-REFERENCE.md",
+        "exploration-cache/tasks/current-task.md",
+        "exploration-cache/manifest.json"
+      ]
+    },
+    {
+      "date": "2026-05-22",
+      "phase": "PORTAL-H1D-RENDEZ-VOUS-CALENDAR-PLANNING",
+      "created": [
+        "exploration-cache/tasks/summaries/2026-05-22-PORTAL-H1D-rendez-vous-calendar-planning.md"
+      ],
+      "updated": [
+        "exploration-cache/tasks/current-task.md",
+        "exploration-cache/manifest.json"
+      ]
+    },
+    {
+      "date": "2026-05-22",
+      "phase": "PORTAL-H1C-UI-REFACTOR-IMPLEMENTATION",
+      "created": [
+        "apps/portal/src/pages/NotificationsPage.tsx",
+        "exploration-cache/tasks/summaries/2026-05-22-PORTAL-H1C-ui-refactor-implementation.md"
+      ],
+      "updated": [
+        "apps/portal/src/lib/api/portal.api.ts",
+        "apps/portal/src/lib/routes.ts",
+        "apps/portal/src/App.tsx",
+        "apps/portal/src/layouts/PortalLayout.tsx",
+        "apps/portal/src/components/PortalSidebar.tsx",
+        "apps/portal/src/pages/MyRequestsPage.tsx",
+        "apps/portal/src/pages/PortalDashboardPage.tsx",
+        "apps/portal/src/pages/RequestDetailPage.tsx",
+        "apps/portal/src/pages/NewRequestPage.tsx",
+        "exploration-cache/03-frontend/PORTAL_APP_MAP.md",
+        "exploration-cache/tasks/current-task.md",
+        "exploration-cache/manifest.json"
+      ]
+    },
+    {
+      "date": "2026-05-22",
+      "phase": "OMA-1I-PRELIMINARY-H1-HARDENING-IMPLEMENTATION",
+      "created": [
+        "exploration-cache/tasks/summaries/2026-05-22-OMA-1I-preliminary-h1-hardening-implementation.md"
+      ],
+      "updated": [
+        "apps/api/src/modules/document-templates/document-template.service.ts",
+        "apps/api/src/modules/oma-phases/oma-phase.service.ts",
+        "apps/api/src/modules/dg-circuit/dg-circuit.service.ts",
+        "apps/api/src/modules/admin/admin.routes.ts",
+        "apps/admin/src/lib/api/dossiers.api.ts",
+        "apps/admin/src/config/nav.tsx",
+        "apps/admin/src/pages/DgCircuitPage.tsx",
+        "apps/admin/src/pages/DossierDetailPage.tsx",
+        "apps/portal/src/pages/RequestDetailPage.tsx",
+        "exploration-cache/tasks/current-task.md",
+        "exploration-cache/manifest.json"
+      ]
+    },
+    {
+      "date": "2026-05-22",
+      "phase": "OMA-1H-HARDENING-AUDIT-PLANNING",
+      "created": [
+        "exploration-cache/tasks/summaries/2026-05-22-OMA-1H-hardening-audit-planning.md"
+      ],
+      "updated": [
+        "exploration-cache/QUICK-REFERENCE.md",
+        "exploration-cache/tasks/current-task.md",
+        "exploration-cache/manifest.json"
+      ]
+    },
+    {
+      "date": "2026-05-22",
+      "phase": "ROLE-UX-1A-CIRCUIT-DG-WORDING-UPLOAD-FIX-IMPLEMENTATION",
+      "created": [
+        "exploration-cache/tasks/summaries/2026-05-22-role-ux-1a-circuit-dg-wording-upload-fix-implementation.md",
+        "exploration-cache/tasks/history/2026-05-22-role-ux-1a-circuit-dg-wording-upload-fix-implementation.md"
+      ],
+      "updated": [
+        "apps/admin/src/pages/DgCircuitPage.tsx",
+        "exploration-cache/QUICK-REFERENCE.md",
+        "exploration-cache/tasks/current-task.md",
+        "exploration-cache/manifest.json"
+      ]
+    },
+    {
+      "date": "2026-05-22",
+      "phase": "ROLE-UX-1A-CIRCUIT-DG-WORDING-UPLOAD-FIX-PLANNING",
+      "created": [
+        "exploration-cache/tasks/summaries/2026-05-22-role-ux-1a-circuit-dg-wording-upload-fix-planning.md"
+      ],
+      "updated": [
+        "exploration-cache/QUICK-REFERENCE.md",
+        "exploration-cache/tasks/current-task.md",
+        "exploration-cache/manifest.json"
+      ]
+    },
+    {
+      "date": "2026-05-22",
+      "phase": "ROLE-UX-1-DG-CIRCUIT-WORKSPACE-PLANNING",
+      "created": [
+        "exploration-cache/tasks/summaries/2026-05-22-role-ux-1-dg-circuit-workspace-planning.md"
+      ],
+      "updated": [
+        "exploration-cache/QUICK-REFERENCE.md",
+        "exploration-cache/tasks/current-task.md",
+        "exploration-cache/manifest.json"
+      ]
+    },
+    {
+      "date": "2026-05-22",
+      "phase": "ROLE-UX-1-DG-CIRCUIT-WORKSPACE-IMPLEMENTATION",
+      "created": [
+        "apps/api/src/modules/dg-circuit/dg-circuit.service.ts",
+        "apps/admin/src/lib/api/dg-circuit.api.ts",
+        "apps/admin/src/pages/DgCircuitPage.tsx",
+        "exploration-cache/tasks/summaries/2026-05-22-role-ux-1-dg-circuit-workspace-implementation.md",
+        "exploration-cache/tasks/history/2026-05-22-role-ux-1-dg-circuit-workspace-implementation.md"
+      ],
+      "updated": [
+        "apps/api/src/modules/admin/admin.routes.ts",
+        "apps/admin/src/App.tsx",
+        "apps/admin/src/config/nav.tsx",
+        "exploration-cache/QUICK-REFERENCE.md",
+        "exploration-cache/04-backend/API_ROUTES.md",
+        "exploration-cache/04-backend/AUTH_AND_PERMISSIONS.md",
+        "exploration-cache/03-frontend/ADMIN_APP_MAP.md",
+        "exploration-cache/06-workflows/ADMIN_INTAKE_WORKFLOW.md",
+        "exploration-cache/tasks/current-task.md",
+        "exploration-cache/manifest.json"
+      ]
+    },
+    {
+      "date": "2026-05-22",
+      "phase": "OMA-1F-RESPONSIBILITY-DN-VISIBILITY-CORRECTION",
+      "created": [
+        "exploration-cache/QUICK-REFERENCE.md",
+        "exploration-cache/tasks/summaries/2026-05-22-oma-1f-responsibility-correction-planning.md",
+        "exploration-cache/tasks/summaries/2026-05-22-oma-1f-responsibility-correction-implementation.md"
+      ],
+      "updated": [
+        "apps/api/src/shared/permissions/permissions.ts",
+        "apps/api/src/modules/admin/admin.routes.ts",
+        "apps/api/src/modules/oma-phases/oma-phase.service.ts",
+        "apps/admin/src/lib/api/client.ts",
+        "apps/admin/src/lib/api/dossiers.api.ts",
+        "apps/admin/src/pages/DossierDetailPage.tsx",
+        "apps/admin/src/contexts/AuthContext.tsx",
+        "exploration-cache/04-backend/API_ROUTES.md",
+        "exploration-cache/04-backend/AUTH_AND_PERMISSIONS.md",
+        "exploration-cache/03-frontend/ADMIN_APP_MAP.md",
+        "exploration-cache/05-data/DATA_MODELS.md",
+        "exploration-cache/06-workflows/ADMIN_INTAKE_WORKFLOW.md",
+        "exploration-cache/tasks/current-task.md",
+        "exploration-cache/manifest.json"
+      ]
+    },
+    {
+      "date": "2026-05-21",
+      "phase": "OMA-1A-PRELIMINARY-PHASE-BACKEND",
+      "created": [
+        "apps/api/src/modules/oma-phases/oma-phase.service.ts",
+        "exploration-cache/09-qa/OMA_PRELIMINARY_RUNTIME_CHECKLIST.md",
+        "exploration-cache/tasks/summaries/2026-05-21-oma-1a-preliminary-phase-implementation.md"
+      ],
+      "updated": [
+        "apps/api/src/modules/admin/admin.routes.ts",
+        "apps/api/src/modules/portal/portal.routes.ts",
+        "exploration-cache/04-backend/API_ROUTES.md",
+        "exploration-cache/00-control/EXPLORATION_PROTOCOL.md",
+        "exploration-cache/tasks/current-task.md",
+        "TASK.md",
+        "manifest.json"
+      ]
+    },
+    {
+      "date": "2026-05-21",
+      "phase": "ADMIN-4-OPEN-DOSSIER-DN",
+      "created": [],
+      "updated": [
+        "apps/api/src/modules/requests/request.service.ts",
+        "apps/api/src/modules/admin/admin.routes.ts",
+        "apps/admin/src/lib/api/requests.api.ts",
+        "apps/admin/src/pages/RequestsPage.tsx",
+        "06-workflows/ADMIN_INTAKE_WORKFLOW.md",
+        "manifest.json",
+        "TASK.md"
+      ]
+    },
+    {
+      "date": "2026-05-21",
+      "phase": "NO-PRINT-FOR-PHYSICAL-DEPOSIT",
+      "created": [],
+      "updated": [
+        "apps/api/src/modules/requests/request.service.ts",
+        "apps/admin/src/pages/RequestsPage.tsx",
+        "06-workflows/ADMIN_INTAKE_WORKFLOW.md",
+        "manifest.json"
+      ]
+    },
+    {
+      "date": "2026-05-21",
+      "phase": "DN-VERIFY-BLOCKED-UNTIL-DG-SCAN",
+      "created": [],
+      "updated": [
+        "06-workflows/ADMIN_INTAKE_WORKFLOW.md",
+        "06-workflows/PORTAL_REQUEST_WORKFLOW.md",
+        "05-data/DATA_MODELS.md",
+        "TASK.md",
+        "manifest.json"
+      ]
+    },
+    {
+      "date": "2026-05-21",
+      "phase": "PORTAL-INITIAL-COURRIER-SUBMIT-ONLY",
+      "created": [],
+      "updated": [
+        "06-workflows/PORTAL_REQUEST_WORKFLOW.md",
+        "06-workflows/ADMIN_INTAKE_WORKFLOW.md",
+        "03-frontend/PORTAL_APP_MAP.md",
+        "03-frontend/ADMIN_APP_MAP.md",
+        "05-data/DATA_MODELS.md",
+        "04-backend/API_ROUTES.md",
+        "TASK.md",
+        "manifest.json"
+      ]
+    },
+    {
+      "date": "2026-05-21",
+      "phase": "DG-RETURN-SCAN-REQUIRED",
+      "created": [],
+      "updated": [
+        "06-workflows/ADMIN_INTAKE_WORKFLOW.md",
+        "05-data/DATA_MODELS.md",
+        "03-frontend/ADMIN_APP_MAP.md",
+        "04-backend/API_ROUTES.md",
+        "TASK.md",
+        "manifest.json"
+      ]
+    },
+    {
+      "date": "2026-05-21",
+      "phase": "DG-PRINT-RETURN-MVP",
+      "created": [],
+      "updated": [
+        "06-workflows/ADMIN_INTAKE_WORKFLOW.md",
+        "06-workflows/PORTAL_REQUEST_WORKFLOW.md",
+        "03-frontend/ADMIN_APP_MAP.md",
+        "04-backend/API_ROUTES.md",
+        "05-data/DATA_MODELS.md",
+        "TASK.md",
+        "manifest.json"
+      ]
+    },
+    {
+      "date": "2026-05-21",
+      "phase": "REQUEST-LABELS-KPI-DG-MVP",
+      "created": [],
+      "updated": [
+        "03-frontend/PORTAL_APP_MAP.md",
+        "03-frontend/ADMIN_APP_MAP.md",
+        "06-workflows/PORTAL_REQUEST_WORKFLOW.md",
+        "06-workflows/ADMIN_INTAKE_WORKFLOW.md",
+        "04-backend/API_ROUTES.md",
+        "05-data/DATA_MODELS.md",
+        "06-workflows/DG_ORIENTATION.md",
+        "02-domain/DOMAIN_GLOSSARY.md",
+        "02-domain/STATUSES.md",
+        "TASK.md",
+        "manifest.json"
+      ]
+    },
     {
       "date": "2026-05-17",
       "phase": "API-INIT",

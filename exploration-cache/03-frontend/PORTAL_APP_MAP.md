@@ -1,6 +1,6 @@
 # Portal App Map
 
-Last reviewed: 2026-05-19
+Last reviewed: 2026-05-22 (PORTAL-H1D)
 Source files inspected: `apps/portal/src/App.tsx`, `apps/portal/src/layouts/*`, `apps/portal/src/pages/*`, `apps/portal/src/lib/*`
 
 ## Confirmed facts
@@ -19,20 +19,23 @@ Source files inspected: `apps/portal/src/App.tsx`, `apps/portal/src/layouts/*`, 
 | `/` | `LandingPage` | Public | Portal introduction and CTAs |
 | `/demande-compte` | `AccountRequestPage` | Public | Account request form wired to API |
 | `/connexion` | `LoginPage` | Public | Email/password portal login |
-| `/tableau-de-bord` | `PortalDashboardPage` | Protected | Welcomes the logged-in postulant and shows linked organization id when available |
-| `/demandes` | `MyRequestsPage` | Protected | Lists the logged-in postulant's own demandes and links to creation/detail |
-| `/demandes/nouvelle` | `NewRequestPage` | Protected | Creates a draft demande |
-| `/demandes/:id` | `RequestDetailPage` | Protected | Shows detail, pre-submit edit, courrier upload, physical deposit, and submit |
+| `/tableau-de-bord` | `PortalDashboardPage` | Protected | Stat cards (demandes, actions, notifications, next rendez-vous) linked to /demandes, /notifications, and /rendez-vous; real unread count and next meeting from API |
+| `/demandes` | `MyRequestsPage` | Protected | Two-panel workspace: left clickable list (action/dossier indicators), right preview panel with link to full detail |
+| `/demandes/nouvelle` | `NewRequestPage` | Protected | Creates a draft demande (French accents corrected) |
+| `/demandes/:id` | `RequestDetailPage` | Protected | Tabbed (Résumé / Courrier initial / Actions requises / Dossier / Historique); Sonner toasts |
+| `/rendez-vous` | `RendezVousPage` | Protected | Read-only list and calendar of meetings linked to the postulant's owned dossiers |
+| `/notifications` | `NotificationsPage` | Protected | List all notifications with per-item mark-read and bulk mark-all-read |
 | `*` | `NotFoundPage` | Public fallback | Not-found state |
 
 ## API wiring
 - `src/lib/api/http.ts` defines `VITE_API_BASE_URL` fallback to `http://localhost:4000` and GET/POST helpers that always send `credentials: "include"` and never attach `Authorization`.
 - Authenticated unsafe portal calls attach `X-CSRF-Token` from the readable `aidn_portal_csrf` cookie when present.
-- `src/lib/api/portal.api.ts` defines account request, auth, and PORTAL-3 request methods: `createRequest`, `listRequests`, `getRequest`, `updateRequest`, `uploadRequestCourrier`, `declarePhysicalDeposit`, and `submitRequest`.
+- `src/lib/api/portal.api.ts` defines account request, auth, request, meeting, and notification methods. Meeting types: `PortalMeeting`, `PortalMeetingStatus`. Methods include `listPortalMeetings()`.
 - PORTAL-3B wires the request methods into the UI:
   - `/demandes` calls `listRequests()`
   - `/demandes/nouvelle` calls `createRequest()`
-  - `/demandes/:id` calls `getRequest()`, `updateRequest()`, `uploadRequestCourrier()`, `declarePhysicalDeposit()`, and `submitRequest()`
+  - `/demandes/:id` calls `getRequest()`, `updateRequest()`, and `submitRequestWithCourrier()`
+- Portal request detail no longer exposes standalone `Televerser le courrier` or `Declarer le depot` workflow buttons; the postulant chooses `Televersement portail` or `Depot physique a l'ANAC` inside `Courrier initial` and submits once.
 - `AccountRequestPage` calls `POST /api/v1/portal/account-requests`.
 - Public account request submission opts out of session CSRF because it runs before login.
 - `AccountRequestPage` sends hidden anti-abuse fields `website` and `formStartedAt`; these are validation-only and not business data.
@@ -44,12 +47,25 @@ Source files inspected: `apps/portal/src/App.tsx`, `apps/portal/src/layouts/*`, 
 - On error, the form keeps entered values and shows a visible French error alert.
 - Passwords are not logged, rendered back, or stored in browser storage.
 - Duplicate pending request messages from the backend are displayed as normal validation errors.
+- Request type labels are corrected everywhere the portal renders them:
+  - `oma_recognition`: Certificat de reconnaissance OMA
+  - `oma_approval`: Certificat d’agrément OMA
+  - `oma_renewal`: Renouvellement de Certificat OMA
+  - `oma_modification`: Modification de Certificat OMA
+- Portal-facing request status labels remain simplified for postulants and do not expose printed-DG, scanned-return, or reorientation wording.
+- `/rendez-vous` calls `listPortalMeetings({ status: "all" })`, maps scheduled meetings into `PortalCalendarEvent`, and does not create/update/cancel meetings.
+- `PortalCalendar` is a local read-only component using native `Date` / `Intl.DateTimeFormat`; no `date-fns` or shadcn dependency was added.
+- PORTAL-H1D-1 adds a printable convocation modal from rendez-vous meeting cards and selected calendar-day items. It uses existing `PortalMeeting` data only, browser print, and print-specific CSS; no backend or document registry work was added.
+- `PortalDashboardPage` uses `listPortalMeetings({ status: "all" })` for the next meeting card without fetching dossier details.
 
 ## Boundaries
 - No admin account request validation UI was added in the portal app.
 - Portal demande/courrier UI exists as a minimal validation flow as of PORTAL-3B.
-- The UI does not implement admin request review, DG workflow, dossier opening, OMA phases, meetings, notifications, or download/readback of uploaded files.
-- DG workflow, dossier tracking, notifications, and password reset are not implemented in the portal UI.
+- The UI does not implement admin request review, DG workflow, dossier opening, meeting mutations, timeline API, or document list API.
+- DG workflow details, portal stats API, and password reset are not implemented in the portal UI.
+- Notifications are now fully implemented: list, per-item mark-read, bulk mark-all-read (PORTAL-H1C).
+- Rendez-vous are read-only for portal users as of PORTAL-H1D.
+- Meeting convocations are portal-side printable views only as of PORTAL-H1D-1; they are not official generated PDFs.
 - Backend no longer accepts bearer tokens as of AUTH-2D; portal auth is cookie-only.
 - CSRF is implemented for authenticated unsafe portal requests as of AUTH-2E.
 - Public account request submission has basic abuse prevention as of AUTH-2F: rate limiting, honeypot, minimum delay, and duplicate guards.

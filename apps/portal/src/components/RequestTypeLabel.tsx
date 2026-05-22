@@ -1,10 +1,10 @@
 import type { PortalRequestType } from "../lib/api/portal.api";
 
 const requestTypeLabels: Record<PortalRequestType, string> = {
-  oma_approval: "Agrement OMA",
-  oma_recognition: "Reconnaissance OMA",
-  oma_renewal: "Renouvellement OMA",
-  oma_modification: "Modification OMA",
+  oma_recognition: "Certificat de reconnaissance OMA",
+  oma_approval: "Certificat d’agrément OMA",
+  oma_renewal: "Renouvellement de Certificat OMA",
+  oma_modification: "Modification de Certificat OMA",
 };
 
 export function getRequestTypeLabel(type: PortalRequestType): string {
@@ -18,4 +18,3 @@ export function RequestTypeLabel({
 }): React.JSX.Element {
   return <>{getRequestTypeLabel(type)}</>;
 }
-

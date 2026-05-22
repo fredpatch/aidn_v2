@@ -23,17 +23,42 @@ import {
   getPortalRequestMaxFileSizeBytes,
   listAdminRequests,
   markAdminRequestPrintedForDg,
+  openAdminDossierDn,
+  recordAdminRequestDgReturn,
   registerAdminPhysicalCourrier,
   requestAdminRequestCorrection,
   sendAdminRequestToDg,
   startAdminRequestIntake,
 } from "../requests/request.service.js";
 import {
+  closePreliminaryPhase,
+  downloadAdminDossierDocument,
+  getAdminDossier,
+  inviteFirstMeeting,
+  invitePreliminaryMeeting,
+  listAdminDossiers,
+  publishPreEvaluationForm,
+  recordFirstMeeting,
+  recordPreEvalDgReturn,
+  recordPreliminaryMeeting,
+  sendPreEvalToDg,
+  uploadClosureCourrier,
+} from "../oma-phases/oma-phase.service.js";
+import {
+  createDocumentTemplate,
+  listDocumentTemplates,
+} from "../document-templates/document-template.service.js";
+import {
+  downloadDgCircuitTaskDocument,
+  listDgCircuitTasks,
+} from "../dg-circuit/dg-circuit.service.js";
+import {
   activateInternalAccount,
   listInternalAccounts,
   listSiUsers,
   searchPersonnel,
 } from "./admin.service.js";
+import { resetTestData } from "./dev-reset.service.js";
 
 export const adminRouter = Router();
 const physicalCourrierUpload = multer({
@@ -55,8 +80,45 @@ const handlePhysicalCourrierUpload: RequestHandler = (req, res, next) => {
     next();
   });
 };
+const handleDgReturnUpload: RequestHandler = (req, res, next) => {
+  physicalCourrierUpload.single("returnedScannedDocument")(req, res, (error) => {
+    if (error instanceof multer.MulterError && error.code === "LIMIT_FILE_SIZE") {
+      next(new HttpError(413, "DG return file is too large"));
+      return;
+    }
+
+    if (error) {
+      next(error);
+      return;
+    }
+
+    next();
+  });
+};
 
 adminRouter.use(requireAuth({ scope: "admin" }));
+
+const requireAnyPermission =
+  (permissions: Array<(typeof Permissions)[keyof typeof Permissions]>): RequestHandler =>
+  (req, _res, next) => {
+    if (!req.user) {
+      next(new HttpError(401, "Authentication required"));
+      return;
+    }
+
+    if (!permissions.some((permission) => req.user!.permissions.includes(permission))) {
+      next(new HttpError(403, "Missing required permission"));
+      return;
+    }
+
+    next();
+  };
+
+const requireDgCircuitTaskAccess = requireAnyPermission([
+  Permissions.DG_CIRCUIT_HANDLE,
+  Permissions.COURRIER_REGISTER_PHYSICAL,
+  Permissions.PRE_EVAL_DG_CIRCUIT_HANDLE,
+]);
 
 /* Test connection to SI_ANAC Database */
 adminRouter.get(
@@ -161,6 +223,41 @@ adminRouter.get(
 );
 
 adminRouter.get(
+  "/dg-circuit/tasks",
+  requireDgCircuitTaskAccess,
+  asyncHandler(async (req, res) => {
+    const limit = typeof req.query.limit === "string" ? Number(req.query.limit) : undefined;
+    res.json(
+      await listDgCircuitTasks(
+        {
+          bucket: typeof req.query.bucket === "string" ? req.query.bucket : undefined,
+          source: typeof req.query.source === "string" ? req.query.source : undefined,
+          search: typeof req.query.search === "string" ? req.query.search : undefined,
+          limit: Number.isFinite(limit) ? limit : undefined,
+        },
+        req.user!,
+      ),
+    );
+  }),
+);
+
+adminRouter.get(
+  "/dg-circuit/tasks/:taskId/documents/:documentId",
+  requireDgCircuitTaskAccess,
+  asyncHandler(async (req, res) => {
+    const { buffer, mimeType, fileName } = await downloadDgCircuitTaskDocument(
+      String(req.params.taskId),
+      String(req.params.documentId),
+      req.user!,
+    );
+    res.set("Content-Type", mimeType);
+    res.set("Content-Disposition", `attachment; filename="${encodeURIComponent(fileName)}"`);
+    res.set("Content-Length", String(buffer.length));
+    res.end(buffer);
+  }),
+);
+
+adminRouter.get(
   "/requests/:id",
   requirePermission(Permissions.REQUEST_VIEW_ALL),
   asyncHandler(async (req, res) => {
@@ -173,6 +270,14 @@ adminRouter.post(
   requirePermission(Permissions.REQUEST_INTAKE_REVIEW),
   asyncHandler(async (req, res) => {
     res.json(await startAdminRequestIntake(String(req.params.id), req.body, req.user!));
+  }),
+);
+
+adminRouter.post(
+  "/requests/:id/open-dossier-dn",
+  requirePermission(Permissions.REQUEST_INTAKE_REVIEW),
+  asyncHandler(async (req, res) => {
+    res.status(201).json(await openAdminDossierDn(String(req.params.id), req.body, req.user!));
   }),
 );
 
@@ -215,6 +320,26 @@ adminRouter.post(
   requirePermission(Permissions.DG_CIRCUIT_HANDLE),
   asyncHandler(async (req, res) => {
     res.json(await markAdminRequestPrintedForDg(String(req.params.id), req.body, req.user!));
+  }),
+);
+
+adminRouter.post(
+  "/requests/:id/record-dg-return",
+  requirePermission(Permissions.DG_CIRCUIT_HANDLE),
+  handleDgReturnUpload,
+  asyncHandler(async (req, res) => {
+    res.json(
+      await recordAdminRequestDgReturn(
+        String(req.params.id),
+        req.file,
+        {
+          decision: typeof req.body.decision === "string" ? req.body.decision : undefined,
+          returnedAt: typeof req.body.returnedAt === "string" ? req.body.returnedAt : undefined,
+          observations: typeof req.body.observations === "string" ? req.body.observations : undefined,
+        },
+        req.user!,
+      ),
+    );
   }),
 );
 
@@ -277,6 +402,204 @@ adminRouter.post(
   }),
 );
 
+const handleOmaDocumentUpload: RequestHandler = (req, res, next) => {
+  physicalCourrierUpload.single("file")(req, res, (error) => {
+    if (error instanceof multer.MulterError && error.code === "LIMIT_FILE_SIZE") {
+      next(new HttpError(413, "Document file is too large"));
+      return;
+    }
+
+    if (error) {
+      next(error);
+      return;
+    }
+
+    next();
+  });
+};
+
+adminRouter.get(
+  "/dossiers",
+  requirePermission(Permissions.DOSSIER_VIEW_ALL),
+  asyncHandler(async (req, res) => {
+    res.json(
+      await listAdminDossiers(
+        {
+          status: typeof req.query.status === "string" ? req.query.status : undefined,
+          dossierType: typeof req.query.dossierType === "string" ? req.query.dossierType : undefined,
+          search: typeof req.query.search === "string" ? req.query.search : undefined,
+        },
+        req.user!,
+      ),
+    );
+  }),
+);
+
+adminRouter.get(
+  "/dossiers/:id",
+  requirePermission(Permissions.DOSSIER_VIEW_ALL),
+  asyncHandler(async (req, res) => {
+    res.json(await getAdminDossier(String(req.params.id), req.user!));
+  }),
+);
+
+adminRouter.post(
+  "/dossiers/:id/preliminary/invite-first-meeting",
+  requirePermission(Permissions.MEETING_MANAGE),
+  asyncHandler(async (req, res) => {
+    res.status(201).json(
+      await inviteFirstMeeting(
+        String(req.params.id),
+        {
+          scheduledAt: typeof req.body.scheduledAt === "string" ? req.body.scheduledAt : undefined,
+          location: typeof req.body.location === "string" ? req.body.location : undefined,
+          notes: typeof req.body.notes === "string" ? req.body.notes : undefined,
+        },
+        req.user!,
+      ),
+    );
+  }),
+);
+
+adminRouter.post(
+  "/dossiers/:id/preliminary/record-first-meeting",
+  requirePermission(Permissions.MEETING_MANAGE),
+  handleOmaDocumentUpload,
+  asyncHandler(async (req, res) => {
+    res.json(
+      await recordFirstMeeting(
+        String(req.params.id),
+        req.file,
+        {
+          notes: typeof req.body.notes === "string" ? req.body.notes : undefined,
+          visibleToPostulant: req.body.visibleToPostulant === "true",
+        },
+        req.user!,
+      ),
+    );
+  }),
+);
+
+adminRouter.post(
+  "/dossiers/:id/preliminary/publish-pre-evaluation-form",
+  requirePermission(Permissions.DOCUMENT_UPLOAD_INTERNAL),
+  asyncHandler(async (req, res) => {
+    res.status(201).json(
+      await publishPreEvaluationForm(String(req.params.id), req.user!),
+    );
+  }),
+);
+
+adminRouter.post(
+  "/dossiers/:id/preliminary/send-pre-eval-to-dg",
+  requirePermission(Permissions.PRE_EVAL_DG_CIRCUIT_HANDLE),
+  asyncHandler(async (req, res) => {
+    res.json(
+      await sendPreEvalToDg(
+        String(req.params.id),
+        {
+          sentAt: typeof req.body.sentAt === "string" ? req.body.sentAt : undefined,
+          notes: typeof req.body.notes === "string" ? req.body.notes : undefined,
+        },
+        req.user!,
+      ),
+    );
+  }),
+);
+
+adminRouter.post(
+  "/dossiers/:id/preliminary/record-pre-eval-dg-return",
+  requirePermission(Permissions.PRE_EVAL_DG_CIRCUIT_HANDLE),
+  handleOmaDocumentUpload,
+  asyncHandler(async (req, res) => {
+    res.json(
+      await recordPreEvalDgReturn(
+        String(req.params.id),
+        req.file,
+        {
+          returnedAt: typeof req.body.returnedAt === "string" ? req.body.returnedAt : undefined,
+          notes: typeof req.body.notes === "string" ? req.body.notes : undefined,
+        },
+        req.user!,
+      ),
+    );
+  }),
+);
+
+adminRouter.get(
+  "/dossiers/:id/documents/:documentId",
+  requirePermission(Permissions.PRE_EVAL_DG_RETURN_CONSULT),
+  asyncHandler(async (req, res) => {
+    const { buffer, mimeType, fileName } = await downloadAdminDossierDocument(
+      String(req.params.id),
+      String(req.params.documentId),
+      req.user!,
+    );
+    res.set("Content-Type", mimeType);
+    res.set("Content-Disposition", `attachment; filename="${encodeURIComponent(fileName)}"`);
+    res.set("Content-Length", String(buffer.length));
+    res.end(buffer);
+  }),
+);
+
+adminRouter.post(
+  "/dossiers/:id/preliminary/invite-preliminary-meeting",
+  requirePermission(Permissions.MEETING_MANAGE),
+  asyncHandler(async (req, res) => {
+    res.status(201).json(
+      await invitePreliminaryMeeting(
+        String(req.params.id),
+        {
+          scheduledAt: typeof req.body.scheduledAt === "string" ? req.body.scheduledAt : undefined,
+          location: typeof req.body.location === "string" ? req.body.location : undefined,
+          notes: typeof req.body.notes === "string" ? req.body.notes : undefined,
+        },
+        req.user!,
+      ),
+    );
+  }),
+);
+
+adminRouter.post(
+  "/dossiers/:id/preliminary/record-preliminary-meeting",
+  requirePermission(Permissions.MEETING_MANAGE),
+  handleOmaDocumentUpload,
+  asyncHandler(async (req, res) => {
+    res.json(
+      await recordPreliminaryMeeting(
+        String(req.params.id),
+        req.file,
+        { notes: typeof req.body.notes === "string" ? req.body.notes : undefined },
+        req.user!,
+      ),
+    );
+  }),
+);
+
+adminRouter.post(
+  "/dossiers/:id/preliminary/upload-closure-courrier",
+  requirePermission(Permissions.DOCUMENT_UPLOAD_INTERNAL),
+  handleOmaDocumentUpload,
+  asyncHandler(async (req, res) => {
+    res.status(201).json(
+      await uploadClosureCourrier(
+        String(req.params.id),
+        req.file,
+        { title: typeof req.body.title === "string" ? req.body.title : undefined },
+        req.user!,
+      ),
+    );
+  }),
+);
+
+adminRouter.post(
+  "/dossiers/:id/preliminary/close",
+  requirePermission(Permissions.PHASE_CLOSE),
+  asyncHandler(async (req, res) => {
+    res.json(await closePreliminaryPhase(String(req.params.id), req.user!));
+  }),
+);
+
 adminRouter.get(
   "/audit-logs",
   requirePermission(Permissions.AUDIT_VIEW),
@@ -295,6 +618,60 @@ adminRouter.get(
         limit: Number.isFinite(limit) ? limit : undefined,
         page: Number.isFinite(page) ? page : undefined,
       }),
+    );
+  }),
+);
+
+adminRouter.get(
+  "/document-templates",
+  requirePermission(Permissions.DOCUMENT_UPLOAD_INTERNAL),
+  asyncHandler(async (req, res) => {
+    res.json(
+      await listDocumentTemplates(
+        {
+          documentType: typeof req.query.documentType === "string" ? req.query.documentType : undefined,
+          isActive: req.query.isActive === "true" ? true : req.query.isActive === "false" ? false : undefined,
+        },
+        req.user!,
+      ),
+    );
+  }),
+);
+
+adminRouter.post(
+  "/document-templates",
+  requirePermission(Permissions.DOCUMENT_UPLOAD_INTERNAL),
+  handleOmaDocumentUpload,
+  asyncHandler(async (req, res) => {
+    res.status(201).json(
+      await createDocumentTemplate(
+        req.file,
+        {
+          code: typeof req.body.code === "string" ? req.body.code : "",
+          title: typeof req.body.title === "string" ? req.body.title : "",
+          documentType: typeof req.body.documentType === "string" ? req.body.documentType : "",
+          phaseKey: typeof req.body.phaseKey === "string" ? req.body.phaseKey : undefined,
+        },
+        req.user!,
+      ),
+    );
+  }),
+);
+
+adminRouter.post(
+  "/dev/reset-test-data",
+  requirePermission(Permissions.DEV_DATA_RESET),
+  asyncHandler(async (req, res) => {
+    res.json(
+      await resetTestData(
+        {
+          confirmation: typeof req.body.confirmation === "string" ? req.body.confirmation : "",
+          deleteUploadedFiles: req.body.deleteUploadedFiles === true,
+          includeAuditLogs: req.body.includeAuditLogs !== false,
+          includeNotifications: req.body.includeNotifications !== false,
+        },
+        req.user!,
+      ),
     );
   }),
 );

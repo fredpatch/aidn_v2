@@ -1,124 +1,127 @@
-import { useQueryClient } from '@tanstack/react-query';
-import { Link, useParams } from 'react-router-dom';
-import { ArrowLeft, FileText, Info, RotateCcw } from 'lucide-react';
+import { useContext, useEffect, useRef, useState } from "react";
+import { Link, useParams } from "react-router-dom";
 import {
-  AidnStatusBadge,
-  DgDecisionBadge,
-  OmaPhaseBadge,
-  advanceCertificateLifecycle,
-  getNextCertificateLifecycleActionLabel,
-  markMeetingReportAvailable,
-  markMeetingScheduled,
-  markPaymentEvidenceReceived,
-  markPaymentEvidenceValidated,
-  markPhaseNextActionDone,
-  resetAidnDemoData,
-  updatePhaseEvidenceStatus,
-  getEntryChannelLabel,
-  getInternalDemandeStatusLabel,
-  getPortalStatusLabel,
-  useAidnCertificates,
-  useAidnDocuments,
-  useAidnMeetings,
-  useAidnOmaPhases,
-  useAidnPhaseEvidence,
-  useAidnPhaseNextActions,
-  useAidnTimelineEvents,
-  useCourriers,
-  useDemandes,
-  useDgDecisionRecords,
-  useDossier,
-  type AidnCertificate,
-  type AidnDocument,
-  type AidnMeeting,
-  type AidnOmaPhase,
-  type AidnOmaPhaseKey,
-  type AidnPhaseEvidenceItem,
-  type AidnPhaseEvidenceStatus,
-  type AidnPhaseNextAction,
-  type AidnTimelineEvent,
-} from '@/features/aidn';
-import { EmptyState, SkeletonCard } from '@/components/states';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Progress } from '@/components/ui/progress';
-import { useAppToast } from '@/hooks/useAppToast';
+  ArrowLeft,
+  CheckCircle2,
+  Clock,
+  Download,
+  Info,
+  XCircle,
+} from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { EmptyState, SkeletonCard } from "@/components/states";
+import {
+  closePreliminaryPhase,
+  downloadDossierDocument,
+  getDossier,
+  inviteFirstMeeting,
+  invitePreliminaryMeeting,
+  publishPreEvaluationForm,
+  recordFirstMeeting,
+  recordPreEvalDgReturn,
+  recordPreliminaryMeeting,
+  sendPreEvalToDg,
+  uploadClosureCourrier,
+  type AdminDossierDetail,
+  type AdminMeetingSummary,
+  type DossierStatus,
+  type DossierType,
+  type OmaPhaseKey,
+  type PreliminaryStatus,
+} from "@/lib/api/dossiers.api";
+import { ApiError } from "@/lib/api/client";
+import { AuthContext } from "@/contexts/AuthContext";
+import { hasPermission } from "@/lib/auth/permissions";
 
-const phaseLabels: Record<AidnOmaPhaseKey, string> = {
-  preliminary: 'Phase 1 - Preliminaire',
-  formal_application: 'Phase 2 - Demande formelle',
-  document_evaluation: 'Phase 3 - Evaluation approfondie',
-  onsite_demonstration: 'Phase 4 - Inspection / R3',
-  delivery: 'Phase 5 - Delivrance',
+const dossierTypeLabels: Record<DossierType, string> = {
+  oma_recognition: "Certificat de reconnaissance OMA",
+  oma_approval: "Certificat d'agrément OMA",
+  oma_renewal: "Renouvellement de Certificat OMA",
+  oma_modification: "Modification de Certificat OMA",
 };
 
-const phaseTouchpoints: Record<AidnOmaPhaseKey, string> = {
-  preliminary: 'DG / DN / EC',
-  formal_application: 'DG / DN',
-  document_evaluation: 'S5 / compta',
-  onsite_demonstration: 'S5 / compta / R3',
-  delivery: 'S5 / compta / DN',
+const dossierStatusLabels: Record<DossierStatus, string> = {
+  opened: "Ouvert",
+  preliminary_phase: "Phase préliminaire",
+  formal_request_phase: "Demande formelle",
+  document_evaluation_phase: "Évaluation documents",
+  inspection_phase: "Inspection",
+  delivery_phase: "Délivrance",
+  closed: "Clôturé",
+  suspended: "Suspendu",
+  cancelled: "Annulé",
 };
 
-const certificateTypeLabels: Record<AidnCertificate['certificateType'], string> = {
-  initial: 'Initial',
-  renewal: 'Renouvellement',
-  extension: 'Extension',
+const phaseKeyLabels: Record<OmaPhaseKey, string> = {
+  preliminary: "Phase 1 - Préliminaire",
+  formal_request: "Phase 2 - Demande formelle",
+  document_evaluation: "Phase 3 - Évaluation approfondie",
+  inspection: "Phase 4 - Inspection / R3",
+  delivery: "Phase 5 - Délivrance",
 };
 
-const certificateStatusLabels: Record<AidnCertificate['status'], string> = {
-  to_prepare: 'A preparer',
-  printed: 'Imprime',
-  signed_stamped: 'Signe/cachete',
-  scanned_in_aidn: 'Scanne dans AIDN',
-  ready_for_collection: 'Pret au retrait',
-  collected: 'Remis au postulant',
-  archived: 'Archive',
+const phaseStatusLabels: Record<string, string> = {
+  not_started: "Non démarrée",
+  in_progress: "En cours",
+  waiting_postulant: "Attente postulant",
+  waiting_dg: "Attente DG",
+  waiting_meeting: "Attente réunion",
+  ready_to_close: "Prête à clore",
+  closed: "Clôturée",
+  suspended: "Suspendue",
 };
 
-const deadlineLabels = {
-  on_track: 'Dans les delais',
-  at_risk: 'A surveiller',
-  late: 'En retard',
-} as const;
-
-const phaseOrder: AidnOmaPhaseKey[] = ['preliminary', 'formal_application', 'document_evaluation', 'onsite_demonstration', 'delivery'];
-
-const evidenceKindLabels: Record<AidnPhaseEvidenceItem['kind'], string> = {
-  required_document: 'Document attendu',
-  formal_courrier: 'Courrier formel',
-  meeting_report: 'Compte rendu',
-  invoice: 'Facture',
-  payment_proof: 'Preuve paiement',
-  r3_opinion: 'Avis R3',
-  certificate_artifact: 'Certificat',
-  notification: 'Notification',
+const preliminaryStatusLabels: Record<PreliminaryStatus, string> = {
+  preliminary_not_started: "Non démarrée",
+  preliminary_started: "Démarrée",
+  first_meeting_invited: "Première réunion planifiée",
+  first_meeting_held: "Première réunion tenue",
+  pre_eval_form_available: "Formulaire disponible",
+  pre_eval_form_submitted: "Formulaire soumis",
+  pre_eval_sent_to_dg: "Envoyé au DG",
+  pre_eval_dg_returned: "Retour DG reçu",
+  pre_eval_dg_decision_recorded: "Décision DG enregistrée",
+  preliminary_meeting_invited: "Réunion préliminaire planifiée",
+  preliminary_meeting_held: "Réunion préliminaire tenue",
+  preliminary_ready_to_close: "Prête à clore",
+  preliminary_closed: "Clôturée",
 };
 
-const evidenceStatusLabels: Record<AidnPhaseEvidenceStatus, string> = {
-  expected: 'Attendu',
-  received: 'Recu',
-  scanned: 'Scanne',
-  pending_review: 'A verifier',
-  validated: 'Valide',
-  missing: 'Manquant',
-  not_applicable: 'Non applicable',
-};
-
-const evidenceStatusClasses: Partial<Record<AidnPhaseEvidenceStatus, string>> = {
-  validated: 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-200',
-  scanned: 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-200',
-  pending_review: 'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200',
-  missing: 'border-red-200 bg-red-50 text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-200',
-};
+const PHASE_ORDER: OmaPhaseKey[] = [
+  "preliminary",
+  "formal_request",
+  "document_evaluation",
+  "inspection",
+  "delivery",
+];
 
 function formatDate(value?: string): string {
-  if (!value) return 'Non renseigne';
-  return new Intl.DateTimeFormat('fr-FR', { dateStyle: 'medium' }).format(new Date(value));
+  if (!value) return "Non renseigné";
+  return new Intl.DateTimeFormat("fr-FR", { dateStyle: "medium" }).format(
+    new Date(value),
+  );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }): React.JSX.Element {
+function Section({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}): React.JSX.Element {
   return (
     <Card>
       <CardHeader className="pb-3">
@@ -129,15 +132,31 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-function DefinitionGrid({ children }: { children: React.ReactNode }): React.JSX.Element {
-  return <dl className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-3">{children}</dl>;
+function DefinitionGrid({
+  children,
+}: {
+  children: React.ReactNode;
+}): React.JSX.Element {
+  return (
+    <dl className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-3">
+      {children}
+    </dl>
+  );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }): React.JSX.Element {
+function Field({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}): React.JSX.Element {
   return (
     <div>
       <dt className="text-muted-foreground">{label}</dt>
-      <dd className="font-medium text-slate-900 dark:text-slate-100">{children}</dd>
+      <dd className="font-medium text-slate-900 dark:text-slate-100">
+        {children}
+      </dd>
     </div>
   );
 }
@@ -151,420 +170,952 @@ function Note({ children }: { children: React.ReactNode }): React.JSX.Element {
   );
 }
 
-function normalize(value: string): string {
-  return value
-    .normalize('NFD')
-    .replace(/\p{Diacritic}/gu, '')
-    .toLowerCase();
-}
-
-function findClosureDocument(phaseKey: AidnOmaPhaseKey, documents: AidnDocument[]): AidnDocument | undefined {
-  const closureTerms = ['cloture', 'closure'];
-  return documents.find((document) => {
-    const title = normalize(document.title);
-    return document.phaseKey === phaseKey && closureTerms.some((term) => title.includes(term));
-  });
-}
-
-function getFallbackNextAction(phase: AidnOmaPhase | undefined): string {
-  if (!phase) return 'Initialiser la phase dans le prototype mock.';
-
-  switch (phase.status) {
-    case 'not_started':
-      return 'Verifier les prealables et preparer le lancement de phase.';
-    case 'in_progress':
-      return 'Completer les pieces attendues et rattacher les preuves disponibles.';
-    case 'blocked':
-      return 'Identifier le blocage interne et relancer le touchpoint concerne.';
-    case 'late':
-      return 'Prioriser le traitement et documenter la cause du retard.';
-    case 'completed':
-      return 'Conserver le courrier de cloture et verifier la phase suivante.';
-    default:
-      return 'Suivre la prochaine action DN.';
+function PhaseStatusBadge({ status }: { status: string }): React.JSX.Element {
+  const label = phaseStatusLabels[status] ?? status;
+  if (status === "closed") {
+    return (
+      <Badge
+        variant="outline"
+        className="border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-200"
+      >
+        {label}
+      </Badge>
+    );
   }
+  if (
+    status === "in_progress" ||
+    status === "waiting_postulant" ||
+    status === "waiting_meeting"
+  ) {
+    return <Badge variant="secondary">{label}</Badge>;
+  }
+  if (status === "suspended") {
+    return <Badge variant="destructive">{label}</Badge>;
+  }
+  return <Badge variant="outline">{label}</Badge>;
 }
 
-function EvidenceStatusBadge({ status }: { status: AidnPhaseEvidenceStatus }): React.JSX.Element {
+function MeetingCard({
+  meeting,
+}: {
+  meeting: AdminMeetingSummary;
+}): React.JSX.Element {
   return (
-    <Badge variant="outline" className={evidenceStatusClasses[status]}>
-      {evidenceStatusLabels[status]}
-    </Badge>
+    <div className="rounded-md border bg-muted/20 p-3 text-sm">
+      <p className="font-medium">{meeting.title}</p>
+      <dl className="mt-2 grid gap-1 text-xs text-muted-foreground sm:grid-cols-2">
+        <div>
+          <dt className="inline">Statut : </dt>
+          <dd className="inline">{meeting.status}</dd>
+        </div>
+        {meeting.scheduledAt ? (
+          <div>
+            <dt className="inline">Date : </dt>
+            <dd className="inline">{formatDate(meeting.scheduledAt)}</dd>
+          </div>
+        ) : null}
+        {meeting.location ? (
+          <div>
+            <dt className="inline">Lieu : </dt>
+            <dd className="inline">{meeting.location}</dd>
+          </div>
+        ) : null}
+        {meeting.reportDocumentId ? (
+          <div className="flex items-center gap-1 text-emerald-700">
+            <CheckCircle2 className="h-3 w-3" />
+            <span>Compte rendu joint</span>
+          </div>
+        ) : null}
+      </dl>
+    </div>
   );
 }
 
-function EvidenceChecklist({
-  evidenceItems,
-  documents,
-  onSetStatus,
-  onMarkPaymentReceived,
-  onMarkPaymentValidated,
+function ActionError({ message }: { message: string }): React.JSX.Element {
+  return (
+    <div className="flex items-center gap-2 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300">
+      <XCircle className="h-4 w-4 shrink-0" />
+      <p>{message}</p>
+    </div>
+  );
+}
+
+function WaitingState({
+  children,
 }: {
-  evidenceItems: AidnPhaseEvidenceItem[];
-  documents: AidnDocument[];
-  onSetStatus: (evidenceId: string, status: AidnPhaseEvidenceStatus) => void;
-  onMarkPaymentReceived: (evidenceId: string) => void;
-  onMarkPaymentValidated: (evidenceId: string) => void;
+  children: React.ReactNode;
 }): React.JSX.Element {
-  if (evidenceItems.length === 0) {
-    return <p className="text-sm text-muted-foreground">Aucune checklist de preuves mock rattachee a cette phase.</p>;
-  }
+  return (
+    <div className="flex items-start gap-3 text-sm text-muted-foreground">
+      <Clock className="mt-0.5 h-4 w-4 shrink-0" />
+      <p>{children}</p>
+    </div>
+  );
+}
+
+function InviteMeetingForm({
+  title,
+  buttonLabel,
+  isSubmitting,
+  error,
+  onSubmit,
+}: {
+  title: string;
+  buttonLabel: string;
+  isSubmitting: boolean;
+  error: string;
+  onSubmit: (payload: {
+    scheduledAt?: string;
+    location?: string;
+    notes?: string;
+  }) => void;
+}): React.JSX.Element {
+  const [scheduledAt, setScheduledAt] = useState("");
+  const [location, setLocation] = useState("");
+  const [notes, setNotes] = useState("");
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSubmit({
+      scheduledAt: scheduledAt || undefined,
+      location: location.trim() || undefined,
+      notes: notes.trim() || undefined,
+    });
+  };
 
   return (
-    <ul className="space-y-2 text-sm">
-      {evidenceItems.map((item) => {
-        const linkedDocument = item.documentId ? documents.find((document) => document.id === item.documentId) : undefined;
-        const isPaymentEvidence = item.kind === 'invoice' || item.kind === 'payment_proof';
-        return (
-          <li key={item.id} className="rounded-md border bg-background px-3 py-2">
-            <div className="flex flex-wrap items-start justify-between gap-2">
-              <div>
-                <p className="font-medium">{item.label}</p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {evidenceKindLabels[item.kind]} - Source : {item.sourceActor} - {item.isRequired ? 'Obligatoire' : 'Optionnel'}
+    <form onSubmit={handleSubmit} className="space-y-3">
+      <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
+        {title}
+      </p>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="space-y-1">
+          <Label htmlFor="form-scheduled-at" className="text-xs">
+            Date prévue (optionnel)
+          </Label>
+          <Input
+            id="form-scheduled-at"
+            type="datetime-local"
+            value={scheduledAt}
+            onChange={(e) => setScheduledAt(e.target.value)}
+            className="h-8 text-sm"
+          />
+        </div>
+        <div className="space-y-1">
+          <Label htmlFor="form-location" className="text-xs">
+            Lieu (optionnel)
+          </Label>
+          <Input
+            id="form-location"
+            value={location}
+            onChange={(e) => setLocation(e.target.value)}
+            placeholder="Salle de réunion, adresse…"
+            className="h-8 text-sm"
+          />
+        </div>
+      </div>
+      <div className="space-y-1">
+        <Label htmlFor="form-notes" className="text-xs">
+          Notes (optionnel)
+        </Label>
+        <Textarea
+          id="form-notes"
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          rows={2}
+          className="text-sm"
+        />
+      </div>
+      {error ? <ActionError message={error} /> : null}
+      <Button type="submit" size="sm" disabled={isSubmitting}>
+        {isSubmitting ? (
+          <>
+            <Clock className="mr-2 h-4 w-4 animate-spin" />
+            En cours…
+          </>
+        ) : (
+          buttonLabel
+        )}
+      </Button>
+    </form>
+  );
+}
+
+function RecordMeetingForm({
+  title,
+  buttonLabel,
+  fileRequired,
+  showVisibleToPostulant,
+  isSubmitting,
+  error,
+  onSubmit,
+}: {
+  title: string;
+  buttonLabel: string;
+  fileRequired: boolean;
+  showVisibleToPostulant?: boolean;
+  isSubmitting: boolean;
+  error: string;
+  onSubmit: (formData: FormData) => void;
+}): React.JSX.Element {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [notes, setNotes] = useState("");
+  const [visibleToPostulant, setVisibleToPostulant] = useState(false);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const file = fileRef.current?.files?.[0];
+    const fd = new FormData();
+    if (file) fd.append("file", file);
+    if (notes.trim()) fd.append("notes", notes.trim());
+    if (showVisibleToPostulant)
+      fd.append("visibleToPostulant", String(visibleToPostulant));
+    onSubmit(fd);
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-3">
+      <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
+        {title}
+      </p>
+      <div className="space-y-1">
+        <Label htmlFor="form-file" className="text-xs">
+          Compte rendu{" "}
+          {fileRequired ? (
+            <span className="text-red-500">*</span>
+          ) : (
+            "(optionnel)"
+          )}
+        </Label>
+        <Input
+          id="form-file"
+          ref={fileRef}
+          type="file"
+          accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+          required={fileRequired}
+          className="h-8 text-sm"
+        />
+      </div>
+      <div className="space-y-1">
+        <Label htmlFor="form-record-notes" className="text-xs">
+          Notes (optionnel)
+        </Label>
+        <Textarea
+          id="form-record-notes"
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          rows={2}
+          className="text-sm"
+        />
+      </div>
+      {showVisibleToPostulant ? (
+        <div className="flex items-center gap-2">
+          <input
+            id="form-visible-postulant"
+            type="checkbox"
+            className="h-4 w-4"
+            checked={visibleToPostulant}
+            onChange={(e) => setVisibleToPostulant(e.target.checked)}
+          />
+          <Label htmlFor="form-visible-postulant" className="text-xs">
+            Rendre le compte rendu visible au postulant
+          </Label>
+        </div>
+      ) : null}
+      {error ? <ActionError message={error} /> : null}
+      <Button type="submit" size="sm" disabled={isSubmitting}>
+        {isSubmitting ? (
+          <>
+            <Clock className="mr-2 h-4 w-4 animate-spin" />
+            En cours…
+          </>
+        ) : (
+          buttonLabel
+        )}
+      </Button>
+    </form>
+  );
+}
+
+function SendToDgPanel({
+  isSubmitting,
+  error,
+  onSubmit,
+}: {
+  isSubmitting: boolean;
+  error: string;
+  onSubmit: () => void;
+}): React.JSX.Element {
+  return (
+    <div className="space-y-3">
+      <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
+        Mettre en circuit officiel le formulaire de pré-évaluation
+      </p>
+      <p className="text-sm text-muted-foreground">
+        Imprimez le formulaire, placez-le dans le circuit physique DG/parapheur,
+        puis marquez-le comme mis en circuit.
+      </p>
+      {error ? <ActionError message={error} /> : null}
+      <Button
+        type="button"
+        size="sm"
+        disabled={isSubmitting}
+        onClick={onSubmit}
+      >
+        {isSubmitting ? (
+          <>
+            <Clock className="mr-2 h-4 w-4 animate-spin" />
+            En cours…
+          </>
+        ) : (
+          "Marquer mis en circuit"
+        )}
+      </Button>
+    </div>
+  );
+}
+
+function RecordDgReturnForm({
+  isSubmitting,
+  error,
+  onSubmit,
+}: {
+  isSubmitting: boolean;
+  error: string;
+  onSubmit: (formData: FormData) => void;
+}): React.JSX.Element {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [returnedAt, setReturnedAt] = useState("");
+  const [notes, setNotes] = useState("");
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const file = fileRef.current?.files?.[0];
+    const fd = new FormData();
+    if (file) fd.append("file", file);
+    if (returnedAt) fd.append("returnedAt", returnedAt);
+    if (notes.trim()) fd.append("notes", notes.trim());
+    onSubmit(fd);
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-3">
+      <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
+        Enregistrer le retour DG (document annoté)
+      </p>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="space-y-1">
+          <Label htmlFor="dg-file" className="text-xs">
+            Document retourné par le DG <span className="text-red-500">*</span>
+          </Label>
+          <Input
+            id="dg-file"
+            ref={fileRef}
+            type="file"
+            accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+            required
+            className="h-8 text-sm"
+          />
+        </div>
+        <div className="space-y-1">
+          <Label htmlFor="dg-returned-at" className="text-xs">
+            Date de retour (optionnel)
+          </Label>
+          <Input
+            id="dg-returned-at"
+            type="date"
+            value={returnedAt}
+            onChange={(e) => setReturnedAt(e.target.value)}
+            className="h-8 text-sm"
+          />
+        </div>
+      </div>
+      <div className="space-y-1">
+        <Label htmlFor="dg-notes" className="text-xs">
+          Notes (optionnel)
+        </Label>
+        <Textarea
+          id="dg-notes"
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          rows={2}
+          className="text-sm"
+        />
+      </div>
+      {error ? <ActionError message={error} /> : null}
+      <Button type="submit" size="sm" disabled={isSubmitting}>
+        {isSubmitting ? (
+          <>
+            <Clock className="mr-2 h-4 w-4 animate-spin" />
+            En cours…
+          </>
+        ) : (
+          "Enregistrer le retour DG"
+        )}
+      </Button>
+    </form>
+  );
+}
+
+function UploadClosureCourrierForm({
+  isSubmitting,
+  error,
+  onSubmit,
+}: {
+  isSubmitting: boolean;
+  error: string;
+  onSubmit: (formData: FormData) => void;
+}): React.JSX.Element {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [title, setTitle] = useState("");
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const file = fileRef.current?.files?.[0];
+    if (!file) return;
+    const fd = new FormData();
+    fd.append("file", file);
+    if (title.trim()) fd.append("title", title.trim());
+    onSubmit(fd);
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-3">
+      <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
+        Téléverser le courrier de clôture (optionnel)
+      </p>
+      <p className="text-sm text-muted-foreground">
+        Document de clôture de la phase préliminaire - sera visible au
+        postulant.
+      </p>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="space-y-1">
+          <Label htmlFor="closure-file" className="text-xs">
+            Courrier de clôture <span className="text-red-500">*</span>
+          </Label>
+          <Input
+            id="closure-file"
+            ref={fileRef}
+            type="file"
+            accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+            required
+            className="h-8 text-sm"
+          />
+        </div>
+        <div className="space-y-1">
+          <Label htmlFor="closure-title" className="text-xs">
+            Intitulé (optionnel)
+          </Label>
+          <Input
+            id="closure-title"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="Courrier de clôture - Phase préliminaire"
+            className="h-8 text-sm"
+          />
+        </div>
+      </div>
+      {error ? <ActionError message={error} /> : null}
+      <Button type="submit" size="sm" disabled={isSubmitting}>
+        {isSubmitting ? (
+          <>
+            <Clock className="mr-2 h-4 w-4 animate-spin" />
+            En cours…
+          </>
+        ) : (
+          "Téléverser le courrier de clôture"
+        )}
+      </Button>
+    </form>
+  );
+}
+
+function PreliminaryActionPanel({
+  dossierId,
+  detail,
+  onRefresh,
+}: {
+  dossierId: string;
+  detail: AdminDossierDetail;
+  onRefresh: () => void;
+}): React.JSX.Element {
+  const auth = useContext(AuthContext);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [actionError, setActionError] = useState("");
+  const [closeDialogOpen, setCloseDialogOpen] = useState(false);
+
+  const { preliminary } = detail;
+  if (!preliminary) {
+    return (
+      <Note>
+        Phase préliminaire non initialisée. Elle démarrera automatiquement à la
+        première action.
+      </Note>
+    );
+  }
+
+  const { phase, firstMeeting, preliminaryMeeting } = preliminary;
+  const ps = phase.preliminaryStatus;
+  const isClosed = ps === "preliminary_closed";
+  const user = auth?.user ?? null;
+  const canManageMeetings = hasPermission(user, "MEETING_MANAGE");
+  const canPublishDocuments = hasPermission(user, "DOCUMENT_UPLOAD_INTERNAL");
+  const canHandlePreEvalDgCircuit = hasPermission(
+    user,
+    "PRE_EVAL_DG_CIRCUIT_HANDLE",
+  );
+  const canConsultPreEvalDgReturn = hasPermission(
+    user,
+    "PRE_EVAL_DG_RETURN_CONSULT",
+  );
+  const annotatedReturnDocumentId = phase.preEvaluationDgAnnotatedDocumentId;
+  const hasAnnotatedReturn = Boolean(annotatedReturnDocumentId);
+
+  const runAction = async (action: () => Promise<unknown>) => {
+    setIsSubmitting(true);
+    setActionError("");
+    try {
+      await action();
+      onRefresh();
+    } catch (err) {
+      const message =
+        err instanceof ApiError
+          ? err.message
+          : "Une erreur est survenue. Réessayez.";
+      setActionError(message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const downloadAnnotatedReturn = async () => {
+    if (!annotatedReturnDocumentId) return;
+
+    setIsSubmitting(true);
+    setActionError("");
+    try {
+      const { blob, fileName } = await downloadDossierDocument(
+        dossierId,
+        annotatedReturnDocumentId,
+      );
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      const message =
+        err instanceof ApiError
+          ? err.message
+          : "Une erreur est survenue. Réessayez.";
+      setActionError(message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <DefinitionGrid>
+        <Field label="Statut préliminaire">
+          {ps ? (
+            <Badge variant="secondary">{preliminaryStatusLabels[ps]}</Badge>
+          ) : (
+            <Badge variant="outline">Non initialisé</Badge>
+          )}
+        </Field>
+        <Field label="Phase statut">
+          <PhaseStatusBadge status={phase.status} />
+        </Field>
+        {phase.startedAt ? (
+          <Field label="Démarrée le">{formatDate(phase.startedAt)}</Field>
+        ) : null}
+        {phase.closedAt ? (
+          <Field label="Clôturée le">{formatDate(phase.closedAt)}</Field>
+        ) : null}
+      </DefinitionGrid>
+
+      {firstMeeting ? (
+        <div className="space-y-1">
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            Première réunion
+          </p>
+          <MeetingCard meeting={firstMeeting} />
+        </div>
+      ) : null}
+
+      {preliminaryMeeting ? (
+        <div className="space-y-1">
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            Réunion préliminaire
+          </p>
+          <MeetingCard meeting={preliminaryMeeting} />
+        </div>
+      ) : null}
+
+      {isClosed ? (
+        <div className="flex items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-200">
+          <CheckCircle2 className="h-4 w-4 shrink-0" />
+          <p>
+            Phase préliminaire clôturée. La phase de demande formelle est
+            désormais active.
+          </p>
+        </div>
+      ) : null}
+
+      {!isClosed ? (
+        <div className="rounded-md border bg-muted/20 p-4">
+          {ps === null || ps === "preliminary_started" ? (
+            canManageMeetings ? (
+              <InviteMeetingForm
+                title="Planifier la première réunion de contact"
+                buttonLabel="Planifier la réunion"
+                isSubmitting={isSubmitting}
+                error={actionError}
+                onSubmit={(payload) =>
+                  runAction(() => inviteFirstMeeting(dossierId, payload))
+                }
+              />
+            ) : (
+              <WaitingState>
+                En attente de planification par l'équipe DN.
+              </WaitingState>
+            )
+          ) : ps === "first_meeting_invited" ? (
+            canManageMeetings ? (
+              <RecordMeetingForm
+                title="Enregistrer la tenue de la première réunion"
+                buttonLabel="Enregistrer la réunion"
+                fileRequired={false}
+                showVisibleToPostulant
+                isSubmitting={isSubmitting}
+                error={actionError}
+                onSubmit={(fd) =>
+                  runAction(() => recordFirstMeeting(dossierId, fd))
+                }
+              />
+            ) : (
+              <WaitingState>
+                En attente d'enregistrement de la première réunion par l'équipe
+                DN.
+              </WaitingState>
+            )
+          ) : ps === "first_meeting_held" ? (
+            canPublishDocuments ? (
+              <div className="space-y-3">
+                <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
+                  Rendre le formulaire de pré-évaluation disponible
                 </p>
+                <p className="text-sm text-muted-foreground">
+                  Le formulaire configuré dans les paramètres (Modèles de
+                  documents) sera mis à disposition du postulant dans son espace
+                  portail.
+                </p>
+                {actionError ? <ActionError message={actionError} /> : null}
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={isSubmitting}
+                  onClick={() =>
+                    runAction(() => publishPreEvaluationForm(dossierId))
+                  }
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Clock className="mr-2 h-4 w-4 animate-spin" />
+                      En cours…
+                    </>
+                  ) : (
+                    "Rendre le formulaire disponible"
+                  )}
+                </Button>
               </div>
-              <EvidenceStatusBadge status={item.status} />
-            </div>
-            <p className="mt-2 text-xs text-muted-foreground">
-              Document lie : {linkedDocument?.title ?? 'Non rattache'} - Echeance : {formatDate(item.dueDate)} - Reception : {formatDate(item.receivedAt)}
-            </p>
-            {item.notes ? <p className="mt-1 text-xs text-muted-foreground">{item.notes}</p> : null}
-            <div className="mt-3 flex flex-wrap gap-2">
-              <Button type="button" size="sm" variant="outline" disabled={item.status === 'not_applicable'} onClick={() => onSetStatus(item.id, 'received')}>
-                Recu dans la demo
-              </Button>
-              <Button type="button" size="sm" variant="outline" disabled={item.status === 'not_applicable'} onClick={() => onSetStatus(item.id, 'validated')}>
-                Valide dans la demo
-              </Button>
-              <Button type="button" size="sm" variant="ghost" disabled={item.status === 'not_applicable'} onClick={() => onSetStatus(item.id, 'missing')}>
-                Manquant dans la demo
-              </Button>
-              {isPaymentEvidence ? (
-                <>
-                  <Button type="button" size="sm" variant="outline" disabled={item.status === 'not_applicable'} onClick={() => onMarkPaymentReceived(item.id)}>
-                    Preuve recue dans la demo
+            ) : (
+              <WaitingState>
+                En attente de publication du formulaire de pre-evaluation.
+              </WaitingState>
+            )
+          ) : ps === "pre_eval_form_available" ? (
+            <WaitingState>
+              En attente de soumission du formulaire par le postulant.
+            </WaitingState>
+          ) : ps === "pre_eval_form_submitted" ? (
+            canHandlePreEvalDgCircuit ? (
+              <SendToDgPanel
+                isSubmitting={isSubmitting}
+                error={actionError}
+                onSubmit={() => runAction(() => sendPreEvalToDg(dossierId, {}))}
+              />
+            ) : (
+              <WaitingState>
+                Formulaire soumis. En attente de traitement par la réception, le
+                bureau courrier ou le secrétariat DG.
+              </WaitingState>
+            )
+          ) : ps === "pre_eval_sent_to_dg" ? (
+            canHandlePreEvalDgCircuit ? (
+              <RecordDgReturnForm
+                isSubmitting={isSubmitting}
+                error={actionError}
+                onSubmit={(fd) =>
+                  runAction(() => recordPreEvalDgReturn(dossierId, fd))
+                }
+              />
+            ) : (
+              <WaitingState>
+                Formulaire transmis au circuit officiel. En attente du retour
+                annoté scanné par la réception, le bureau courrier ou le
+                secrétariat DG.
+              </WaitingState>
+            )
+          ) : ps === "pre_eval_dg_decision_recorded" &&
+            canManageMeetings &&
+            hasAnnotatedReturn ? (
+            <div className="space-y-4">
+              {canConsultPreEvalDgReturn ? (
+                <div className="space-y-3">
+                  {actionError ? <ActionError message={actionError} /> : null}
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    disabled={isSubmitting}
+                    onClick={() => void downloadAnnotatedReturn()}
+                  >
+                    <Download className="mr-2 h-4 w-4" />
+                    Télécharger le retour DG annoté
                   </Button>
-                  <Button type="button" size="sm" variant="outline" disabled={item.status === 'not_applicable'} onClick={() => onMarkPaymentValidated(item.id)}>
-                    Paiement valide dans la demo
+                </div>
+              ) : null}
+              <InviteMeetingForm
+                title="Planifier la réunion préliminaire"
+                buttonLabel="Planifier la réunion préliminaire"
+                isSubmitting={isSubmitting}
+                error={actionError}
+                onSubmit={(payload) =>
+                  runAction(() => invitePreliminaryMeeting(dossierId, payload))
+                }
+              />
+            </div>
+          ) : ps === "pre_eval_dg_decision_recorded" ? (
+            <div className="space-y-3">
+              {canConsultPreEvalDgReturn && hasAnnotatedReturn ? (
+                <>
+                  {actionError ? <ActionError message={actionError} /> : null}
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    disabled={isSubmitting}
+                    onClick={() => void downloadAnnotatedReturn()}
+                  >
+                    <Download className="mr-2 h-4 w-4" />
+                    Télécharger le retour DG annoté
                   </Button>
                 </>
+              ) : hasAnnotatedReturn ? (
+                <WaitingState>
+                  Retour DG annoté enregistré. Document non accessible à votre
+                  profil.
+                </WaitingState>
+              ) : (
+                <WaitingState>
+                  En attente du scan annoté DG avant la reprise DN.
+                </WaitingState>
+              )}
+            </div>
+          ) : ps === "preliminary_meeting_invited" ? (
+            canManageMeetings ? (
+              <RecordMeetingForm
+                title="Enregistrer la tenue de la réunion préliminaire"
+                buttonLabel="Enregistrer la réunion"
+                fileRequired={false}
+                isSubmitting={isSubmitting}
+                error={actionError}
+                onSubmit={(fd) =>
+                  runAction(() => recordPreliminaryMeeting(dossierId, fd))
+                }
+              />
+            ) : (
+              <WaitingState>
+                En attente de tenue de la réunion préliminaire par l'équipe DN.
+              </WaitingState>
+            )
+          ) : ps === "preliminary_meeting_held" ? (
+            <div className="space-y-4">
+              {canPublishDocuments ? (
+                <UploadClosureCourrierForm
+                  isSubmitting={isSubmitting}
+                  error={actionError}
+                  onSubmit={(fd) =>
+                    runAction(() => uploadClosureCourrier(dossierId, fd))
+                  }
+                />
+              ) : null}
+              {hasPermission(user, "PHASE_CLOSE") ? (
+                <div className="space-y-3">
+                  <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
+                    Clôturer la phase préliminaire
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    La réunion préliminaire a été tenue. Vous pouvez clôturer
+                    directement ou téléverser un courrier de clôture avant de
+                    confirmer.
+                  </p>
+                  {actionError && !canPublishDocuments ? (
+                    <ActionError message={actionError} />
+                  ) : null}
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="default"
+                    disabled={isSubmitting}
+                    onClick={() => setCloseDialogOpen(true)}
+                  >
+                    Clôturer la phase préliminaire
+                  </Button>
+                </div>
+              ) : null}
+              {!canPublishDocuments && !hasPermission(user, "PHASE_CLOSE") ? (
+                <WaitingState>
+                  Phase préliminaire en attente de clôture.
+                </WaitingState>
               ) : null}
             </div>
+          ) : ps === "preliminary_ready_to_close" ? (
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">
+                Courrier de clôture téléversé. La phase peut être clôturée.
+              </p>
+              {hasPermission(user, "PHASE_CLOSE") ? (
+                <div className="space-y-3">
+                  {actionError ? <ActionError message={actionError} /> : null}
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="default"
+                    disabled={isSubmitting}
+                    onClick={() => setCloseDialogOpen(true)}
+                  >
+                    Clôturer la phase préliminaire
+                  </Button>
+                </div>
+              ) : (
+                <WaitingState>
+                  Phase préliminaire en attente de clôture.
+                </WaitingState>
+              )}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
+      <Dialog open={closeDialogOpen} onOpenChange={setCloseDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirmer la clôture</DialogTitle>
+            <DialogDescription>
+              Clôturer la phase préliminaire est irréversible. La phase de
+              demande formelle sera activée automatiquement. Confirmez-vous ?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setCloseDialogOpen(false)}
+              disabled={isSubmitting}
+            >
+              Annuler
+            </Button>
+            <Button
+              type="button"
+              disabled={isSubmitting}
+              onClick={() => {
+                setCloseDialogOpen(false);
+                void runAction(() => closePreliminaryPhase(dossierId));
+              }}
+            >
+              {isSubmitting ? "Clôture en cours…" : "Confirmer la clôture"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+function PhasesOverview({
+  phases,
+}: {
+  phases: AdminDossierDetail["phases"];
+}): React.JSX.Element {
+  const byKey = new Map(phases.map((p) => [p.phaseKey, p]));
+
+  return (
+    <ol className="space-y-2 text-sm">
+      {PHASE_ORDER.map((key, index) => {
+        const phase = byKey.get(key);
+        return (
+          <li
+            key={key}
+            className="flex flex-wrap items-center justify-between gap-2 rounded-md border bg-background px-3 py-2"
+          >
+            <span className="font-medium">
+              {index + 1}. {phaseKeyLabels[key]}
+            </span>
+            {phase ? (
+              <PhaseStatusBadge status={phase.status} />
+            ) : (
+              <Badge variant="outline">Non initialisée</Badge>
+            )}
           </li>
         );
       })}
-    </ul>
-  );
-}
-
-function DocumentList({ documents }: { documents: AidnDocument[] }): React.JSX.Element {
-  if (documents.length === 0) return <p className="text-sm text-muted-foreground">Aucun document lie.</p>;
-
-  return (
-    <div className="overflow-x-auto">
-      <table className="w-full min-w-[720px] text-left text-sm">
-        <thead className="border-b text-xs uppercase text-muted-foreground">
-          <tr>
-            <th className="py-2 pr-3">Document</th>
-            <th className="py-2 pr-3">Source</th>
-            <th className="py-2 pr-3">Statut</th>
-            <th className="py-2 pr-3">Phase</th>
-            <th className="py-2">Date upload/reception</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y">
-          {documents.map((document) => (
-            <tr key={document.id}>
-              <td className="py-3 pr-3 font-medium">{document.title}</td>
-              <td className="py-3 pr-3">{document.source}</td>
-              <td className="py-3 pr-3"><Badge variant="secondary">{document.status}</Badge></td>
-              <td className="py-3 pr-3">{document.phaseKey ? phaseLabels[document.phaseKey] : 'Sans phase'}</td>
-              <td className="py-3">{formatDate(document.receivedAt ?? document.updatedAt)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-function MeetingList({
-  meetings,
-  documents,
-  onMarkScheduled,
-  onMarkReportAvailable,
-}: {
-  meetings: AidnMeeting[];
-  documents: AidnDocument[];
-  onMarkScheduled: (meetingId: string) => void;
-  onMarkReportAvailable: (meetingId: string) => void;
-}): React.JSX.Element {
-  if (meetings.length === 0) return <p className="text-sm text-muted-foreground">Aucune reunion liee.</p>;
-
-  return (
-    <div className="overflow-x-auto">
-      <table className="w-full min-w-[760px] text-left text-sm">
-        <thead className="border-b text-xs uppercase text-muted-foreground">
-          <tr>
-            <th className="py-2 pr-3">Objet</th>
-            <th className="py-2 pr-3">Date</th>
-            <th className="py-2 pr-3">Phase</th>
-            <th className="py-2 pr-3">Convocation</th>
-            <th className="py-2">Compte rendu</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y">
-          {meetings.map((meeting) => {
-            const report = meeting.reportDocumentId ? documents.find((document) => document.id === meeting.reportDocumentId) : undefined;
-            return (
-              <tr key={meeting.id}>
-                <td className="py-3 pr-3">
-                  <p className="font-medium">{meeting.title}</p>
-                  <p className="text-xs text-muted-foreground">{meeting.location} - {meeting.participants.length} participant(s)</p>
-                </td>
-                <td className="py-3 pr-3">{formatDate(meeting.scheduledAt)}</td>
-                <td className="py-3 pr-3">{meeting.phaseKey ? phaseLabels[meeting.phaseKey] : 'Sans phase'}</td>
-                <td className="py-3 pr-3">{meeting.convocationSentAt ? `Envoyee (${meeting.convocationChannel ?? 'canal non precise'})` : 'Non envoyee'}</td>
-                <td className="py-3">
-                  <p>{report ? `${report.status} - ${report.title}` : 'Non joint'}</p>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {(!meeting.convocationSentAt && meeting.outcome !== 'cancelled') ? (
-                      <Button type="button" size="sm" variant="outline" onClick={() => onMarkScheduled(meeting.id)}>
-                        Programmer dans la demo
-                      </Button>
-                    ) : null}
-                    {!report ? (
-                      <Button type="button" size="sm" variant="outline" onClick={() => onMarkReportAvailable(meeting.id)}>
-                        CR disponible dans la demo
-                      </Button>
-                    ) : null}
-                  </div>
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-function HistoryList({ events }: { events: AidnTimelineEvent[] }): React.JSX.Element {
-  if (events.length === 0) {
-    return <p className="text-sm text-muted-foreground">Aucun evenement historique lie dans le prototype.</p>;
-  }
-
-  return (
-    <ol className="space-y-3 text-sm">
-      {events.map((event) => (
-        <li key={event.id} className="rounded-md border bg-background px-3 py-2">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="font-medium">{event.label}</p>
-            <span className="text-xs text-muted-foreground">{formatDate(event.occurredAt)}</span>
-          </div>
-          <p className="mt-1 text-muted-foreground">{event.description}</p>
-          <p className="mt-1 text-xs text-muted-foreground">Acteur : {event.actor}</p>
-        </li>
-      ))}
     </ol>
-  );
-}
-
-function PhaseWorkspaceSection({
-  phaseKey,
-  phase,
-  documents,
-  meetings,
-  evidenceItems,
-  nextAction,
-  onSetEvidenceStatus,
-  onMarkPaymentReceived,
-  onMarkPaymentValidated,
-  onMarkNextActionDone,
-}: {
-  phaseKey: AidnOmaPhaseKey;
-  phase: AidnOmaPhase | undefined;
-  documents: AidnDocument[];
-  meetings: AidnMeeting[];
-  evidenceItems: AidnPhaseEvidenceItem[];
-  nextAction: AidnPhaseNextAction | undefined;
-  onSetEvidenceStatus: (evidenceId: string, status: AidnPhaseEvidenceStatus) => void;
-  onMarkPaymentReceived: (evidenceId: string) => void;
-  onMarkPaymentValidated: (evidenceId: string) => void;
-  onMarkNextActionDone: (actionId: string) => void;
-}): React.JSX.Element {
-  const phaseDocuments = documents.filter((document) => document.phaseKey === phaseKey);
-  const phaseMeetings = meetings.filter((meeting) => meeting.phaseKey === phaseKey);
-  const closureDocument = findClosureDocument(phaseKey, phaseDocuments);
-  const closureEvidence = evidenceItems.find((item) => item.kind === 'formal_courrier' && normalize(item.label).includes('cloture'));
-  const notificationEvidence = evidenceItems.find((item) => item.kind === 'notification');
-
-  return (
-    <Section title={phaseLabels[phaseKey]}>
-      <div className="grid gap-4 lg:grid-cols-[1fr_1.25fr]">
-        <DefinitionGrid>
-          <Field label="Phase">{phase?.label ?? phaseLabels[phaseKey]}</Field>
-          <Field label="Statut">{phase ? <OmaPhaseBadge status={phase.status} /> : 'Non renseigne dans le prototype'}</Field>
-          <Field label="Debut">{formatDate(phase?.startedAt)}</Field>
-          <Field label="Echeance">{formatDate(phase?.dueAt)}</Field>
-          <Field label="Cloture">{formatDate(phase?.completedAt)}</Field>
-          <Field label="Touchpoint">{phaseTouchpoints[phaseKey]}</Field>
-          <Field label="Documents rattaches">{phaseDocuments.length}</Field>
-          <Field label="Reunions rattachees">{phaseMeetings.length}</Field>
-          <Field label="Courrier de cloture">{closureEvidence?.label ?? closureDocument?.title ?? (phase?.status === 'completed' ? 'Courrier de cloture a rattacher' : 'Non renseigne dans le prototype')}</Field>
-        </DefinitionGrid>
-        <div className="space-y-3 rounded-md bg-muted/30 p-4 text-sm">
-          <div>
-            <p className="font-medium text-slate-900 dark:text-slate-100">Notification</p>
-            <p className="mt-1 text-muted-foreground">{notificationEvidence ? `${notificationEvidence.label} - ${evidenceStatusLabels[notificationEvidence.status]}` : 'Notification prevue / simulee'}</p>
-          </div>
-          <div>
-            <p className="font-medium text-slate-900 dark:text-slate-100">Prochaine action recommandee</p>
-            <p className="mt-1 text-muted-foreground">{nextAction?.label ?? getFallbackNextAction(phase)}</p>
-            {nextAction ? <p className="mt-1 text-xs text-muted-foreground">Acteur : {nextAction.recommendedActor} - Priorite : {nextAction.priority} - Etat : {nextAction.status}</p> : null}
-            {nextAction ? (
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                className="mt-3"
-                disabled={nextAction.status === 'done'}
-                onClick={() => onMarkNextActionDone(nextAction.id)}
-              >
-                Marquer fait dans la demo
-              </Button>
-            ) : null}
-          </div>
-        </div>
-      </div>
-      <div className="mt-4">
-        <p className="mb-2 text-sm font-medium text-slate-900 dark:text-slate-100">Checklist preuves / evidence</p>
-        <EvidenceChecklist
-          evidenceItems={evidenceItems}
-          documents={documents}
-          onSetStatus={onSetEvidenceStatus}
-          onMarkPaymentReceived={onMarkPaymentReceived}
-          onMarkPaymentValidated={onMarkPaymentValidated}
-        />
-      </div>
-    </Section>
   );
 }
 
 export function DossierDetailPage(): React.JSX.Element {
   const { id } = useParams<{ id: string }>();
-  const queryClient = useQueryClient();
-  const toast = useAppToast();
-  const dossierQuery = useDossier(id);
-  const demandesQuery = useDemandes();
-  const courriersQuery = useCourriers();
-  const decisionsQuery = useDgDecisionRecords();
-  const phasesQuery = useAidnOmaPhases();
-  const documentsQuery = useAidnDocuments();
-  const meetingsQuery = useAidnMeetings();
-  const certificatesQuery = useAidnCertificates();
-  const phaseEvidenceQuery = useAidnPhaseEvidence();
-  const phaseNextActionsQuery = useAidnPhaseNextActions();
-  const timelineQuery = useAidnTimelineEvents();
+  const [detail, setDetail] = useState<AdminDossierDetail | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  const dossier = dossierQuery.data;
-  const demande = demandesQuery.data?.find((item) => item.id === dossier?.demandeId);
-  const courrier = courriersQuery.data?.find((item) => item.demandeId === dossier?.demandeId);
-  const decision = decisionsQuery.data?.find((item) => item.demandeId === dossier?.demandeId);
-  const phases = (phasesQuery.data ?? []).filter((item) => item.dossierId === dossier?.id).sort((first, second) => first.order - second.order);
-  const documents = (documentsQuery.data ?? []).filter((item) => item.dossierId === dossier?.id || item.demandeId === dossier?.demandeId);
-  const meetings = (meetingsQuery.data ?? []).filter((item) => item.dossierId === dossier?.id);
-  const certificate = certificatesQuery.data?.find((item) => item.dossierId === dossier?.id);
-  const phaseEvidence = (phaseEvidenceQuery.data ?? []).filter((item) => item.dossierId === dossier?.id);
-  const phaseNextActions = (phaseNextActionsQuery.data ?? []).filter((item) => item.dossierId === dossier?.id);
-  const history = (timelineQuery.data ?? [])
-    .filter((event) => event.dossierId === dossier?.id || event.demandeId === dossier?.demandeId)
-    .sort((first, second) => second.occurredAt.localeCompare(first.occurredAt));
-  const currentPhase = phases.find((phase) => phase.key === dossier?.currentPhase);
-  const linkedCertificateDocument = certificate?.linkedDocumentId ? documentsQuery.data?.find((item) => item.id === certificate.linkedDocumentId) : undefined;
-  const scannedCertificateDocument = certificate?.scannedDocumentId ? documentsQuery.data?.find((item) => item.id === certificate.scannedDocumentId) : undefined;
-  const phaseByKey = new Map(phases.map((phase) => [phase.key, phase]));
-
-  const refreshAidnQueries = (): void => {
-    void queryClient.invalidateQueries({ queryKey: ['aidn'] });
+  const load = async () => {
+    if (!id) return;
+    setIsLoading(true);
+    setError("");
+    try {
+      setDetail(await getDossier(id));
+    } catch {
+      setError("Impossible de charger le dossier.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleResetDemo = (): void => {
-    resetAidnDemoData();
-    refreshAidnQueries();
-    toast.info('Demo reinitialisee localement');
-  };
-
-  const handleSetEvidenceStatus = (evidenceId: string, status: AidnPhaseEvidenceStatus): void => {
-    updatePhaseEvidenceStatus(evidenceId, status);
-    refreshAidnQueries();
-    toast.success('Demo mise a jour localement');
-  };
-
-  const handleMarkPaymentReceived = (evidenceId: string): void => {
-    markPaymentEvidenceReceived(evidenceId);
-    refreshAidnQueries();
-    toast.success('Demo mise a jour localement');
-  };
-
-  const handleMarkPaymentValidated = (evidenceId: string): void => {
-    markPaymentEvidenceValidated(evidenceId);
-    refreshAidnQueries();
-    toast.success('Demo mise a jour localement');
-  };
-
-  const handleMarkNextActionDone = (actionId: string): void => {
-    markPhaseNextActionDone(actionId);
-    refreshAidnQueries();
-    toast.success('Demo mise a jour localement');
-  };
-
-  const handleAdvanceCertificateLifecycle = (certificateId: string): void => {
-    advanceCertificateLifecycle(certificateId);
-    refreshAidnQueries();
-    toast.success('Cycle certificat mis a jour localement');
-  };
-
-  const handleMarkMeetingScheduled = (meetingId: string): void => {
-    markMeetingScheduled(meetingId);
-    refreshAidnQueries();
-    toast.success('Demo mise a jour localement');
-  };
-
-  const handleMarkMeetingReportAvailable = (meetingId: string): void => {
-    markMeetingReportAvailable(meetingId);
-    refreshAidnQueries();
-    toast.success('Demo mise a jour localement');
-  };
-
-  const isLoading =
-    dossierQuery.isLoading ||
-    demandesQuery.isLoading ||
-    courriersQuery.isLoading ||
-    decisionsQuery.isLoading ||
-    phasesQuery.isLoading ||
-    documentsQuery.isLoading ||
-    meetingsQuery.isLoading ||
-    certificatesQuery.isLoading ||
-    phaseEvidenceQuery.isLoading ||
-    phaseNextActionsQuery.isLoading ||
-    timelineQuery.isLoading;
+  useEffect(() => {
+    void load();
+  }, [id]);
 
   if (isLoading) {
     return (
       <div className="page-container">
+        <SkeletonCard lines={4} />
         <SkeletonCard lines={6} />
-        <SkeletonCard lines={8} />
       </div>
     );
   }
 
-  if (!dossier) {
+  if (error || !detail) {
     return (
       <div className="page-container">
         <EmptyState
-          message="Dossier introuvable."
+          message={error || "Dossier introuvable."}
           action={
             <Button asChild variant="outline">
               <Link to="/dossiers">Retour aux dossiers DN</Link>
@@ -574,6 +1125,8 @@ export function DossierDetailPage(): React.JSX.Element {
       </div>
     );
   }
+
+  const { dossier, phases, preliminary } = detail;
 
   return (
     <div className="page-container">
@@ -586,151 +1139,77 @@ export function DossierDetailPage(): React.JSX.Element {
             </Link>
           </Button>
           <div className="flex flex-wrap items-center gap-2">
-            <h1 className="page-title">{dossier.reference}</h1>
-            <AidnStatusBadge status={dossier.globalStatus} />
+            <h1 className="page-title">
+              {dossier.dossierNumber ?? dossier.id}
+            </h1>
+            <Badge variant="outline">
+              {dossierStatusLabels[dossier.status] ?? dossier.status}
+            </Badge>
           </div>
           <p className="page-subtitle">
-            {demande?.organizationName ?? 'Organisme non renseigne'} - {demande?.postulantName ?? 'Postulant non renseigne'}
+            {dossier.organization?.canonicalName ?? "Organisme non renseigné"} -{" "}
+            {dossier.postulant?.fullName ?? "Postulant non renseigné"}
           </p>
         </div>
         <div className="grid gap-1 text-left text-sm sm:text-right">
-          <span className="text-muted-foreground">Agent DN</span>
-          <span className="font-semibold">{dossier.assignedAgent}</span>
-          <span className="text-muted-foreground">Phase courante</span>
-          <span className="font-semibold">{currentPhase?.label ?? phaseLabels[dossier.currentPhase]}</span>
+          <span className="text-muted-foreground">Type</span>
+          <span className="font-semibold">
+            {dossierTypeLabels[dossier.dossierType]}
+          </span>
+          <span className="text-muted-foreground">Ouverture</span>
+          <span className="font-semibold">{formatDate(dossier.openedAt)}</span>
         </div>
-      </div>
-
-      <div className="grid gap-3 md:grid-cols-4">
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-sm text-muted-foreground">Progression OMA</p>
-            <p className="mt-2 text-2xl font-bold">{dossier.progressPercent}%</p>
-            <Progress value={dossier.progressPercent} className="mt-3 h-2" />
-          </CardContent>
-        </Card>
-        <Card><CardContent className="p-4"><p className="text-sm text-muted-foreground">Statut dossier</p><div className="mt-2"><AidnStatusBadge status={dossier.globalStatus} /></div></CardContent></Card>
-        <Card><CardContent className="p-4"><p className="text-sm text-muted-foreground">Documents lies</p><p className="mt-2 text-2xl font-bold">{documents.length}</p></CardContent></Card>
-        <Card><CardContent className="p-4"><p className="text-sm text-muted-foreground">Reunions</p><p className="mt-2 text-2xl font-bold">{meetings.length}</p></CardContent></Card>
-      </div>
-
-      <Note>
-        Les phases OMA sont affichees comme sections operationnelles. La cloture d'une phase doit etre soutenue par un courrier formel. S5/R3 restent des touchpoints dans le prototype, pas des modules autonomes.
-      </Note>
-
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-primary/20 bg-primary/5 p-4 text-sm text-primary">
-        <p>Mode demonstration : les changements sont sauvegardes localement dans ce navigateur.</p>
-        <Button type="button" variant="outline" size="sm" onClick={handleResetDemo}>
-          <RotateCcw className="h-4 w-4" aria-hidden="true" />
-          Reinitialiser la demo
-        </Button>
       </div>
 
       <Section title="Vue d'ensemble">
         <DefinitionGrid>
-          <Field label="Reference dossier">{dossier.reference}</Field>
-          <Field label="Organisme">{demande?.organizationName ?? 'Non renseigne'}</Field>
-          <Field label="Postulant">{demande?.postulantName ?? 'Non renseigne'}</Field>
-          <Field label="Agent DN">{dossier.assignedAgent}</Field>
-          <Field label="Ouverture">{formatDate(dossier.openedAt)}</Field>
-          <Field label="Phase courante">{currentPhase?.label ?? phaseLabels[dossier.currentPhase]}</Field>
-          <Field label="Statut dossier"><AidnStatusBadge status={dossier.globalStatus} /></Field>
-          <Field label="Progression">{dossier.progressPercent}%</Field>
-          <Field label="Delai">{deadlineLabels[dossier.deadlineStatus]}</Field>
+          <Field label="Référence">{dossier.dossierNumber ?? dossier.id}</Field>
+          <Field label="Type">{dossierTypeLabels[dossier.dossierType]}</Field>
+          <Field label="Statut">
+            <Badge variant="outline">
+              {dossierStatusLabels[dossier.status] ?? dossier.status}
+            </Badge>
+          </Field>
+          <Field label="Organisme">
+            {dossier.organization?.canonicalName ?? "Non renseigné"}
+          </Field>
+          <Field label="Postulant">
+            {dossier.postulant?.fullName ?? "Non renseigné"}
+          </Field>
+          <Field label="Date d'ouverture">{formatDate(dossier.openedAt)}</Field>
+          {dossier.closedAt ? (
+            <Field label="Date de clôture">
+              {formatDate(dossier.closedAt)}
+            </Field>
+          ) : null}
         </DefinitionGrid>
+        {dossier.organization?.legalAddress || dossier.organization?.email ? (
+          <Note>
+            {[
+              dossier.organization.legalAddress &&
+                `Adresse : ${dossier.organization.legalAddress}`,
+              dossier.organization.email &&
+                `Email : ${dossier.organization.email}`,
+            ]
+              .filter(Boolean)
+              .join(" · ")}
+          </Note>
+        ) : null}
       </Section>
 
-      <Section title="Origine / Courriers DG">
-        <DefinitionGrid>
-          <Field label="Demande source">{demande?.reference ?? 'Non liee'}</Field>
-          <Field label="Statut interne demande">{demande ? getInternalDemandeStatusLabel(demande.internalStatus) : 'Non renseigne'}</Field>
-          <Field label="Statut postulant">{demande ? getPortalStatusLabel(demande.portalStatus) : 'Non renseigne'}</Field>
-          <Field label="Canal d'entree">{demande ? getEntryChannelLabel(demande.entryChannel) : 'Non renseigne'}</Field>
-          <Field label="Courrier lie">{courrier?.reference ?? 'Non lie'}</Field>
-          <Field label="Mode courrier">{courrier?.mode ?? 'Non renseigne'}</Field>
-          <Field label="Decision DG">{courrier ? <DgDecisionBadge decision={courrier.decisionDg} /> : 'Non renseignee'}</Field>
-          <Field label="Retour DG">{formatDate(courrier?.dateRetourDg ?? decision?.decidedAt)}</Field>
-          <Field label="Direction orientee">{courrier?.directionOrientee ?? decision?.directionOrientee ?? 'Non definie'}</Field>
-        </DefinitionGrid>
-        <Note>
-          Ce dossier DN existe uniquement parce qu'une instruction favorable permet a la DN de poursuivre le traitement.
-        </Note>
+      <Section title="Phases OMA">
+        <PhasesOverview phases={phases} />
       </Section>
 
-      {phaseOrder.map((phaseKey) => (
-        <PhaseWorkspaceSection
-          key={phaseKey}
-          phaseKey={phaseKey}
-          phase={phaseByKey.get(phaseKey)}
-          documents={documents}
-          meetings={meetings}
-          evidenceItems={phaseEvidence.filter((item) => item.phaseKey === phaseKey)}
-          nextAction={phaseNextActions.find((item) => item.phaseKey === phaseKey)}
-          onSetEvidenceStatus={handleSetEvidenceStatus}
-          onMarkPaymentReceived={handleMarkPaymentReceived}
-          onMarkPaymentValidated={handleMarkPaymentValidated}
-          onMarkNextActionDone={handleMarkNextActionDone}
-        />
-      ))}
-
-      <Section title="Documents">
-        <DocumentList documents={documents} />
-      </Section>
-
-      <Section title="Reunions">
-        <MeetingList
-          meetings={meetings}
-          documents={documents}
-          onMarkScheduled={handleMarkMeetingScheduled}
-          onMarkReportAvailable={handleMarkMeetingReportAvailable}
-        />
-      </Section>
-
-      <Section title="Certificat">
-        {certificate ? (
-          <div className="space-y-4">
-            <DefinitionGrid>
-              <Field label="Numero">{certificate.certificateNumber}</Field>
-              <Field label="Type">{certificateTypeLabels[certificate.certificateType]}</Field>
-              <Field label="Statut">{certificateStatusLabels[certificate.status]}</Field>
-              <Field label="Preparation">{formatDate(certificate.preparedAt)}</Field>
-              <Field label="Impression">{formatDate(certificate.printedAt)}</Field>
-              <Field label="Signature">{formatDate(certificate.signedAt)}</Field>
-              <Field label="Cachet">{formatDate(certificate.stampedAt)}</Field>
-              <Field label="Scan AIDN">{formatDate(certificate.scannedAt)}</Field>
-              <Field label="Pret au retrait">{formatDate(certificate.readyForCollectionAt)}</Field>
-              <Field label="Remise">{formatDate(certificate.collectedAt ?? certificate.deliveredAt ?? certificate.issuedAt)}</Field>
-              <Field label="Archivage">{formatDate(certificate.archivedAt)}</Field>
-              <Field label="Document scanne">{scannedCertificateDocument?.title ?? 'Non renseigne'}</Field>
-              <Field label="Document support">{linkedCertificateDocument?.title ?? 'Non renseigne'}</Field>
-              <Field label="Retire par">{certificate.collectedBy ?? 'Non renseigne'}</Field>
-            </DefinitionGrid>
-            {getNextCertificateLifecycleActionLabel(certificate.status) ? (
-              <Button type="button" size="sm" variant="outline" onClick={() => handleAdvanceCertificateLifecycle(certificate.id)}>
-                Action demo : {getNextCertificateLifecycleActionLabel(certificate.status)}
-              </Button>
-            ) : (
-              <Badge variant="secondary">Cycle archive dans la demo</Badge>
-            )}
-          </div>
-        ) : (
-          <p className="text-sm text-muted-foreground">Aucun certificat lie.</p>
-        )}
-        <Note>
-          Le prototype trace le certificat signe/scanne et le retrait. La generation automatique n'est pas active.
-        </Note>
-      </Section>
-
-      <Section title="Historique">
-        <HistoryList events={history} />
-      </Section>
-
-      <div className="rounded-lg border bg-muted/30 p-4 text-sm text-muted-foreground">
-        <div className="flex items-start gap-3">
-          <FileText className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-          <p>Page de demonstration. Les changements disponibles ici modifient uniquement l'etat local du navigateur.</p>
-        </div>
-      </div>
+      {preliminary !== null ? (
+        <Section title="Phase préliminaire - Actions">
+          <PreliminaryActionPanel
+            dossierId={dossier.id}
+            detail={detail}
+            onRefresh={() => void load()}
+          />
+        </Section>
+      ) : null}
     </div>
   );
 }

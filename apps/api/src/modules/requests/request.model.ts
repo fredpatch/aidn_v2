@@ -38,6 +38,7 @@ const requestSchema = new Schema(
     physicalDeposit: {
       declaredAt: { type: Date },
       declaredById: { type: Schema.Types.ObjectId, ref: "User" },
+      status: { type: String, enum: ["planned", "received"] },
       expectedDepositDate: { type: Date },
       physicalDepositDate: { type: Date },
       location: { type: String, enum: ["ANAC", "DG", "DN", "other"] },

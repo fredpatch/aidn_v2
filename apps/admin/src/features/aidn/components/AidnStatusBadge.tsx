@@ -7,7 +7,7 @@ const legacyDemandStatusLabels: Record<AidnDemandStatus, string> = {
   waiting_dg_orientation: 'En attente DG',
   oriented_to_dn: 'Orientee DN',
   dn_dossier_opened: 'Dossier ouvert',
-  redirected: 'Reorientee',
+  redirected: 'Legacy: hors MVP',
   rejected: 'Rejetee',
   closed: 'Cloturee',
 };
@@ -30,7 +30,7 @@ const internalDemandeStatusLabels: Record<AidnInternalDemandeStatus, string> = {
   dg_instruction_recorded: 'Instruction DG enregistree',
   ready_for_dn_dossier: 'Prete pour ouverture dossier DN',
   dn_dossier_opened: 'Dossier DN ouvert',
-  redirected: 'Reorientee',
+  redirected: 'Legacy: hors MVP',
   rejected: 'Rejetee',
   closed: 'Cloturee',
 };

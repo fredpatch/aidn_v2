@@ -10,9 +10,26 @@ import {
 } from '@/components/dashboard';
 import { AnimatedFadeIn } from '@/components/motion/AnimatedFadeIn';
 import { ErrorState } from '../components/states';
+import { CourrierDashboard } from '../features/dashboard/components/CourrierDashboard';
 import { useDashboard } from '../features/dashboard/hooks/useDashboard';
+import { useAuth } from '../hooks/useAuth';
+import { hasPermission } from '../lib/auth/permissions';
+
+function isCourrierRole(user: ReturnType<typeof useAuth>['user']): boolean {
+  return hasPermission(user, 'DG_CIRCUIT_HANDLE') && !hasPermission(user, 'DOSSIER_VIEW_ALL');
+}
 
 export function DashboardPage(): React.JSX.Element {
+  const { user } = useAuth();
+
+  if (isCourrierRole(user)) {
+    return <CourrierDashboard />;
+  }
+
+  return <AdminDnDashboard />;
+}
+
+function AdminDnDashboard(): React.JSX.Element {
   const { data, isLoading, error, refetch } = useDashboard();
 
   return (

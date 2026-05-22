@@ -41,6 +41,10 @@ const mailModeLabels: Record<AidnMailMode, string> = {
   digital: 'Digital',
 };
 
+const visibleInternalDemandeStatuses = AIDN_INTERNAL_DEMANDE_STATUSES.filter(
+  (item) => item !== 'redirected',
+);
+
 function formatDate(value: string): string {
   return new Intl.DateTimeFormat('fr-FR', { dateStyle: 'medium' }).format(new Date(value));
 }
@@ -303,10 +307,13 @@ export function DemandesPage(): React.JSX.Element {
 
   const kpis = useMemo(
     () => ({
-      total: rows.length,
-      waitingDg: rows.filter((row) => row.internalStatus === 'in_dg_circuit').length,
-      orientedDn: rows.filter((row) => row.internalStatus === 'ready_for_dn_dossier' || row.internalStatus === 'dn_dossier_opened').length,
-      rejectedRedirected: rows.filter((row) => row.internalStatus === 'rejected' || row.internalStatus === 'redirected').length,
+      submitted: rows.filter((row) => row.internalStatus === 'submitted').length,
+      portalUploads: rows.filter((row) => row.entryChannel === 'portal').length,
+      physicalDepositsPlanned: rows.filter((row) => row.entryChannel === 'physical_deposit' && !row.courrier?.scannedAt).length,
+      physicalDepositsReceived: rows.filter((row) => row.entryChannel === 'physical_deposit' && Boolean(row.courrier?.scannedAt)).length,
+      awaitingDg: rows.filter((row) => row.internalStatus === 'in_dg_circuit' || row.internalStatus === 'dg_return_received').length,
+      orientedToDn: rows.filter((row) => row.internalStatus === 'ready_for_dn_dossier' || row.internalStatus === 'dn_dossier_opened').length,
+      cancelledByDg: rows.filter((row) => row.internalStatus === 'rejected').length,
     }),
     [rows],
   );
@@ -376,11 +383,14 @@ export function DemandesPage(): React.JSX.Element {
       }
       toolbar={
         <div className="space-y-4">
-          <div className="grid gap-3 md:grid-cols-4">
-            <KpiCard title="Total demandes" value={kpis.total} subtitle="Demandes reçues dans le prototype" />
-            <KpiCard title="En attente DG" value={kpis.waitingDg} subtitle="Orientation administrative en cours" />
-            <KpiCard title="Orientées DN" value={kpis.orientedDn} subtitle="Eligibles à un dossier DN" />
-            <KpiCard title="Rejetées / réorientées" value={kpis.rejectedRedirected} subtitle="Sans ouverture DN automatique" />
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-7">
+            <KpiCard title="Demandes soumises" value={kpis.submitted} subtitle="Demandes reçues dans le prototype" />
+            <KpiCard title="Téléversées portail" value={kpis.portalUploads} subtitle="Demandes issues du portail" />
+            <KpiCard title="Dépôts physiques prévus" value={kpis.physicalDepositsPlanned} subtitle="Annonce postulant sans scan" />
+            <KpiCard title="Courriers physiques reçus" value={kpis.physicalDepositsReceived} subtitle="Scan courrier enregistré" />
+            <KpiCard title="En attente DG" value={kpis.awaitingDg} subtitle="Orientation administrative en cours" />
+            <KpiCard title="Orientées DN" value={kpis.orientedToDn} subtitle="Eligibles à un dossier DN" />
+            <KpiCard title="Annulées DG" value={kpis.cancelledByDg} subtitle="Sans ouverture DN automatique" />
           </div>
           <ManagementToolbar
             searchValue={search}
@@ -402,7 +412,7 @@ export function DemandesPage(): React.JSX.Element {
               <SelectTrigger id="filter-demand-status" className="h-9 w-56"><SelectValue placeholder="Tous les statuts" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Tous les statuts</SelectItem>
-                {AIDN_INTERNAL_DEMANDE_STATUSES.map((item) => <SelectItem key={item} value={item}>{getInternalDemandeStatusLabel(item)}</SelectItem>)}
+                {visibleInternalDemandeStatuses.map((item) => <SelectItem key={item} value={item}>{getInternalDemandeStatusLabel(item)}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>

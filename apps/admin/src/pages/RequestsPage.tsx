@@ -1,11 +1,10 @@
-import {
+﻿import {
   FileCheck2,
   FileUp,
+  FolderOpen,
   Eye,
   Printer,
   Search,
-  Send,
-  ShieldCheck,
   MessageSquareWarning,
 } from 'lucide-react';
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
@@ -26,10 +25,11 @@ import {
   getRequest,
   listRequests,
   markPrintedForDg,
+  openDossierDn,
+  recordDgReturn,
   registerPhysicalCourrier,
   requestCorrection,
-  sendToDg,
-  startIntake,
+  type AdminDgReview,
   type AdminDocument,
   type AdminRequest,
   type AdminRequestDetail,
@@ -39,10 +39,10 @@ import {
 } from '../lib/api/requests.api';
 
 const requestTypeLabels: Record<AdminRequestType, string> = {
-  oma_approval: 'Agrement OMA',
-  oma_recognition: 'Reconnaissance OMA',
-  oma_renewal: 'Renouvellement OMA',
-  oma_modification: 'Modification OMA',
+  oma_recognition: 'Certificat de reconnaissance OMA',
+  oma_approval: "Certificat d'agrément OMA",
+  oma_renewal: 'Renouvellement de Certificat OMA',
+  oma_modification: 'Modification de Certificat OMA',
 };
 
 const statusLabels: Record<AdminRequestStatus, string> = {
@@ -52,15 +52,17 @@ const statusLabels: Record<AdminRequestStatus, string> = {
   submitted: 'Demande soumise',
   intake_in_review: 'Verification interne',
   intake_requires_correction: 'Correction demandee',
-  initial_sent_to_dg: 'Transmise au circuit DG',
+  initial_sent_to_dg: "En attente d'orientation DG",
   initial_dg_returned: 'Retour DG recu',
   initial_dg_decision_recorded: 'Decision DG enregistree',
-  oriented_to_dn: 'Orientee vers DN',
-  rejected: 'Non retenue',
-  reoriented: 'Reorientee',
+  oriented_to_dn: 'Orientée vers DN',
+  rejected: 'Annulée par DG',
+  reoriented: 'Legacy: hors MVP',
   dossier_opened: 'Dossier ouvert',
   closed: 'Cloturee',
 };
+
+const visibleStatusOptions = Object.entries(statusLabels).filter(([value]) => value !== 'reoriented');
 
 const sourceLabels: Record<CourrierSource, string> = {
   portal_upload: 'Televerse portail',
@@ -69,7 +71,26 @@ const sourceLabels: Record<CourrierSource, string> = {
   generated_from_template: 'Genere',
 };
 
-const actionableStatuses = ['submitted', 'intake_in_review'] as const;
+function getStatusLabel(request: AdminRequest): string {
+  if (
+    request.courrierSource === 'physical_deposit' &&
+    request.physicalDeposit?.status !== 'received' &&
+    request.status === 'submitted'
+  ) {
+    return 'Depot physique prevu';
+  }
+
+  if (
+    request.courrierSource === 'physical_deposit' &&
+    request.physicalDeposit?.status === 'received' &&
+    beforeDgStatuses.includes(request.status as (typeof beforeDgStatuses)[number])
+  ) {
+    return 'Courrier physique recu';
+  }
+
+  return statusLabels[request.status];
+}
+
 const beforeDgStatuses = ['submitted', 'intake_in_review', 'intake_requires_correction'] as const;
 
 function formatDate(value?: string): string {
@@ -94,8 +115,18 @@ function statusBadgeVariant(
   return 'outline';
 }
 
-function canStartIntake(request: AdminRequest): boolean {
-  return request.status === 'submitted';
+function isDgReturnComplete(request: AdminRequest, dgReview?: AdminDgReview): boolean {
+  const review = dgReview ?? request.dgReview;
+
+  return (
+    request.status === 'oriented_to_dn' &&
+    review?.decision === 'oriented_to_dn' &&
+    Boolean(review.returnedScannedDocumentId)
+  );
+}
+
+function canOpenDossier(request: AdminRequest, dgReview?: AdminDgReview): boolean {
+  return isDgReturnComplete(request, dgReview) && !request.dossierId;
 }
 
 function canRequestCorrection(request: AdminRequest): boolean {
@@ -105,20 +136,41 @@ function canRequestCorrection(request: AdminRequest): boolean {
 function canRegisterPhysical(request: AdminRequest): boolean {
   return (
     request.courrierSource === 'physical_deposit' &&
+    request.physicalDeposit?.status !== 'received' &&
     beforeDgStatuses.includes(request.status as (typeof beforeDgStatuses)[number])
   );
 }
 
 function canMarkPrinted(request: AdminRequest): boolean {
   return (
-    request.courrierSource === 'portal_upload' &&
-    Boolean(request.initialDocumentId) &&
+    request.courrierSource !== 'physical_deposit' &&
+    hasEvidence(request) &&
     !request.intake?.printedForDgAt &&
-    beforeDgStatuses.includes(request.status as (typeof beforeDgStatuses)[number])
+    (request.status === 'submitted' || request.status === 'intake_in_review')
   );
 }
 
+function isAwaitingDgAction(request: AdminRequest): boolean {
+  return request.status === 'initial_sent_to_dg';
+}
+
+function isOrientedToDn(request: AdminRequest): boolean {
+  return request.status === 'oriented_to_dn' || request.status === 'dossier_opened';
+}
+
+function isCancelledByDg(request: AdminRequest): boolean {
+  return request.status === 'rejected';
+}
+
+function canRecordDgReturn(request: AdminRequest): boolean {
+  return request.status === 'initial_sent_to_dg';
+}
+
 function hasEvidence(request: AdminRequest): boolean {
+  if (request.courrierSource === 'physical_deposit') {
+    return Boolean(request.initialDocumentId && request.physicalDeposit?.status === 'received');
+  }
+
   return Boolean(
     request.initialDocumentId ||
       request.initialCourrierId ||
@@ -126,25 +178,18 @@ function hasEvidence(request: AdminRequest): boolean {
   );
 }
 
-function canSendToDg(request: AdminRequest): boolean {
-  if (!actionableStatuses.includes(request.status as (typeof actionableStatuses)[number])) {
-    return false;
-  }
-
-  if (!hasEvidence(request)) {
-    return false;
-  }
-
-  if (request.courrierSource === 'portal_upload' && !request.intake?.printedForDgAt) {
-    return false;
-  }
-
-  return true;
-}
-
 function documentSummary(document?: AdminDocument): string {
   if (!document) return '-';
   return `${document.fileName} (${Math.ceil(document.fileSize / 1024)} Ko)`;
+}
+
+function KpiCard({ title, value }: { title: string; value: number }): React.JSX.Element {
+  return (
+    <div className="surface rounded-lg p-4">
+      <p className="text-sm text-slate-500">{title}</p>
+      <p className="mt-2 text-2xl font-bold text-slate-950 dark:text-white">{value}</p>
+    </div>
+  );
 }
 
 export function RequestsPage(): React.JSX.Element {
@@ -157,6 +202,7 @@ export function RequestsPage(): React.JSX.Element {
   const [courrierSource, setCourrierSource] = useState('');
   const [dialog, setDialog] = useState<ActionDialogState | null>(null);
   const [registerTarget, setRegisterTarget] = useState<AdminRequest | null>(null);
+  const [dgReturnTarget, setDgReturnTarget] = useState<AdminRequest | null>(null);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -196,6 +242,23 @@ export function RequestsPage(): React.JSX.Element {
   useEffect(() => {
     void loadRequests();
   }, []);
+
+  const stats = useMemo(
+    () => ({
+      submitted: items.filter((item) => item.status === 'submitted').length,
+      portalUploads: items.filter((item) => item.courrierSource === 'portal_upload').length,
+      physicalDepositsPlanned: items.filter(
+        (item) => item.courrierSource === 'physical_deposit' && item.physicalDeposit?.status !== 'received',
+      ).length,
+      physicalDepositsReceived: items.filter(
+        (item) => item.courrierSource === 'physical_deposit' && item.physicalDeposit?.status === 'received',
+      ).length,
+      awaitingDg: items.filter(isAwaitingDgAction).length,
+      orientedToDn: items.filter(isOrientedToDn).length,
+      cancelledByDg: items.filter(isCancelledByDg).length,
+    }),
+    [items],
+  );
 
   const refreshDetail = async (id: string) => {
     if (isMockMode()) return;
@@ -238,6 +301,16 @@ export function RequestsPage(): React.JSX.Element {
         </div>
       </div>
 
+      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-7">
+        <KpiCard title="Demandes soumises" value={stats.submitted} />
+        <KpiCard title="Téléversées portail" value={stats.portalUploads} />
+        <KpiCard title="Depots physiques prevus" value={stats.physicalDepositsPlanned} />
+        <KpiCard title="Courriers physiques recus" value={stats.physicalDepositsReceived} />
+        <KpiCard title="En attente DG" value={stats.awaitingDg} />
+        <KpiCard title="Orientées DN" value={stats.orientedToDn} />
+        <KpiCard title="Annulées DG" value={stats.cancelledByDg} />
+      </section>
+
       <form
         className="surface grid gap-3 rounded-lg p-4 md:grid-cols-[1fr_190px_190px_190px_auto]"
         onSubmit={handleFilter}
@@ -254,7 +327,7 @@ export function RequestsPage(): React.JSX.Element {
           onChange={(event) => setStatus(event.target.value)}
         >
           <option value="">Tous les statuts</option>
-          {Object.entries(statusLabels).map(([value, label]) => (
+          {visibleStatusOptions.map(([value, label]) => (
             <option key={value} value={value}>
               {label}
             </option>
@@ -327,7 +400,7 @@ export function RequestsPage(): React.JSX.Element {
                 <TableCell>{item.courrierSource ? sourceLabels[item.courrierSource] : '-'}</TableCell>
                 <TableCell>
                   <Badge variant={statusBadgeVariant(item.status)}>
-                    {statusLabels[item.status]}
+                    {getStatusLabel(item)}
                   </Badge>
                 </TableCell>
                 <TableCell>
@@ -336,22 +409,22 @@ export function RequestsPage(): React.JSX.Element {
                       <Eye className="h-4 w-4" aria-hidden="true" />
                       Voir
                     </button>
-                    {permissions.canReview && canStartIntake(item) ? (
-                      <button className="btn btn-secondary" type="button" onClick={() => setDialog({ kind: 'start', request: item })}>
-                        <ShieldCheck className="h-4 w-4" aria-hidden="true" />
-                        Demarrer
+                    {permissions.canReview && canOpenDossier(item) ? (
+                      <button className="btn btn-secondary" type="button" onClick={() => setDialog({ kind: 'open_dossier', request: item })}>
+                        <FolderOpen className="h-4 w-4" aria-hidden="true" />
+                        Ouvrir dossier
                       </button>
                     ) : null}
                     {permissions.canHandleDg && canMarkPrinted(item) ? (
                       <button className="btn btn-secondary" type="button" onClick={() => setDialog({ kind: 'print', request: item })}>
                         <Printer className="h-4 w-4" aria-hidden="true" />
-                        Imprime DG
+                        Imprimer
                       </button>
                     ) : null}
-                    {permissions.canHandleDg && canSendToDg(item) ? (
-                      <button className="btn btn-primary" type="button" onClick={() => setDialog({ kind: 'send', request: item })}>
-                        <Send className="h-4 w-4" aria-hidden="true" />
-                        Transmettre
+                    {permissions.canHandleDg && canRecordDgReturn(item) ? (
+                      <button className="btn btn-primary" type="button" onClick={() => setDgReturnTarget(item)}>
+                        <FileCheck2 className="h-4 w-4" aria-hidden="true" />
+                        Retour DG
                       </button>
                     ) : null}
                   </div>
@@ -374,11 +447,11 @@ export function RequestsPage(): React.JSX.Element {
           detail={selected}
           permissions={permissions}
           onClose={() => setSelected(null)}
-          onStart={(request) => setDialog({ kind: 'start', request })}
+          onStart={(request) => setDialog({ kind: 'open_dossier', request })}
           onCorrection={(request) => setDialog({ kind: 'correction', request })}
           onRegister={(request) => setRegisterTarget(request)}
           onPrint={(request) => setDialog({ kind: 'print', request })}
-          onSend={(request) => setDialog({ kind: 'send', request })}
+          onDgReturn={(request) => setDgReturnTarget(request)}
         />
       ) : null}
 
@@ -405,6 +478,18 @@ export function RequestsPage(): React.JSX.Element {
           }}
         />
       ) : null}
+
+      {dgReturnTarget ? (
+        <DgReturnDialog
+          request={dgReturnTarget}
+          onClose={() => setDgReturnTarget(null)}
+          onError={setError}
+          onDone={async (id) => {
+            setDgReturnTarget(null);
+            await refreshAfterMutation(id, 'Retour DG enregistre.');
+          }}
+        />
+      ) : null}
     </div>
   );
 }
@@ -417,7 +502,7 @@ function DetailDrawer({
   onCorrection,
   onRegister,
   onPrint,
-  onSend,
+  onDgReturn,
 }: {
   detail: AdminRequestDetail;
   permissions: { canReview: boolean; canRegister: boolean; canHandleDg: boolean };
@@ -426,9 +511,9 @@ function DetailDrawer({
   onCorrection: (request: AdminRequest) => void;
   onRegister: (request: AdminRequest) => void;
   onPrint: (request: AdminRequest) => void;
-  onSend: (request: AdminRequest) => void;
+  onDgReturn: (request: AdminRequest) => void;
 }): React.JSX.Element {
-  const { request, courrier, document } = detail;
+  const { request, courrier, document, dgReview } = detail;
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-slate-950/50">
@@ -452,7 +537,7 @@ function DetailDrawer({
             <DetailField label="Type" value={requestTypeLabels[request.requestType]} />
             <DetailField label="Objet" value={request.subject} />
             <DetailField label="Message" value={request.message} />
-            <DetailField label="Statut" value={statusLabels[request.status]} />
+            <DetailField label="Statut" value={getStatusLabel(request)} />
             <DetailField label="Creation" value={formatDate(request.createdAt)} />
             <DetailField label="Soumission" value={formatDate(request.submittedAt)} />
           </DetailSection>
@@ -474,7 +559,7 @@ function DetailDrawer({
             <DetailField label="Source" value={courrier?.source ? sourceLabels[courrier.source] : request.courrierSource ? sourceLabels[request.courrierSource] : undefined} />
             <DetailField label="Document" value={documentSummary(document)} />
             <DetailField label="Reference officielle" value={courrier?.officialReference} />
-            <DetailField label="Date depot physique" value={formatDate(courrier?.physicalDepositDate ?? request.physicalDeposit?.physicalDepositDate)} />
+            <DetailField label="Date depot physique reel" value={formatDate(courrier?.physicalDepositDate ?? request.physicalDeposit?.physicalDepositDate)} />
             <DetailField label="Date prevue depot" value={formatDate(request.physicalDeposit?.expectedDepositDate)} />
             <DetailField label="Notes" value={courrier?.notes ?? request.physicalDeposit?.notes} />
           </DetailSection>
@@ -484,19 +569,25 @@ function DetailDrawer({
             <DetailField label="Demarree par" value={request.intake?.startedBy?.fullName ?? request.intake?.startedById} />
             <DetailField label="Correction demandee le" value={formatDate(request.intake?.correctionRequestedAt)} />
             <DetailField label="Motif correction" value={request.intake?.correctionReason} />
-            <DetailField label="Imprime DG le" value={formatDate(request.intake?.printedForDgAt)} />
+            <DetailField label="Imprime le" value={formatDate(request.intake?.printedForDgAt)} />
             <DetailField label="Imprime par" value={request.intake?.printedForDgBy?.fullName ?? request.intake?.printedForDgById} />
-            <DetailField label="Transmis DG le" value={formatDate(request.intake?.sentToDgAt)} />
-            <DetailField label="Transmis par" value={request.intake?.sentToDgBy?.fullName ?? request.intake?.sentToDgById} />
+            <DetailField label="Circuit DG depuis" value={formatDate(request.intake?.sentToDgAt ?? request.intake?.printedForDgAt)} />
             <DetailField label="Notes" value={request.intake?.notes} />
+          </DetailSection>
+
+          <DetailSection title="Retour DG">
+            <DetailField label="Date retour" value={formatDate(dgReview?.returnedFromDgAt)} />
+            <DetailField label="Decision" value={dgReview?.decision === 'oriented_to_dn' ? 'Orientée vers DN' : dgReview?.decision === 'rejected' ? 'Annulée par DG' : undefined} />
+            <DetailField label="Observations" value={dgReview?.observations} />
+            <DetailField label="Scan retour" value={dgReview?.returnedScannedDocumentId ? 'Document enregistre' : undefined} />
           </DetailSection>
         </div>
 
         <div className="mt-6 flex flex-wrap justify-end gap-2">
-          {permissions.canReview && canStartIntake(request) ? (
+          {permissions.canReview && canOpenDossier(request, dgReview) ? (
             <button className="btn btn-secondary" type="button" onClick={() => onStart(request)}>
-              <ShieldCheck className="h-4 w-4" aria-hidden="true" />
-              Demarrer la verification
+              <FolderOpen className="h-4 w-4" aria-hidden="true" />
+              Ouvrir le dossier DN
             </button>
           ) : null}
           {permissions.canReview && canRequestCorrection(request) ? (
@@ -508,19 +599,19 @@ function DetailDrawer({
           {permissions.canRegister && canRegisterPhysical(request) ? (
             <button className="btn btn-secondary" type="button" onClick={() => onRegister(request)}>
               <FileUp className="h-4 w-4" aria-hidden="true" />
-              Enregistrer le courrier physique
+              Enregistrer reception courrier
             </button>
           ) : null}
           {permissions.canHandleDg && canMarkPrinted(request) ? (
             <button className="btn btn-secondary" type="button" onClick={() => onPrint(request)}>
               <Printer className="h-4 w-4" aria-hidden="true" />
-              Marquer comme imprime pour DG
+              Imprimer
             </button>
           ) : null}
-          {permissions.canHandleDg && canSendToDg(request) ? (
-            <button className="btn btn-primary" type="button" onClick={() => onSend(request)}>
-              <Send className="h-4 w-4" aria-hidden="true" />
-              Transmettre au DG
+          {permissions.canHandleDg && canRecordDgReturn(request) ? (
+            <button className="btn btn-primary" type="button" onClick={() => onDgReturn(request)}>
+              <FileCheck2 className="h-4 w-4" aria-hidden="true" />
+              Enregistrer le retour DG
             </button>
           ) : null}
         </div>
@@ -530,7 +621,7 @@ function DetailDrawer({
 }
 
 type ActionDialogState = {
-  kind: 'start' | 'correction' | 'print' | 'send';
+  kind: 'open_dossier' | 'correction' | 'print';
   request: AdminRequest;
 };
 
@@ -550,12 +641,12 @@ function ActionDialog({
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const copy = {
-    start: {
-      title: 'Demarrer la verification',
+    open_dossier: {
+      title: 'Ouvrir le dossier DN',
       label: 'Notes',
-      button: 'Demarrer',
-      success: 'Verification demarree.',
-      icon: ShieldCheck,
+      button: 'Ouvrir le dossier',
+      success: 'Dossier DN ouvert.',
+      icon: FolderOpen,
     },
     correction: {
       title: 'Demander correction',
@@ -565,18 +656,11 @@ function ActionDialog({
       icon: MessageSquareWarning,
     },
     print: {
-      title: 'Marquer comme imprime pour DG',
+      title: 'Imprimer',
       label: 'Notes',
-      button: 'Marquer imprime',
-      success: 'Courrier marque comme imprime pour le circuit DG.',
+      button: 'Imprimer',
+      success: "Demande en attente d'orientation DG.",
       icon: Printer,
-    },
-    send: {
-      title: 'Transmettre au DG',
-      label: 'Notes',
-      button: 'Transmettre',
-      success: 'Demande transmise au circuit DG.',
-      icon: Send,
     },
   }[state.kind];
   const Icon = copy.icon;
@@ -592,14 +676,12 @@ function ActionDialog({
     setIsSubmitting(true);
     try {
       if (!isMockMode()) {
-        if (state.kind === 'start') {
-          await startIntake(state.request.id, { notes: optional(text) });
+        if (state.kind === 'open_dossier') {
+          await openDossierDn(state.request.id, { notes: optional(text) });
         } else if (state.kind === 'correction') {
           await requestCorrection(state.request.id, { reason: text.trim() });
         } else if (state.kind === 'print') {
           await markPrintedForDg(state.request.id, { notes: optional(text) });
-        } else {
-          await sendToDg(state.request.id, { notes: optional(text) });
         }
       }
       await onDone(state.request.id, copy.success);
@@ -655,6 +737,127 @@ function ActionDialog({
   );
 }
 
+function DgReturnDialog({
+  request,
+  onClose,
+  onDone,
+  onError,
+}: {
+  request: AdminRequest;
+  onClose: () => void;
+  onDone: (id: string) => Promise<void>;
+  onError: (message: string) => void;
+}): React.JSX.Element {
+  const [decision, setDecision] = useState<'oriented_to_dn' | 'cancelled_by_dg'>('oriented_to_dn');
+  const [returnedAt, setReturnedAt] = useState(() => new Date().toISOString().slice(0, 10));
+  const [observations, setObservations] = useState('');
+  const [file, setFile] = useState<File | null>(null);
+  const [localError, setLocalError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSubmit = async () => {
+    setLocalError('');
+
+    if (!file) {
+      setLocalError('Le scan du retour DG est obligatoire.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      if (!isMockMode()) {
+        const form = new FormData();
+        form.set('decision', decision);
+        if (returnedAt) form.set('returnedAt', returnedAt);
+        if (observations.trim()) form.set('observations', observations.trim());
+        form.set('returnedScannedDocument', file);
+        await recordDgReturn(request.id, form);
+      }
+      await onDone(request.id);
+    } catch {
+      onError('Impossible d enregistrer le retour DG.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[60] grid place-items-center bg-slate-950/50 px-4">
+      <section className="surface w-full max-w-xl rounded-lg p-6">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2 className="flex items-center gap-2 text-lg font-bold text-slate-950 dark:text-white">
+              <FileCheck2 className="h-5 w-5" aria-hidden="true" />
+              Enregistrer le retour DG
+            </h2>
+            <p className="mt-1 text-sm text-slate-500">{request.subject}</p>
+          </div>
+          <button className="btn btn-secondary" type="button" onClick={onClose}>
+            Annuler
+          </button>
+        </div>
+
+        <div className="mt-5 grid gap-4 sm:grid-cols-2">
+          <label className="text-sm font-medium text-slate-700 dark:text-slate-200">
+            Decision DG
+            <select
+              className="control mt-1"
+              value={decision}
+              onChange={(event) => setDecision(event.target.value as 'oriented_to_dn' | 'cancelled_by_dg')}
+            >
+              <option value="oriented_to_dn">Orientée vers DN</option>
+              <option value="cancelled_by_dg">Annulée par DG</option>
+            </select>
+          </label>
+          <label className="text-sm font-medium text-slate-700 dark:text-slate-200">
+            Date retour
+            <input
+              className="control mt-1"
+              type="date"
+              value={returnedAt}
+              onChange={(event) => setReturnedAt(event.target.value)}
+            />
+          </label>
+          <label className="text-sm font-medium text-slate-700 dark:text-slate-200 sm:col-span-2">
+            Scan du retour DG annoté *
+            <input
+              className="control mt-1"
+              type="file"
+              required
+              accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,application/pdf,image/jpeg,image/png,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+              onChange={(event) => setFile(event.target.files?.[0] ?? null)}
+            />
+          </label>
+          <label className="text-sm font-medium text-slate-700 dark:text-slate-200 sm:col-span-2">
+            Observations
+            <textarea
+              className="control mt-1 min-h-24"
+              value={observations}
+              onChange={(event) => setObservations(event.target.value)}
+            />
+          </label>
+        </div>
+
+        {localError ? (
+          <p className="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            {localError}
+          </p>
+        ) : null}
+
+        <div className="mt-5 flex justify-end gap-2">
+          <button className="btn btn-secondary" type="button" onClick={onClose}>
+            Annuler
+          </button>
+          <button className="btn btn-primary" type="button" onClick={handleSubmit} disabled={isSubmitting}>
+            <FileCheck2 className="h-4 w-4" aria-hidden="true" />
+            {isSubmitting ? 'Enregistrement...' : 'Enregistrer'}
+          </button>
+        </div>
+      </section>
+    </div>
+  );
+}
+
 function RegisterPhysicalDialog({
   request,
   onClose,
@@ -670,17 +873,30 @@ function RegisterPhysicalDialog({
   const [officialReference, setOfficialReference] = useState('');
   const [notes, setNotes] = useState('');
   const [file, setFile] = useState<File | null>(null);
+  const [localError, setLocalError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async () => {
+    setLocalError('');
+
+    if (!physicalDepositDate) {
+      setLocalError('La date de depot physique reel est requise.');
+      return;
+    }
+
+    if (!file) {
+      setLocalError('Le scan du courrier recu est obligatoire.');
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       if (!isMockMode()) {
         const form = new FormData();
-        if (physicalDepositDate) form.set('physicalDepositDate', physicalDepositDate);
+        form.set('physicalDepositDate', physicalDepositDate);
         if (officialReference.trim()) form.set('officialReference', officialReference.trim());
         if (notes.trim()) form.set('notes', notes.trim());
-        if (file) form.set('file', file);
+        form.set('file', file);
         await registerPhysicalCourrier(request.id, form);
       }
       await onDone(request.id);
@@ -698,7 +914,7 @@ function RegisterPhysicalDialog({
           <div>
             <h2 className="flex items-center gap-2 text-lg font-bold text-slate-950 dark:text-white">
               <FileCheck2 className="h-5 w-5" aria-hidden="true" />
-              Enregistrer le courrier physique
+              Enregistrer reception courrier
             </h2>
             <p className="mt-1 text-sm text-slate-500">{request.subject}</p>
           </div>
@@ -709,10 +925,11 @@ function RegisterPhysicalDialog({
 
         <div className="mt-5 grid gap-4 sm:grid-cols-2">
           <label className="text-sm font-medium text-slate-700 dark:text-slate-200">
-            Date de depot physique
+            Date depot physique reel *
             <input
               className="control mt-1"
               type="date"
+              required
               value={physicalDepositDate}
               onChange={(event) => setPhysicalDepositDate(event.target.value)}
             />
@@ -726,10 +943,11 @@ function RegisterPhysicalDialog({
             />
           </label>
           <label className="text-sm font-medium text-slate-700 dark:text-slate-200 sm:col-span-2">
-            Scan interne optionnel
+            Scan du courrier recu *
             <input
               className="control mt-1"
               type="file"
+              required
               accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,application/pdf,image/jpeg,image/png,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
               onChange={(event) => setFile(event.target.files?.[0] ?? null)}
             />
@@ -743,6 +961,12 @@ function RegisterPhysicalDialog({
             />
           </label>
         </div>
+
+        {localError ? (
+          <p className="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            {localError}
+          </p>
+        ) : null}
 
         <div className="mt-5 flex justify-end gap-2">
           <button className="btn btn-secondary" type="button" onClick={onClose}>

@@ -1,476 +1,311 @@
-# AIDN API-2 Prompt — Postulant Account Request + Validation + Canonical Organization
+## CACHE-FIRST PROTOCOL — ALWAYS FOLLOW
+
+When processing this task, you MUST:
 
-You are working inside the existing `AIDN_V2` repository.
+### 1. Read Cache First
 
-Current validated state:
+Always start by reading:
 
-- API-INIT completed.
-- API-1 completed.
-- API-1C completed.
-- Admin UI auth/internal account activation works end-to-end.
-- Internal users are activated from the official ANAC personnel DB.
-- AIDN owns its app credentials for internal users.
-- Internal auth flow has been validated through UI:
-  - search personnel from official DB;
-  - activate account;
-  - temporary password first login;
-  - password change;
-  - normal login.
+- `prompt.md`
+- `exploration-cache/manifest.json`
+- `exploration-cache/QUICK-REFERENCE.md`
+- `exploration-cache/tasks/current-task.md` if relevant
+- `exploration-cache/archive/summaries/**` only when needed as source material
+
+### 2. Answer From Cache When Possible
 
-Now implement API-2.
+If the answer exists in cache:
 
-Do not implement frontend UI in this task.
-Do not implement Phase préliminaire.
-Do not implement request/courrier submission.
-Do not implement DG workflow.
-Do not implement dossier opening.
-Do not implement file upload.
-Do not implement email sending.
-Do not implement QLOG integration.
+- cite the cache source
+- answer from cache
+- stop there unless the current task explicitly requires implementation
 
----
+Format:
+FROM CACHE: [file path] - [finding]
 
-## Objective
+### 3. Only Explore Gaps
 
-Implement backend API for:
+If cache is incomplete, state:
 
-1. External postulant account request submission.
-2. Admin/DN review of account requests.
-3. Approval by linking to existing canonical organization or creating a new canonical organization.
-4. Creation of postulant user account.
-5. Organization membership creation.
-6. Rejection with reason.
-7. Audit logging.
+CACHE GAP: [specific missing info]
 
-This is the foundation required before external postulants can submit demandes.
+Then:
 
----
+- explore only the missing path(s)
+- never re-explore cached paths without reason
+- keep exploration narrow
 
-## Business rules
+4. Update Cache After Each Discovery
+   - After any meaningful new finding:
+   - update the relevant `exploration/pattern/task file`
+   - update `QUICK-REFERENCE.md` if the finding is cross-cutting
+   - update `manifest.json` only if the pass requires manifest changes
+   - update `exploration-cache/tasks/current-task.md`
 
-AIDN distinguishes:
+5. Token Saving Rules
+   - Do not repeat large cached content in the response
+   - Use file references instead
+   - Do not re-read files already read this session unless needed
+   - Keep responses brief and grounded
+   - Do not broaden scope silently
+   - One task only
 
-````txt
-Raw requested organization name
-Canonical organization
-Postulant user
-Organization membership
+### SESSION START PROCEDURE
 
-The raw organization name submitted by the postulant must not be used directly for statistics or dossier ownership.
+At the beginning of the task:
 
-On approval, admin must either:
+1. Read this prompt.md
+2. Read exploration-cache/manifest.json
+3. Read exploration-cache/QUICK-REFERENCE.md
+4. Check whether relevant answer/state already exists in:
+   `exploration-cache/03-frontend/ADMIN_APP_MAP.md`
+   `exploration-cache/03-frontend/PORTAL_APP_MAP.md`
+   `exploration-cache/04-backend/API_ROUTES.md`
+   `exploration-cache/05-data/DATA_MODELS.md`
+   `exploration-cache/06-workflows/ADMIN_INTAKE_WORKFLOW.md`
+   `exploration-cache/06-workflows/PORTAL_REQUEST_WORKFLOW.md`
+   `exploration-cache/09-qa/BUILD_AND_TEST_COMMANDS.md`
+   `exploration-cache/tasks/current-task.md`
+5. State cache status briefly.
+6. Proceed only with the current objective.
 
-link the request to an existing canonical organization; or
-create a new canonical organization.
+Expected cache status block:
 
-Future demandes/dossiers must use organizationId, not raw organization name.
+## CACHE STATUS
 
-A postulant account request must not automatically create an active account without review.
+- Services explored: [brief list]
+- App areas explored: [brief list]
+- Packages explored: [brief list]
+- Patterns available: [brief list]
+- Last update: [timestamp]
+- Pending gaps: [brief list]
 
-Existing models to inspect first
+## CRITICAL RULES
 
-Inspect and reuse existing models if already created:
+NEVER re-explore a path already sufficiently covered in cache unless a real gap exists.
+ALWAYS keep scope narrow.
+ALWAYS separate planning from implementation.
+ALWAYS update task state in cache.
+USE exploration-cache/tasks/history/ for completed-pass memory.
+ALWAYS update cache after discovering something new.
+KEEP responses concise and point to cache files.
+ASK before large explorations over 10 files.
+Do not implement before returning the planning report and receiving approval.
 
-apps/api/src/modules/account-requests/
-apps/api/src/modules/organizations/
-apps/api/src/modules/users/
-apps/api/src/modules/audit/
+## QUICK COMMANDS
 
-Likely models/collections:
+[STATUS] Show current cache coverage for this objective
+[GAPS] List missing info for current objective
+[UPDATE] Force cache update with recent findings
+[VERIFY] Check if answer exists in cache before exploring
+[NEXT] Propose the next narrow pass
 
-account_requests
-postulant_organizations
-organization_members
-users
-audit_logs
+## TASK COMPLETION CHECKLIST
 
-Do not duplicate models if they already exist.
+Before marking a pass complete:
 
-Required endpoint group
-Public / portal-facing API
+- all listed deliverables exist
+- content is grounded in cache or explicitly explored gaps
+- no unrelated files were changed
+- exploration-cache/tasks/current-task.md is updated
+- create a brief summary-implementation.md with related implementation notes
+- next step is clearly stated
+- a summary file was created under `exploration-cache/tasks/summaries/`
 
-Add:
+## Summary Tracking Rule
 
-POST /api/v1/portal/account-requests
+For every planning, implementation, correction, or modification pass, create a short summary file in:
 
-This endpoint is public for now.
+`exploration-cache/tasks/summaries/`
 
-Expected payload:
+Use this naming format:
 
-{
-  requestedOrganizationName: string;
-  requestedLegalAddress?: string;
-  requestedEmail?: string;
-  requestedPhone?: string;
-  approvalNumberOrigin?: string;
+YYYY-MM-DD-<phase-name>-planning.md
+YYYY-MM-DD-<phase-name>-implementation.md
+YYYY-MM-DD-<phase-name>-modification.md
+YYYY-MM-DD-<phase-name>-correction.md
 
-  contactFullName: string;
-  contactEmail: string;
-  contactPhone?: string;
+## Each summary must include:
 
-  password: string;
-}
+- Objective
+- Cache files read
+- Source files inspected
+- Files changed, if any
+- Key decisions
+- Implementation details, if any
+- Verification commands run
+- Manual checks run or not run
+- Known risks / TODOs
+- Next step
 
-Expected behavior:
+## Also update:
 
-validates required fields;
-normalizes email;
-hashes password;
-creates AccountRequest with status submitted;
-does not create User yet;
-does not create Organization yet;
-does not create OrganizationMember yet;
-does not auto-login;
-returns sanitized request data.
+- exploration-cache/tasks/current-task.md
+- exploration-cache/tasks/history/ when the pass is completed
 
-Suggested response:
+# CURRENT OBJECTIVE
 
-{
-  request: {
-    id: string;
-    requestedOrganizationName: string;
-    contactFullName: string;
-    contactEmail: string;
-    status: "submitted";
-    createdAt: string;
-  }
-}
-
-Password must never be returned.
+PORTAL-H1D-2 — Hardening the printable convocation layout to an ANAC-style A4 document.
 
-Admin API
+Follow the existing cache-first protocol from `prompt.md`.
 
-Update or implement:
+## Context
 
-GET /api/v1/admin/account-requests
-GET /api/v1/admin/account-requests/:id
-POST /api/v1/admin/account-requests/:id/approve
-POST /api/v1/admin/account-requests/:id/reject
+PORTAL-H1D-1 is complete:
 
-All admin routes require auth.
-
-Recommended permission:
-
-POSTULANT_ACCOUNT_REVIEW
-
-Admin and bootstrap_admin should have this permission.
-
-GET /api/v1/admin/account-requests
-
-Supports filters:
-
-status
-search
-from
-to
-
-Search should match:
-
-requestedOrganizationName
-contactFullName
-contactEmail
-requestedEmail
-
-Suggested response:
-
-{
-  items: [
-    {
-      id: string;
-      requestedOrganizationName: string;
-      requestedLegalAddress?: string;
-      requestedEmail?: string;
-      requestedPhone?: string;
-      approvalNumberOrigin?: string;
-
-      contactFullName: string;
-      contactEmail: string;
-      contactPhone?: string;
-
-      status: "submitted" | "under_review" | "approved" | "rejected";
-
-      matchedOrganizationId?: string;
-      createdOrganizationId?: string;
-      resultingUserId?: string;
-
-      reviewedById?: string;
-      reviewedAt?: string;
-      rejectionReason?: string;
-
-      createdAt: string;
-      updatedAt: string;
-    }
-  ]
-}
-
-Never return passwordHash.
-
-GET /api/v1/admin/account-requests/:id
-
-Returns full sanitized request details.
-
-Never return passwordHash.
-
-POST /api/v1/admin/account-requests/:id/approve
-
-Expected payload:
-
-type ApproveAccountRequestPayload =
-  | {
-      organizationMode: "existing";
-      organizationId: string;
-      memberRole?: "primary_contact" | "representative" | "viewer";
-    }
-  | {
-      organizationMode: "create";
-      organization: {
-        canonicalName: string;
-        legalAddress?: string;
-        email?: string;
-        phone?: string;
-        approvalNumberOrigin?: string;
-        aliases?: string[];
-      };
-      memberRole?: "primary_contact" | "representative" | "viewer";
-    };
-
-Default member role:
-
-primary_contact
-
-Expected behavior:
-
-requires POSTULANT_ACCOUNT_REVIEW;
-rejects if request is already approved/rejected;
-if organizationMode=existing, validates organization exists and is active;
-if organizationMode=create, creates canonical organization;
-creates local User with:
-userType = "postulant"
-fullName = contactFullName
-email = contactEmail
-phone = contactPhone
-role = "postulant"
-organizationId = resolved organization id
-passwordHash = accountRequest.passwordHash
-isActive = true
-creates OrganizationMember:
-organizationId
-userId
-memberRole
-status = "active"
-approvedById
-approvedAt
-updates AccountRequest:
-status = "approved"
-matchedOrganizationId or createdOrganizationId
-resultingUserId
-reviewedById
-reviewedAt
-writes audit event;
-operation should be atomic via Mongo transaction if the current DB connection supports it.
-
-Suggested response:
-
-{
-  request: {...sanitized},
-  user: {
-    id: string;
-    fullName: string;
-    email: string;
-    role: "postulant";
-    organizationId: string;
-  },
-  organization: {
-    id: string;
-    canonicalName: string;
-  },
-  membership: {
-    id: string;
-    memberRole: string;
-    status: "active";
-  }
-}
-POST /api/v1/admin/account-requests/:id/reject
-
-Expected payload:
-
-{
-  reason: string;
-}
-
-Expected behavior:
-
-requires POSTULANT_ACCOUNT_REVIEW;
-reason is required;
-rejects if already approved/rejected;
-updates AccountRequest:
-status = "rejected"
-rejectionReason
-reviewedById
-reviewedAt
-does not create User;
-does not create Organization;
-writes audit event.
-
-Suggested response:
-
-{
-  request: {
-    id: string;
-    status: "rejected";
-    rejectionReason: string;
-    reviewedAt: string;
-  }
-}
-Organizations API support
-
-Existing:
-
-GET /api/v1/admin/organizations
-
-Ensure it supports:
-
-search
-status
-
-Suggested response:
-
-{
-  items: [
-    {
-      id: string;
-      canonicalName: string;
-      normalizedName: string;
-      aliases: string[];
-      legalAddress?: string;
-      email?: string;
-      phone?: string;
-      approvalNumberOrigin?: string;
-      status: "active" | "suspended" | "archived";
-      createdAt: string;
-      updatedAt: string;
-    }
-  ]
-}
-
-If organization create is only needed inside account approval, do not expose standalone create endpoint yet unless it already exists.
-
-Normalization rules
-
-Add helper if missing:
-
-normalizeOrganizationName(name)
-
-Behavior:
-
-trim;
-lowercase;
-collapse spaces;
-remove accents if simple;
-use for normalizedName.
-
-When creating organization:
-
-reject duplicate normalizedName if active organization already exists;
-allow aliases to include raw submitted name;
-ensure aliases are unique normalized values if implemented.
-Security requirements
-Never return passwordHash.
-Never log password.
-Public account request endpoint should have basic validation.
-Do not auto-approve account requests.
-Do not auto-create organization on submission.
-Do not expose internal audit metadata publicly.
-Admin approval/rejection must use authenticated actor id.
-Reject invalid organization mode.
-Reject postulant creation through internal account activation; this remains separate.
-Audit events
-
-Add:
-
-portal.account_request_submitted
-admin.account_request_approved
-admin.account_request_rejected
-admin.organization_created_from_account_request
-admin.organization_linked_from_account_request
-
-Metadata should not include password or passwordHash.
-
-Optional but useful
-
-If there is no public route group yet, add:
-
-apps/api/src/modules/portal/
-
-or add route registration under the account-requests module.
-
-Keep it simple.
-
-Documentation updates
-
-Update:
-
-TASK.md
-exploration-cache/04-backend/API_ROUTES.md
-exploration-cache/05-data/DATA_MODELS.md
-exploration-cache/04-backend/AUTH_AND_PERMISSIONS.md
-exploration-cache/10-decisions/
-
-Create/update decision note:
-
-exploration-cache/10-decisions/postulant-account-organization-linking.md
-
-Document:
-
-raw organization names are not reporting entities;
-approval links/creates canonical organization;
-User is created only after approval;
-passwordHash is transferred from AccountRequest to resulting postulant user;
-account request approval is separate from initial demande/courrier workflow;
-dedicated postulant frontend will come later.
+- portal rendez-vous page exists;
+- printable convocation card exists;
+- browser print works.
+
+Current problem:
+
+- the convocation proportions feel too screen-like and not enough like an A4 institutional document;
+- the document should look more ANAC/administrative;
+- `apps/portal/public/header.png` is available and should be used as the document header.
+
+Goal:
+Refine the convocation into a more institutional, minimal, ANAC-style printable layout.
+
+## Scope
+
+Frontend only in `apps/portal`.
+
+### 1. Use `public/header.png`
+
+Update the convocation print card to display:
+
+/apps/portal/public/header.png
+
+at the top of the printable document.
+
+Rules:
+
+full available width inside the sheet;
+preserve aspect ratio;
+no distortion;
+visible both on screen preview and print. 2. Convert the layout to A4-style proportions
+
+Refactor the convocation container into a print-first A4 sheet.
+
+Requirements:
+
+portrait A4 feeling;
+centered white sheet on screen;
+clean margins/padding;
+tighter spacing than current version;
+no oversized proportions.
+
+Recommended implementation:
+
+use mm-based print sizing where useful;
+responsive screen preview;
+keep document readable on both screen and print. 3. Improve the institutional visual style
+
+Refine the document styling:
+
+minimalistic;
+more serious / administrative;
+lighter separators;
+cleaner typography hierarchy;
+less “UI card”, more “official fiche”.
+
+Target structure:
+
+[header.png]
+
+Convocation au rendez-vous
+
+Informations principales:
+
+- Organisation / postulant
+- Numéro dossier
+- Type de dossier
+- Type de rendez-vous
+- Objet
+- Date et heure
+- Lieu
+- Statut
+- Consignes
+- Référence
+- Date d’impression
+
+Footer:
+Document généré depuis le portail AIDN.
+
+Fallback text remains:
+
+Non renseigné 4. Print CSS hardening
+
+Add or refine print styles so that:
+
+only the convocation content is printed;
+app chrome/sidebar/buttons are hidden;
+shadows/background decorations are removed in print;
+output is clean in grayscale.
+
+Add/refine:
+
+@page {
+size: A4 portrait;
+margin: 12mm;
+} 5. Preserve current functionality
+
+Keep:
+
+Voir la convocation
+Imprimer
+current meeting data mapping
+browser print workflow
+
+Do not change backend.
+
+Constraints
+
+Do not implement:
+
+backend PDF generation;
+QR code;
+logos beyond header.png;
+new API fields;
+meeting editing;
+extra workflow logic.
+Expected deliverables
+Convocation uses header.png.
+Layout feels A4 and more institutional.
+Print preview is cleaner.
+Existing convocation actions still work.
+Cache/task tracking updated.
+Summary file created:
+exploration-cache/tasks/summaries/YYYY-MM-DD-PORTAL-H1D-2-convocation-a4-anac-layout-modification.md
 Verification commands
 
 Run:
 
-cd apps/api
+cd apps/portal
 npm run typecheck
 npm run lint
 npm run build
-
-If runtime checks are possible, run API and test with curl/Postman.
-
-Expected implementation report
+Manual validation checklist
+Open /rendez-vous.
+Open a convocation.
+Header image appears correctly.
+Layout feels like an A4 institutional sheet.
+Print preview looks cleaner than before.
+Buttons/app chrome do not pollute print output.
+Missing values still show Non renseigné.
+Build passes.
+Expected final report
 
 Return:
 
-Files created.
+Cache files read.
+Files inspected.
 Files modified.
-Routes added/updated.
-Account request lifecycle implemented.
-Organization linking behavior.
-User/membership creation behavior.
-Audit events.
-Security checks.
-Verification commands run.
-Runtime tests run or not run.
-Risks/TODOs.
-
-# Review checklist before accepting API-2
-
-```txt
-✅ Public account request submission works
-✅ Request stores raw organization data only
-✅ No user is created before approval
-✅ No organization is created before approval
-✅ Admin can list requests
-✅ Admin can approve with existing organization
-✅ Admin can approve by creating organization
-✅ Organization normalizedName prevents obvious duplicates
-✅ User role is postulant
-✅ OrganizationMember is created
-✅ Request becomes approved
-✅ Admin can reject with reason
-✅ PasswordHash never returned
-✅ Audit logs created
-✅ Build passes
-````
+How header.png was integrated.
+A4/print styling changes.
+Verification results.
+Manual checks run or pending.
+Cache files updated.
+Summary file path.
+Known risks / TODOs.
+Recommended next step.

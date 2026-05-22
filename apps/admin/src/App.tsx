@@ -9,6 +9,7 @@ import { ChangePasswordPage } from "./pages/ChangePasswordPage";
 import { CourriersPage } from "./pages/CourriersPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { DocumentsPage } from "./pages/DocumentsPage";
+import { DgCircuitPage } from "./pages/DgCircuitPage";
 import { DossierDetailPage } from "./pages/DossierDetailPage";
 import { DossiersPage } from "./pages/DossiersPage";
 import { InternalAccountsPage } from "./pages/InternalAccountsPage";
@@ -35,8 +36,6 @@ export function App(): React.JSX.Element {
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/courriers" element={<CourriersPage />} />
-          <Route path="/dossiers" element={<DossiersPage />} />
-          <Route path="/dossiers/:id" element={<DossierDetailPage />} />
           <Route path="/workflow-oma" element={<WorkflowOmaPage />} />
           <Route path="/documents" element={<DocumentsPage />} />
           <Route path="/reunions" element={<ReunionsPage />} />
@@ -74,6 +73,17 @@ export function App(): React.JSX.Element {
       <Route element={<ProtectedRoute permissions={["REQUEST_VIEW_ALL"]} />}>
         <Route element={<AdminLayout />}>
           <Route path="/demandes" element={<RequestsPage />} />
+        </Route>
+      </Route>
+      <Route element={<ProtectedRoute permissions={["DG_CIRCUIT_HANDLE", "COURRIER_REGISTER_PHYSICAL", "PRE_EVAL_DG_CIRCUIT_HANDLE"]} />}>
+        <Route element={<AdminLayout />}>
+          <Route path="/circuit-dg" element={<DgCircuitPage />} />
+        </Route>
+      </Route>
+      <Route element={<ProtectedRoute permissions={["DOSSIER_VIEW_ALL"]} />}>
+        <Route element={<AdminLayout />}>
+          <Route path="/dossiers" element={<DossiersPage />} />
+          <Route path="/dossiers/:id" element={<DossierDetailPage />} />
         </Route>
       </Route>
       <Route path="*" element={<Navigate to="/dashboard" replace />} />

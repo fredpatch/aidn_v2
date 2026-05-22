@@ -58,7 +58,8 @@ export const env = {
     password: process.env.BOOTSTRAP_ADMIN_PASSWORD ?? "change-me-now"
   },
   officialPersonnelDbEnabled: process.env.OFFICIAL_PERSONNEL_DB_ENABLED === "true",
-  mockPersonnelEnabled: process.env.MOCK_PERSONNEL_ENABLED !== "false"
+  mockPersonnelEnabled: process.env.MOCK_PERSONNEL_ENABLED !== "false",
+  allowDevDataReset: process.env.ALLOW_DEV_DATA_RESET === "true"
 };
 
 function readPort(): number {

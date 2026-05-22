@@ -5,7 +5,11 @@ import { HttpError } from "../../shared/errors/http-error.js";
 import { storageAdapter } from "../../shared/storage/storage.adapter.js";
 import { writeAuditLog } from "../audit/audit.service.js";
 import { CourrierModel } from "../courriers/courrier.model.js";
+import { DGReviewModel } from "../dg-reviews/dg-review.model.js";
 import { DocumentModel } from "../documents/document.model.js";
+import { DossierModel } from "../dossiers/dossier.model.js";
+import { OmaPhaseModel } from "../oma-phases/oma-phase.model.js";
+import { PRELIMINARY_STATUS_PORTAL_LABELS } from "../oma-phases/oma-phase.service.js";
 import { NotificationModel } from "../notifications/notification.model.js";
 import { PostulantOrganizationModel } from "../organizations/postulant-organization.model.js";
 import { UserModel } from "../users/user.model.js";
@@ -38,15 +42,31 @@ const ALLOWED_MIME_TYPES = [
   "application/msword",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 ] as const;
+const DG_RETURN_REQUIRED_MESSAGE =
+  "Le retour DG annote doit etre enregistre avant de demarrer la verification DN.";
 
 type RequestType = (typeof REQUEST_TYPES)[number];
 type RequestStatus = (typeof REQUEST_STATUSES)[number];
 type RequestRecord = Record<string, unknown> & { _id: Types.ObjectId };
+type RequestDgReturnGuardSource = {
+  _id: Types.ObjectId;
+  status?: unknown;
+  initialDgReviewId?: unknown;
+};
 type Actor = { id: string; role: string; userType: "internal" | "postulant" };
+type DgReviewHandledByRole = "dg_secretariat" | "reception" | "bureau_courrier" | "dn_agent" | "admin";
 
 const trimmed = (value?: string) => {
   const next = value?.trim();
   return next ? next : undefined;
+};
+
+const dgReviewHandledByRole = (role: string): DgReviewHandledByRole => {
+  if (["dg_secretariat", "reception", "bureau_courrier", "dn_agent", "admin"].includes(role)) {
+    return role as DgReviewHandledByRole;
+  }
+
+  return "admin";
 };
 
 const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -133,28 +153,40 @@ const toIso = (value: unknown) =>
 
 const toId = (value: unknown) => value?.toString();
 
-const portalStatusLabel = (status: string) => {
+const portalStatusLabel = (status: string, request?: RequestRecord) => {
   switch (status) {
     case "draft":
       return "Brouillon";
     case "courrier_uploaded":
-      return "Courrier charge";
+      return "Demande reçue";
     case "courrier_physical_declared":
-      return "Depot physique declare";
+      return "Demande reçue";
     case "submitted":
-      return "Demande recue";
+      if (request?.courrierSource === "physical_deposit") {
+        return "Demande reçue - dépôt physique prévu";
+      }
+      return "Demande reçue";
     case "intake_in_review":
-      return "Demande en verification";
+      return "En attente d’orientation administrative";
     case "intake_requires_correction":
       return "Action requise";
     case "initial_sent_to_dg":
-      return "En attente d'orientation administrative";
+      return "En attente d’orientation administrative";
+    case "initial_dg_returned":
+    case "initial_dg_decision_recorded":
+      return "En cours de traitement administratif";
+    case "oriented_to_dn":
+      return "Transmise à la Direction de la Navigabilité";
+    case "dossier_opened":
+      return "Dossier en cours de traitement";
     case "rejected":
-      return "Demande rejetee";
+      return "Demande non retenue";
+    case "reoriented":
+      return "Demande réorientée";
     case "closed":
-      return "Cloturee";
+      return "Dossier en cours de traitement";
     default:
-      return "En traitement";
+      return "Dossier en cours de traitement";
   }
 };
 
@@ -169,14 +201,37 @@ const sanitizeRequest = (source: unknown) => {
     subject: request.subject,
     message: request.message,
     status: request.status,
-    portalStatusLabel: portalStatusLabel(String(request.status)),
+    portalStatusLabel: portalStatusLabel(String(request.status), request),
     courrierSource: request.courrierSource,
     initialCourrierId: toId(request.initialCourrierId),
     initialDocumentId: toId(request.initialDocumentId),
     physicalDeposit: request.physicalDeposit,
+    dossierId: toId(request.dossierId),
     intake: sanitizeIntake(request.intake),
     submittedAt: toIso(request.submittedAt),
     closedAt: toIso(request.closedAt),
+    createdAt: toIso(request.createdAt),
+    updatedAt: toIso(request.updatedAt),
+  };
+};
+
+const sanitizePortalRequest = (source: unknown) => {
+  const request = source as RequestRecord;
+  return {
+    id: request._id.toString(),
+    organizationId: toId(request.organizationId),
+    submittedById: toId(request.submittedById),
+    requestType: request.requestType,
+    subject: request.subject,
+    message: request.message,
+    status: request.status,
+    portalStatusLabel: portalStatusLabel(String(request.status), request),
+    courrierSource: request.courrierSource,
+    initialCourrierId: toId(request.initialCourrierId),
+    initialDocumentId: toId(request.initialDocumentId),
+    dossierId: toId(request.dossierId),
+    physicalDeposit: request.physicalDeposit,
+    submittedAt: toIso(request.submittedAt),
     createdAt: toIso(request.createdAt),
     updatedAt: toIso(request.updatedAt),
   };
@@ -240,6 +295,21 @@ const sanitizeCourrier = (source: unknown) => {
   };
 };
 
+const sanitizePortalCourrier = (source: unknown) => {
+  if (!source) return undefined;
+  const courrier = source as RequestRecord;
+  return {
+    id: courrier._id.toString(),
+    requestId: toId(courrier.requestId),
+    type: courrier.type,
+    source: courrier.source,
+    physicalDepositDate: toIso(courrier.physicalDepositDate),
+    uploadedAt: toIso(courrier.uploadedAt),
+    documentId: toId(courrier.documentId),
+    notes: courrier.notes,
+  };
+};
+
 const sanitizeDocument = (source: unknown) => {
   if (!source) {
     return undefined;
@@ -262,6 +332,47 @@ const sanitizeDocument = (source: unknown) => {
     uploadedAt: toIso(document.uploadedAt),
     uploadedById: toId(document.uploadedById),
   };
+};
+
+const sanitizeDgReview = (source: unknown) => {
+  if (!source) {
+    return undefined;
+  }
+
+  const review = source as RequestRecord;
+  return {
+    id: review._id.toString(),
+    requestId: toId(review.requestId),
+    status: review.status,
+    decision: review.decision,
+    returnedFromDgAt: toIso(review.returnedFromDgAt),
+    observations: review.observations,
+    returnedScannedDocumentId: toId(review.returnedScannedDocumentId),
+    decisionRecordedById: toId(review.decisionRecordedById),
+    decisionRecordedAt: toIso(review.decisionRecordedAt),
+  };
+};
+
+const isDgReturnComplete = (request: RequestDgReturnGuardSource, dgReview: unknown) => {
+  const review = dgReview as (RequestRecord & { returnedScannedDocumentId?: unknown; decision?: unknown }) | undefined;
+
+  return (
+    request.status === "oriented_to_dn" &&
+    review?.decision === "oriented_to_dn" &&
+    Boolean(review.returnedScannedDocumentId)
+  );
+};
+
+const getInitialDgReviewForRequest = async (request: RequestDgReturnGuardSource) => {
+  const reviewId = request.initialDgReviewId;
+
+  if (reviewId) {
+    return DGReviewModel.findById(reviewId).lean();
+  }
+
+  return DGReviewModel.findOne({ requestId: request._id, targetType: "initial_request" })
+    .sort({ createdAt: -1 })
+    .lean();
 };
 
 const resolvePortalUser = async (actor: Actor) => {
@@ -322,7 +433,7 @@ export const createPortalRequest = async (
     after: { status: request.status, requestType: request.requestType },
   });
 
-  return { request: sanitizeRequest(request) };
+  return { request: sanitizePortalRequest(request) };
 };
 
 export const listPortalRequests = async (
@@ -366,7 +477,37 @@ export const listPortalRequests = async (
     RequestModel.countDocuments(query),
   ]);
 
-  return { items: items.map(sanitizeRequest), total };
+  const sanitized = items.map(sanitizePortalRequest);
+
+  const dossierIds = sanitized
+    .map((r) => r.dossierId)
+    .filter((id): id is string => Boolean(id));
+
+  if (dossierIds.length > 0) {
+    const phases = await OmaPhaseModel.find({
+      dossierId: { $in: dossierIds },
+      phaseKey: "preliminary",
+    }).lean();
+
+    const labelByDossierId = new Map<string, string>();
+    for (const phase of phases) {
+      const ps = phase.preliminaryStatus;
+      if (ps) {
+        labelByDossierId.set(
+          phase.dossierId.toString(),
+          PRELIMINARY_STATUS_PORTAL_LABELS[ps] ?? "Dossier en cours de traitement",
+        );
+      }
+    }
+
+    for (const item of sanitized) {
+      if (item.dossierId && labelByDossierId.has(item.dossierId)) {
+        item.portalStatusLabel = labelByDossierId.get(item.dossierId)!;
+      }
+    }
+  }
+
+  return { items: sanitized, total };
 };
 
 export const getPortalRequest = async (requestId: string, actor: Actor) => {
@@ -377,8 +518,8 @@ export const getPortalRequest = async (requestId: string, actor: Actor) => {
   ]);
 
   return {
-    request: sanitizeRequest(request),
-    courrier: sanitizeCourrier(courrier),
+    request: sanitizePortalRequest(request),
+    courrier: sanitizePortalCourrier(courrier),
     document: sanitizeDocument(document),
   };
 };
@@ -416,7 +557,7 @@ export const updatePortalRequest = async (
     after: sanitizeRequest(request),
   });
 
-  return { request: sanitizeRequest(request) };
+  return { request: sanitizePortalRequest(request) };
 };
 
 export const uploadPortalRequestCourrier = async (
@@ -491,7 +632,6 @@ export const uploadPortalRequestCourrier = async (
   request.courrierSource = "portal_upload";
   request.initialCourrierId = courrier._id;
   request.initialDocumentId = document._id;
-  request.status = "courrier_uploaded";
   request.physicalDeposit = undefined;
   await request.save();
 
@@ -510,8 +650,8 @@ export const uploadPortalRequestCourrier = async (
   });
 
   return {
-    request: sanitizeRequest(request),
-    courrier: sanitizeCourrier(courrier),
+    request: sanitizePortalRequest(request),
+    courrier: sanitizePortalCourrier(courrier),
     document: sanitizeDocument(document),
   };
 };
@@ -520,7 +660,6 @@ export const declarePortalPhysicalDeposit = async (
   requestId: string,
   input: {
     expectedDepositDate?: string;
-    physicalDepositDate?: string;
     location?: string;
     notes?: string;
   },
@@ -535,7 +674,7 @@ export const declarePortalPhysicalDeposit = async (
   }
 
   const notes = validateMessage(input.notes);
-  const physicalDepositDate = parseDate(input.physicalDepositDate, "physicalDepositDate");
+  const expectedDepositDate = parseDate(input.expectedDepositDate, "expectedDepositDate");
   const courrier = await CourrierModel.findOneAndUpdate(
     { requestId: request._id, type: "initial_request_courrier" },
     {
@@ -543,11 +682,10 @@ export const declarePortalPhysicalDeposit = async (
         requestId: request._id,
         type: "initial_request_courrier",
         source: "physical_deposit",
-        physicalDepositDate,
         registeredById: actor.id,
         notes,
       },
-      $unset: { documentId: 1, uploadedAt: 1 },
+      $unset: { documentId: 1, uploadedAt: 1, physicalDepositDate: 1 },
     },
     { new: true, upsert: true, setDefaultsOnInsert: true },
   );
@@ -555,12 +693,11 @@ export const declarePortalPhysicalDeposit = async (
   request.courrierSource = "physical_deposit";
   request.initialCourrierId = courrier._id;
   request.initialDocumentId = undefined;
-  request.status = "courrier_physical_declared";
   request.physicalDeposit = {
     declaredAt: new Date(),
     declaredById: new Types.ObjectId(actor.id),
-    expectedDepositDate: parseDate(input.expectedDepositDate, "expectedDepositDate"),
-    physicalDepositDate,
+    status: "planned",
+    expectedDepositDate,
     location: location as "ANAC" | "DG" | "DN" | "other" | undefined,
     notes,
   };
@@ -575,17 +712,32 @@ export const declarePortalPhysicalDeposit = async (
     metadata: {
       courrierId: courrier._id.toString(),
       location,
-      hasPhysicalDepositDate: Boolean(physicalDepositDate),
+      hasExpectedDepositDate: Boolean(expectedDepositDate),
     },
   });
 
   return {
-    request: sanitizeRequest(request),
-    courrier: sanitizeCourrier(courrier),
+    request: sanitizePortalRequest(request),
+    courrier: sanitizePortalCourrier(courrier),
   };
 };
 
-export const submitPortalRequest = async (requestId: string, actor: Actor) => {
+export const submitPortalRequest = async (
+  requestId: string,
+  input: {
+    requestType?: string;
+    subject?: string;
+    message?: string;
+    courrierSource?: string;
+    plannedPhysicalDepositDate?: string;
+    expectedDepositDate?: string;
+    depositLocation?: string;
+    location?: string;
+    notes?: string;
+  },
+  file: Express.Multer.File | undefined,
+  actor: Actor,
+) => {
   const request = await getOwnedRequest(requestId, actor);
 
   if (request.status === "submitted") {
@@ -594,16 +746,144 @@ export const submitPortalRequest = async (requestId: string, actor: Actor) => {
 
   ensureEditable(request.status);
 
+  if (input.requestType !== undefined) {
+    request.requestType = validateRequestType(input.requestType);
+  }
+
+  if (input.subject !== undefined) {
+    request.subject = validateSubject(input.subject);
+  }
+
+  if (input.message !== undefined) {
+    request.message = validateMessage(input.message);
+  }
+
   if (!request.subject || !request.requestType) {
     throw new HttpError(400, "Request is incomplete");
   }
 
-  if (!request.initialDocumentId && request.courrierSource !== "physical_deposit") {
-    throw new HttpError(400, "Courrier evidence or physical deposit declaration is required");
+  const courrierSource = trimmed(input.courrierSource) ?? request.courrierSource;
+  const notes = validateMessage(input.notes);
+  const now = new Date();
+
+  if (courrierSource === "portal_upload") {
+    if (!file && !request.initialDocumentId) {
+      throw new HttpError(400, "Courrier file is required");
+    }
+
+    if (file) {
+      if (!ALLOWED_MIME_TYPES.includes(file.mimetype as (typeof ALLOWED_MIME_TYPES)[number])) {
+        throw new HttpError(400, "Unsupported courrier file type");
+      }
+
+      const previousDocumentId = request.initialDocumentId;
+      const stored = await storageAdapter.save({
+        buffer: file.buffer,
+        fileName: file.originalname,
+        mimeType: file.mimetype,
+        ownerPath: `requests/${request._id.toString()}`,
+      });
+      const previousDocument = previousDocumentId
+        ? await DocumentModel.findById(previousDocumentId)
+        : undefined;
+      const version = (previousDocument?.version ?? 0) + 1;
+      const document = await DocumentModel.create({
+        ownerType: "request",
+        ownerId: request._id,
+        category: "courrier",
+        documentType: "initial_courrier",
+        title: "Courrier initial",
+        fileName: stored.fileName,
+        mimeType: stored.mimeType,
+        fileSize: stored.fileSize,
+        storageKey: stored.storageKey,
+        uploadedById: actor.id,
+        uploadedAt: now,
+        visibility: "internal_only",
+        status: "uploaded",
+        version,
+      });
+
+      if (previousDocument) {
+        previousDocument.status = "archived";
+        previousDocument.replacedByDocumentId = document._id;
+        await previousDocument.save();
+      }
+
+      const courrier = await CourrierModel.findOneAndUpdate(
+        { requestId: request._id, type: "initial_request_courrier" },
+        {
+          $set: {
+            requestId: request._id,
+            type: "initial_request_courrier",
+            source: "portal_upload",
+            uploadedAt: now,
+            documentId: document._id,
+            registeredById: actor.id,
+            notes,
+          },
+          $unset: { physicalDepositDate: 1 },
+        },
+        { new: true, upsert: true, setDefaultsOnInsert: true },
+      );
+
+      request.initialCourrierId = courrier._id;
+      request.initialDocumentId = document._id;
+    }
+
+    request.courrierSource = "portal_upload";
+    request.physicalDeposit = undefined;
+  } else if (courrierSource === "physical_deposit") {
+    const plannedDate = parseDate(
+      input.plannedPhysicalDepositDate ?? input.expectedDepositDate,
+      "plannedPhysicalDepositDate",
+    );
+    const location = trimmed(input.depositLocation ?? input.location);
+
+    if (!plannedDate) {
+      throw new HttpError(400, "plannedPhysicalDepositDate is required");
+    }
+
+    if (!location) {
+      throw new HttpError(400, "depositLocation is required");
+    }
+
+    if (!LOCATIONS.includes(location as (typeof LOCATIONS)[number])) {
+      throw new HttpError(400, "depositLocation is invalid");
+    }
+
+    const courrier = await CourrierModel.findOneAndUpdate(
+      { requestId: request._id, type: "initial_request_courrier" },
+      {
+        $set: {
+          requestId: request._id,
+          type: "initial_request_courrier",
+          source: "physical_deposit",
+          registeredById: actor.id,
+          notes,
+        },
+        $unset: { documentId: 1, uploadedAt: 1, physicalDepositDate: 1 },
+      },
+      { new: true, upsert: true, setDefaultsOnInsert: true },
+    );
+
+    request.courrierSource = "physical_deposit";
+    request.initialCourrierId = courrier._id;
+    request.initialDocumentId = undefined;
+    request.physicalDeposit = {
+      declaredAt: now,
+      declaredById: new Types.ObjectId(actor.id),
+      status: "planned",
+      expectedDepositDate: plannedDate,
+      location: location as "ANAC" | "DG" | "DN" | "other",
+      notes,
+    };
+  } else {
+    throw new HttpError(400, "courrierSource is required");
   }
 
   request.status = "submitted";
-  request.submittedAt = new Date();
+  request.submittedAt = now;
   await request.save();
 
   await writeAuditLog({
@@ -614,11 +894,12 @@ export const submitPortalRequest = async (requestId: string, actor: Actor) => {
     entityId: request._id,
     after: {
       status: request.status,
+      courrierSource: request.courrierSource,
       submittedAt: request.submittedAt?.toISOString(),
     },
   });
 
-  return { request: sanitizeRequest(request) };
+  return { request: sanitizePortalRequest(request) };
 };
 
 export const listAdminRequests = async (filters: {
@@ -639,6 +920,8 @@ export const listAdminRequests = async (filters: {
 
   if (status) {
     query.status = status;
+  } else {
+    query.status = { $nin: ["draft", "courrier_uploaded", "courrier_physical_declared"] };
   }
 
   if (requestType) {
@@ -698,12 +981,27 @@ export const listAdminRequests = async (filters: {
     .populate("organizationId", "canonicalName status")
     .populate("submittedById", "fullName email")
     .lean();
+  const requestIds = requests.map((request) => request._id);
+  const dgReviews = requestIds.length
+    ? await DGReviewModel.find({ requestId: { $in: requestIds }, targetType: "initial_request" })
+      .sort({ createdAt: -1 })
+      .lean()
+    : [];
+  const dgReviewByRequestId = new Map<string, unknown>();
+
+  for (const review of dgReviews) {
+    const requestId = toId(review.requestId);
+    if (requestId && !dgReviewByRequestId.has(requestId)) {
+      dgReviewByRequestId.set(requestId, review);
+    }
+  }
 
   return {
     items: requests.map((request) => ({
       ...sanitizeRequest(request),
       organization: sanitizeRelatedOrganization(request.organizationId),
       submittedBy: sanitizeRelatedUser(request.submittedById),
+      dgReview: sanitizeDgReview(dgReviewByRequestId.get(request._id.toString())),
     })),
   };
 };
@@ -718,9 +1016,10 @@ export const getAdminRequest = async (requestId: string, actor: Actor) => {
     throw new HttpError(404, "Request not found");
   }
 
-  const [courrier, document, actorById] = await Promise.all([
+  const [courrier, document, dgReview, actorById] = await Promise.all([
     request.initialCourrierId ? CourrierModel.findById(request.initialCourrierId).lean() : undefined,
     request.initialDocumentId ? DocumentModel.findById(request.initialDocumentId).lean() : undefined,
+    getInitialDgReviewForRequest(request),
     getIntakeActors(request.intake),
   ]);
 
@@ -741,6 +1040,7 @@ export const getAdminRequest = async (requestId: string, actor: Actor) => {
     },
     courrier: sanitizeCourrier(courrier),
     document: sanitizeDocument(document),
+    dgReview: sanitizeDgReview(dgReview),
   };
 };
 
@@ -751,9 +1051,10 @@ export const startAdminRequestIntake = async (
 ) => {
   ensureInternalActor(actor);
   const request = await getRequestForAdminMutation(requestId);
+  const dgReview = await getInitialDgReviewForRequest(request);
 
-  if (request.status !== "submitted") {
-    throw new HttpError(409, "Intake can only start for submitted requests");
+  if (!isDgReturnComplete(request, dgReview)) {
+    throw new HttpError(400, DG_RETURN_REQUIRED_MESSAGE);
   }
 
   request.status = "intake_in_review";
@@ -833,42 +1134,55 @@ export const registerAdminPhysicalCourrier = async (
 ) => {
   ensureInternalActor(actor);
   const request = await getRequestForAdminMutation(requestId);
+
+  if (!(request.courrierSource === "physical_deposit")) {
+    throw new HttpError(409, "Enregistrement impossible : cette demande n'est pas un dépôt physique.");
+  }
+
+  if (request.physicalDeposit?.status === "received") {
+    throw new HttpError(409, "Le courrier physique a déjà été réceptionné.");
+  }
+
   ensureIntakeMutable(request.status);
 
   const now = new Date();
   const notes = validateMessage(input.notes);
   const physicalDepositDate = parseDate(input.physicalDepositDate, "physicalDepositDate");
-  let document: ({ _id: Types.ObjectId } & Record<string, unknown>) | undefined;
-
-  if (file) {
-    if (!ALLOWED_MIME_TYPES.includes(file.mimetype as (typeof ALLOWED_MIME_TYPES)[number])) {
-      throw new HttpError(400, "Unsupported courrier file type");
-    }
-
-    const stored = await storageAdapter.save({
-      buffer: file.buffer,
-      fileName: file.originalname,
-      mimeType: file.mimetype,
-      ownerPath: `requests/${request._id.toString()}`,
-    });
-
-    document = (await DocumentModel.create({
-      ownerType: "request",
-      ownerId: request._id,
-      category: "courrier",
-      documentType: "initial_courrier",
-      title: "Courrier initial scanne",
-      fileName: stored.fileName,
-      mimeType: stored.mimeType,
-      fileSize: stored.fileSize,
-      storageKey: stored.storageKey,
-      uploadedById: actor.id,
-      uploadedAt: now,
-      visibility: "internal_only",
-      status: "uploaded",
-      version: 1,
-    })) as unknown as { _id: Types.ObjectId } & Record<string, unknown>;
+  if (!physicalDepositDate) {
+    throw new HttpError(400, "physicalDepositDate is required");
   }
+
+  if (!file) {
+    throw new HttpError(400, "Physical courrier scan is required");
+  }
+
+  if (!ALLOWED_MIME_TYPES.includes(file.mimetype as (typeof ALLOWED_MIME_TYPES)[number])) {
+    throw new HttpError(400, "Unsupported courrier file type");
+  }
+
+  const stored = await storageAdapter.save({
+    buffer: file.buffer,
+    fileName: file.originalname,
+    mimeType: file.mimetype,
+    ownerPath: `requests/${request._id.toString()}`,
+  });
+
+  const document = (await DocumentModel.create({
+    ownerType: "request",
+    ownerId: request._id,
+    category: "courrier",
+    documentType: "initial_courrier_scan",
+    title: "Courrier initial scanne",
+    fileName: stored.fileName,
+    mimeType: stored.mimeType,
+    fileSize: stored.fileSize,
+    storageKey: stored.storageKey,
+    uploadedById: actor.id,
+    uploadedAt: now,
+    visibility: "internal_only",
+    status: "uploaded",
+    version: 1,
+  })) as unknown as { _id: Types.ObjectId } & Record<string, unknown>;
 
   const courrier = await CourrierModel.findOneAndUpdate(
     { requestId: request._id, type: "initial_request_courrier" },
@@ -876,27 +1190,56 @@ export const registerAdminPhysicalCourrier = async (
       $set: {
         requestId: request._id,
         type: "initial_request_courrier",
-        source: file ? "internal_scan" : "physical_deposit",
+        source: "internal_scan",
         officialReference: trimmed(input.officialReference),
         physicalDepositDate,
-        scannedAt: file ? now : undefined,
-        documentId: document?._id,
+        scannedAt: now,
+        documentId: document._id,
         registeredById: actor.id,
         notes,
       },
-      ...(file ? {} : { $unset: { scannedAt: 1 } }),
     },
     { new: true, upsert: true, setDefaultsOnInsert: true },
   );
 
   request.initialCourrierId = courrier._id;
-  if (document) {
-    request.initialDocumentId = document._id;
-  }
-  if (physicalDepositDate) {
-    request.set("physicalDeposit.physicalDepositDate", physicalDepositDate);
-  }
+  request.initialDocumentId = document._id;
+  request.set("physicalDeposit.status", "received");
+  request.set("physicalDeposit.physicalDepositDate", physicalDepositDate);
+  request.status = "initial_sent_to_dg";
+  request.set("intake.sentToDgAt", now);
+  request.set("intake.sentToDgById", new Types.ObjectId(actor.id));
   await request.save();
+
+  const dgReview = await DGReviewModel.findOneAndUpdate(
+    { requestId: request._id, targetType: "initial_request" },
+    {
+      $set: {
+        targetType: "initial_request",
+        targetId: request._id,
+        requestId: request._id,
+        status: "awaiting_return",
+        handledByRole: dgReviewHandledByRole(actor.role),
+        handledById: new Types.ObjectId(actor.id),
+        sentToDgAt: now,
+        outgoingDocumentId: document._id,
+      },
+    },
+    { new: true, upsert: true, setDefaultsOnInsert: true },
+  );
+
+  request.initialDgReviewId = dgReview._id;
+  await request.save();
+
+  await NotificationModel.create({
+    recipientUserId: request.submittedById,
+    channel: "in_app",
+    title: "Demande en orientation",
+    message: "Votre demande est en attente d'orientation administrative.",
+    relatedType: "request",
+    relatedId: request._id,
+    status: "unread",
+  });
 
   await writeAuditLog({
     actorId: actor.id,
@@ -904,11 +1247,12 @@ export const registerAdminPhysicalCourrier = async (
     action: "admin.physical_courrier_registered",
     entityType: "request",
     entityId: request._id,
+    after: { status: request.status },
     metadata: {
       courrierId: courrier._id.toString(),
-      documentId: document?._id.toString(),
-      hasFile: Boolean(file),
+      documentId: document._id.toString(),
       officialReference: trimmed(input.officialReference),
+      sentToDgCircuit: true,
     },
   });
 
@@ -927,6 +1271,10 @@ export const markAdminRequestPrintedForDg = async (
   ensureInternalActor(actor);
   const request = await getRequestForAdminMutation(requestId);
 
+  if (request.courrierSource === "physical_deposit") {
+    throw new HttpError(409, "Action non applicable pour un dépôt physique.");
+  }
+
   if (!["submitted", "intake_in_review"].includes(request.status)) {
     throw new HttpError(409, "Request cannot be marked printed at this stage");
   }
@@ -935,10 +1283,45 @@ export const markAdminRequestPrintedForDg = async (
     throw new HttpError(400, "Courrier evidence is required before printing");
   }
 
-  request.set("intake.printedForDgAt", new Date());
+  const now = new Date();
+  request.status = "initial_sent_to_dg";
+  request.set("intake.printedForDgAt", now);
   request.set("intake.printedForDgById", new Types.ObjectId(actor.id));
+  request.set("intake.sentToDgAt", now);
+  request.set("intake.sentToDgById", new Types.ObjectId(actor.id));
   request.set("intake.notes", trimmed(input.notes));
   await request.save();
+
+  const dgReview = await DGReviewModel.findOneAndUpdate(
+    { requestId: request._id, targetType: "initial_request" },
+    {
+      $set: {
+        targetType: "initial_request",
+        targetId: request._id,
+        requestId: request._id,
+        status: "awaiting_return",
+        handledByRole: dgReviewHandledByRole(actor.role),
+        handledById: new Types.ObjectId(actor.id),
+        sentToDgAt: now,
+        outgoingDocumentId: request.initialDocumentId,
+        observations: trimmed(input.notes),
+      },
+    },
+    { new: true, upsert: true, setDefaultsOnInsert: true },
+  );
+
+  request.initialDgReviewId = dgReview._id;
+  await request.save();
+
+  await NotificationModel.create({
+    recipientUserId: request.submittedById,
+    channel: "in_app",
+    title: "Demande en orientation",
+    message: "Votre demande est en attente d'orientation administrative.",
+    relatedType: "request",
+    relatedId: request._id,
+    status: "unread",
+  });
 
   await writeAuditLog({
     actorId: actor.id,
@@ -946,10 +1329,227 @@ export const markAdminRequestPrintedForDg = async (
     action: "admin.request_printed_for_dg",
     entityType: "request",
     entityId: request._id,
-    metadata: { hasNotes: Boolean(trimmed(input.notes)) },
+    after: { status: request.status },
+    metadata: {
+      dgReviewId: dgReview._id.toString(),
+      hasNotes: Boolean(trimmed(input.notes)),
+    },
   });
 
   return { request: sanitizeRequest(request) };
+};
+
+export const recordAdminRequestDgReturn = async (
+  requestId: string,
+  file: Express.Multer.File | undefined,
+  input: {
+    decision?: string;
+    returnedAt?: string;
+    observations?: string;
+  },
+  actor: Actor,
+) => {
+  ensureInternalActor(actor);
+  const request = await getRequestForAdminMutation(requestId);
+
+  if (request.status !== "initial_sent_to_dg") {
+    throw new HttpError(409, "DG return can only be recorded while awaiting DG orientation");
+  }
+
+  if (!file) {
+    throw new HttpError(400, "Le scan du retour DG est obligatoire.");
+  }
+
+  const decision = trimmed(input.decision);
+  if (decision !== "oriented_to_dn" && decision !== "cancelled_by_dg") {
+    throw new HttpError(400, "decision is invalid");
+  }
+
+  if (!ALLOWED_MIME_TYPES.includes(file.mimetype as (typeof ALLOWED_MIME_TYPES)[number])) {
+    throw new HttpError(400, "Unsupported DG return file type");
+  }
+
+  const now = new Date();
+  const returnedAt = parseDate(input.returnedAt, "returnedAt") ?? now;
+  const observations = validateMessage(input.observations);
+  const stored = await storageAdapter.save({
+    buffer: file.buffer,
+    fileName: file.originalname,
+    mimeType: file.mimetype,
+    ownerPath: `requests/${request._id.toString()}/dg-return`,
+  });
+
+  const document = (await DocumentModel.create({
+    ownerType: "request",
+    ownerId: request._id,
+    category: "courrier",
+    documentType: "dg_annotated_courrier",
+    title: "Retour DG annoté",
+    fileName: stored.fileName,
+    mimeType: stored.mimeType,
+    fileSize: stored.fileSize,
+    storageKey: stored.storageKey,
+    uploadedById: actor.id,
+    uploadedAt: now,
+    visibility: "internal_only",
+    status: "uploaded",
+    version: 1,
+  })) as unknown as { _id: Types.ObjectId } & Record<string, unknown>;
+
+  const persistedDecision = decision === "oriented_to_dn" ? "oriented_to_dn" : "rejected";
+  const nextStatus = decision === "oriented_to_dn" ? "oriented_to_dn" : "rejected";
+
+  const dgReview = await DGReviewModel.findOneAndUpdate(
+    { requestId: request._id, targetType: "initial_request" },
+    {
+      $set: {
+        targetType: "initial_request",
+        targetId: request._id,
+        requestId: request._id,
+        status: "decision_recorded",
+        handledByRole: dgReviewHandledByRole(actor.role),
+        handledById: new Types.ObjectId(actor.id),
+        sentToDgAt: request.intake?.sentToDgAt ?? request.intake?.printedForDgAt,
+        returnedFromDgAt: returnedAt,
+        decision: persistedDecision,
+        orientedDirection: decision === "oriented_to_dn" ? "Direction de la Navigabilité" : undefined,
+        observations,
+        returnedScannedDocumentId: document._id,
+        decisionRecordedById: new Types.ObjectId(actor.id),
+        decisionRecordedAt: now,
+      },
+    },
+    { new: true, upsert: true, setDefaultsOnInsert: true },
+  );
+
+  request.status = nextStatus;
+  request.initialDgReviewId = dgReview._id;
+  if (decision === "cancelled_by_dg") {
+    request.closedAt = returnedAt;
+  }
+  await request.save();
+
+  await writeAuditLog({
+    actorId: actor.id,
+    actorRole: actor.role,
+    action: "admin.dg_return_recorded",
+    entityType: "request",
+    entityId: request._id,
+    after: { status: request.status, decision },
+    metadata: {
+      decision,
+      returnedAt: returnedAt.toISOString(),
+      dgReviewId: dgReview._id.toString(),
+      dgReturnDocumentId: document._id.toString(),
+    },
+  });
+
+  return {
+    request: sanitizeRequest(request),
+    dgReview: sanitizeDgReview(dgReview),
+    document: sanitizeDocument(document),
+  };
+};
+
+const PHASE_KEYS = ["preliminary", "formal_request", "document_evaluation", "inspection", "delivery"] as const;
+const PHASE_INITIAL_STATUS: Record<(typeof PHASE_KEYS)[number], string> = {
+  preliminary: "in_progress",
+  formal_request: "not_started",
+  document_evaluation: "not_started",
+  inspection: "not_started",
+  delivery: "not_started",
+};
+
+const sanitizeDossier = (source: unknown) => {
+  if (!source) return undefined;
+  const dossier = source as RequestRecord;
+  return {
+    id: dossier._id.toString(),
+    dossierNumber: dossier.dossierNumber,
+    dossierType: dossier.dossierType,
+    status: dossier.status,
+    openedAt: toIso(dossier.openedAt),
+  };
+};
+
+export const openAdminDossierDn = async (
+  requestId: string,
+  input: { notes?: string },
+  actor: Actor,
+) => {
+  ensureInternalActor(actor);
+  const request = await getRequestForAdminMutation(requestId);
+
+  if (request.status !== "oriented_to_dn") {
+    throw new HttpError(409, "La demande n'est pas orientée vers DN.");
+  }
+
+  const dgReview = await getInitialDgReviewForRequest(request);
+  if (!isDgReturnComplete(request, dgReview)) {
+    throw new HttpError(400, DG_RETURN_REQUIRED_MESSAGE);
+  }
+
+  if (request.dossierId) {
+    throw new HttpError(409, "Un dossier DN existe déjà pour cette demande.");
+  }
+
+  const now = new Date();
+  const year = now.getFullYear();
+  const suffix = new Types.ObjectId().toString().slice(-6).toUpperCase();
+  const dossierNumber = `DN-${year}-${suffix}`;
+
+  const dossier = await DossierModel.create({
+    requestId: request._id,
+    organizationId: request.organizationId,
+    postulantUserId: request.submittedById,
+    dossierNumber,
+    dossierType: request.requestType,
+    status: "preliminary_phase",
+    openedAt: now,
+  });
+
+  await OmaPhaseModel.insertMany(
+    PHASE_KEYS.map((phaseKey) => ({
+      dossierId: dossier._id,
+      phaseKey,
+      status: PHASE_INITIAL_STATUS[phaseKey],
+      startedAt: phaseKey === "preliminary" ? now : undefined,
+      startedById: phaseKey === "preliminary" ? new Types.ObjectId(actor.id) : undefined,
+    })),
+  );
+
+  request.dossierId = dossier._id;
+  request.status = "dossier_opened";
+  await request.save();
+
+  await NotificationModel.create({
+    recipientUserId: request.submittedById,
+    channel: "in_app",
+    title: "Dossier DN ouvert",
+    message: "Votre dossier a été transmis à la Direction de la Navigabilité pour traitement.",
+    relatedType: "request",
+    relatedId: request._id,
+    status: "unread",
+  });
+
+  await writeAuditLog({
+    actorId: actor.id,
+    actorRole: actor.role,
+    action: "admin.dossier_opened",
+    entityType: "request",
+    entityId: request._id,
+    after: { status: request.status, dossierId: dossier._id.toString() },
+    metadata: {
+      dossierNumber,
+      dossierType: request.requestType,
+      hasNotes: Boolean(trimmed(input.notes)),
+    },
+  });
+
+  return {
+    request: sanitizeRequest(request),
+    dossier: sanitizeDossier(dossier),
+  };
 };
 
 export const sendAdminRequestToDg = async (
@@ -963,7 +1563,7 @@ export const sendAdminRequestToDg = async (
 
   const hasPhysicalEvidence =
     request.courrierSource === "physical_deposit" &&
-    Boolean(request.initialCourrierId || request.physicalDeposit?.declaredAt);
+    Boolean(request.initialDocumentId && request.physicalDeposit?.status === "received");
   const hasUploadedEvidence = Boolean(request.initialDocumentId);
 
   if (!hasPhysicalEvidence && !hasUploadedEvidence) {

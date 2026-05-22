@@ -1,6 +1,6 @@
 # Data Models
 
-Last reviewed: 2026-05-18
+Last reviewed: 2026-05-21
 Source: apps/admin/src/features/aidn/types/aidn.types.ts
 
 ## Core AIDN entities
@@ -52,12 +52,26 @@ Source: apps/admin/src/features/aidn/types/aidn.types.ts
 - `dossiers` store both `organizationId` and `postulantUserId`.
 - `requests` represent demande/courrier intake before a DN dossier exists. PORTAL-3 creates and submits `Request` records only; a DN dossier is opened later only after DG orientation toward DN.
 - `requests` now include `submittedById`, `organizationId`, request type, subject/message, status, `courrierSource`, `initialCourrierId`, `initialDocumentId`, physical deposit metadata, and submission/closure timestamps.
+- Portal draft requests remain draft-side until the final `submit` call; old separate courrier/deposit endpoints may remain for compatibility but are not the normal visible business workflow.
+- Physical deposit metadata separates postulant planning from admin receipt: postulant stores `expectedDepositDate`, location, notes, and `status=planned`; admin/reception later stores `physicalDepositDate`, `status=received`, official reference, and scan document.
 - `requests.status` now includes internal intake statuses `intake_in_review` and `intake_requires_correction` before `initial_sent_to_dg`.
+- `requests.status` may still include legacy `reoriented` for database compatibility, but reorientation is deferred out of the MVP UI/workflow and is not presented as a normal current path.
 - `requests.intake` stores internal-only intake metadata: started date/actor, correction request date/actor/reason, printed-for-DG date/actor, sent-to-DG date/actor, and notes.
+- For the MVP DG circuit, `printedForDgAt` and `sentToDgAt` can be stamped by the same print action because printing starts the physical DG review path.
+- `requests.initialDgReviewId` can point to the initial request DG review created/updated when printing and later completed when the DG return is recorded.
+- Visible OMA request type labels are corrected while the stable enum values remain `oma_recognition`, `oma_approval`, `oma_renewal`, and `oma_modification`.
 - `courriers` can reference either an uploaded initial courrier document or a physical deposit declaration. For physical deposits, `documentId` is optional until a scan exists.
-- Internal physical courrier registration can update initial `courriers` with `source=physical_deposit` or `source=internal_scan`, optional official reference, physical deposit date, scan date, document id, registering actor, and notes.
+- Internal physical courrier registration updates initial `courriers` with `source=internal_scan`, optional official reference, required actual physical deposit date, scan date, document id, registering actor, and notes.
 - Uploaded initial courrier creates a `documents` record with `ownerType=request`, `category=courrier`, `documentType=initial_courrier`, `visibility=internal_only`, and `status=uploaded`.
+- Admin physical receipt scans create a `documents` record with `ownerType=request`, `category=courrier`, `documentType=initial_courrier_scan`, `visibility=internal_only`, and `status=uploaded`.
+- All uploaded files must be registered in the `documents` collection; AIDN must not keep uploads only as raw storage paths on business records.
+- DG return scans are mandatory for DG decision recording and create a `documents` record with `ownerType=request`, `category=courrier`, `documentType=dg_annotated_courrier`, `title=Retour DG annoté`, `visibility=internal_only`, and `status=uploaded`.
 - `dg_reviews` is reusable across initial request, phase, closure, and certificate review targets.
+- `oma_phases.preEvaluationDgAnnotatedDocumentId` links the scanned DG-annotated return for the pre-evaluation form. DN continuation after pre-evaluation DG annotation depends on this linked proof, not only the status label.
+- Initial request DG return recording stores decision metadata in `dg_reviews`, links `returnedScannedDocumentId` to the registered document, and persists `cancelled_by_dg` input as the existing `rejected` decision/status path for compatibility.
+- DN verification start requires both the request status and proof document: `requests.status=oriented_to_dn`, the linked initial `dg_reviews.decision=oriented_to_dn`, and `dg_reviews.returnedScannedDocumentId` present. Status alone is not sufficient.
+- Rejected/cancelled DG decisions remain terminal for DN verification and dossier opening.
+- Documents is the future GED surface. OCR and search indexing are deferred.
 - Internal users are personnel-backed: `users.externalSource`, `users.externalUserId`, `users.matricule`, and `aidn_internal_accounts.personnelId` link local access to official personnel identity.
 - For now `personnelId` is the official `matricule`.
 - `users.passwordHash` stores only the AIDN internal application password hash, never an official DB password.

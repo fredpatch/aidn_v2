@@ -42,11 +42,14 @@ Last reviewed: 2026-05-19
 - `REQUEST_INTAKE_REVIEW` guards request intake start and correction request.
 - `COURRIER_REGISTER_PHYSICAL` guards physical courrier reception/scan registration.
 - `DG_CIRCUIT_HANDLE` guards printed-for-DG and send-to-DG actions.
+- `PRE_EVAL_DG_CIRCUIT_HANDLE` guards completed pre-evaluation form transmission to the physical DG/parapheur circuit and registration of the scanned DG-annotated return.
+- `PRE_EVAL_DG_RETURN_CONSULT` guards consultation/download of the registered DG-annotated pre-evaluation return.
+- `GET /admin/dg-circuit/tasks` uses an any-of capability check across `DG_CIRCUIT_HANDLE`, `COURRIER_REGISTER_PHYSICAL`, and `PRE_EVAL_DG_CIRCUIT_HANDLE`; it intentionally does not require `DOSSIER_VIEW_ALL`.
 - `bootstrap_admin` and `admin` have all ADMIN-3 permissions.
-- `dn_supervisor` has `REQUEST_INTAKE_REVIEW`, `COURRIER_REGISTER_PHYSICAL`, and `DG_CIRCUIT_HANDLE`.
-- `dn_agent` has `REQUEST_INTAKE_REVIEW` and `DG_CIRCUIT_HANDLE`.
-- `dg_secretariat` has `DG_CIRCUIT_HANDLE` and `COURRIER_REGISTER_PHYSICAL`.
-- `reception` and `bureau_courrier` have `COURRIER_REGISTER_PHYSICAL` and `DG_CIRCUIT_HANDLE`.
+- `dn_supervisor` has `REQUEST_INTAKE_REVIEW`, `COURRIER_REGISTER_PHYSICAL`, `DG_CIRCUIT_HANDLE`, and `PRE_EVAL_DG_RETURN_CONSULT`; it does not receive `PRE_EVAL_DG_CIRCUIT_HANDLE` by default.
+- `dn_agent` has `REQUEST_INTAKE_REVIEW`, `DG_CIRCUIT_HANDLE`, and `PRE_EVAL_DG_RETURN_CONSULT`; it does not receive `PRE_EVAL_DG_CIRCUIT_HANDLE` by default.
+- `dg_secretariat` has `DG_CIRCUIT_HANDLE`, `COURRIER_REGISTER_PHYSICAL`, `PRE_EVAL_DG_CIRCUIT_HANDLE`, and `PRE_EVAL_DG_RETURN_CONSULT`.
+- `reception` and `bureau_courrier` have `COURRIER_REGISTER_PHYSICAL`, `DG_CIRCUIT_HANDLE`, `PRE_EVAL_DG_CIRCUIT_HANDLE`, and `PRE_EVAL_DG_RETURN_CONSULT`.
 - Internal account activation is limited to users with `AIDN_USER_ACTIVATE`.
 - `dn_supervisor` no longer receives internal account activation/role-assignment capability by default.
 

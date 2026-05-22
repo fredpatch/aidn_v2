@@ -18,6 +18,7 @@ const documentSchema = new Schema(
       type: String,
       enum: [
         "initial_courrier",
+        "initial_courrier_scan",
         "dg_annotated_courrier",
         "pre_evaluation_blank_form",
         "pre_evaluation_completed_form",

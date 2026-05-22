@@ -1,4 +1,5 @@
 import { Outlet } from "react-router-dom";
+import { Toaster } from "sonner";
 
 import { PortalHeader } from "../components/PortalHeader";
 import { PortalSidebar } from "../components/PortalSidebar";
@@ -13,6 +14,7 @@ export function PortalLayout(): React.JSX.Element {
           <Outlet />
         </main>
       </div>
+      <Toaster position="bottom-right" richColors />
     </div>
   );
 }

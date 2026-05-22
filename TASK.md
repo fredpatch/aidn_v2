@@ -2,7 +2,7 @@
 
 ## Current Phase
 
-Phase ADMIN-3B - admin UI for request intake and send-to-DG: completed.
+Phase ADMIN-4-OPEN-DOSSIER-DN - open DN dossier after DG orientation: completed.
 
 ## Completed Output
 
@@ -265,6 +265,23 @@ Primary planning sources:
 - `AIDN-WORKFLOW-OMA.md`
 - `docs/aidn-oma-revised-workflow-blueprint-v1.md`
 
+## OMA-1A: Phase préliminaire - Backend API (2026-05-21)
+
+- Completed `ADMIN-4` (open dossier DN) in a prior session.
+- Completed `ADMIN-5` (courriers orientation registry UI) in a prior session.
+- Implemented backend-only Phase préliminaire workflow:
+  - Created `apps/api/src/modules/oma-phases/oma-phase.service.ts` with 10 service functions
+  - Added 9 admin dossier/preliminary endpoints to `admin.routes.ts`
+  - Added 2 portal dossier endpoints to `portal.routes.ts`
+  - `preliminaryStatus` lazy init: ADMIN-4 creates phase with `null`; first admin action initializes to `preliminary_started`
+  - Phase closure requires both `closureCourrierDocumentId` and `preliminaryMeetingReportDocumentId`
+  - Closure advances dossier to `formal_request_phase` and activates `formal_request` OmaPhase
+- All portal dossier routes are ownership-scoped (postulantUserId match)
+- Passed: `apps/api` `npm run build`
+- Deferred: DG sub-circuit for pre-evaluation form, correction flow, admin UI, portal UI, emails, progress %
+- Runtime validation 2026-05-21: all 13 tests PASS (live MongoDB, bootstrap admin + portal user alex@gmail.com)
+  - Lazy init (preliminaryStatus null → preliminary_started), full state machine, portal labels, closure guards, dossier advancement all verified
+
 ## Next Action
 
 Phase ADMIN-3B runtime validation and next workflow planning.
@@ -466,3 +483,61 @@ Status Item
 - Done: `/dossiers/:id` payment evidence rows include received/validated shortcuts.
 - Done: Portal preview remains read-only and reflects updated meeting/payment states through existing query refresh.
 - Done: No backend/schema/real persistence/upload/email/export/payment/certificate generation introduced.
+
+## Focused Correction Pass - Request Labels, Admin KPIs, DG MVP Simplification
+
+Status Item
+
+- Done: Portal and admin OMA request type labels corrected to Certificat de reconnaissance OMA, Certificat d’agrément OMA, Renouvellement de Certificat OMA, and Modification de Certificat OMA while keeping stable enum values.
+- Done: Admin Demandes/Requests surfaces show KPI cards for Demandes soumises, En attente DG, À imprimer, Dossiers prêts / orientés DN, and Annulées DG using current list data.
+- Done: Visible print action copy changed from DG-specific wording to `Imprimer`; backend route `mark-printed-for-dg` remains unchanged.
+- Done: Reorientation removed from normal MVP filters/actions/labels; legacy enum compatibility remains only where already present in backend/types.
+- Done: Portal status labels remain applicant-simple and avoid internal DG details such as reorientation, printed-DG, and scanned-return states.
+- Done: Exploration cache docs and manifest updated for this correction pass.
+
+## Focused Correction Pass - Print Starts DG Circuit + DG Return Recording
+
+Status Item
+
+- Done: Admin UI no longer exposes `Transmettre au DG` as the normal user path.
+- Done: `Imprimer` now moves eligible requests directly to `initial_sent_to_dg` / En attente d’orientation DG.
+- Done: Admin request KPIs updated to include Téléversées portail, Dépôts physiques, En attente DG, À traiter retour DG, Orientées DN, and Annulées DG.
+- Done: Request detail now shows `Enregistrer le retour DG` when waiting for DG orientation.
+- Done: DG return recording accepts decision, return date, optional observations, and optional scan upload; `cancelled_by_dg` maps to the existing `rejected` status for compatibility.
+- Done: Backend `send-to-dg` compatibility endpoint remains, but current UI does not use it.
+- Done: Workflow docs note the future dedicated DG screen option and keep the MVP as print -> DG physical review -> scan/upload DG response.
+
+## Focused Correction Pass - Mandatory DG Return Scan + Document Registry
+
+Status Item
+
+- Done: Admin DG return modal label changed to `Scan du retour DG annoté *`.
+- Done: Admin UI blocks DG return submission without a file and shows `Le scan du retour DG est obligatoire.`.
+- Done: `POST /api/v1/admin/requests/:id/record-dg-return` rejects missing multipart file with HTTP 400 and the same French message.
+- Done: DG return scans are registered in `documents` as request-owned internal courrier documents with `documentType=dg_annotated_courrier`.
+- Done: DG return metadata links `returnedScannedDocumentId` to the registered document.
+- Done: Audit metadata includes decision, returnedAt, dgReviewId, and dgReturnDocumentId without raw storage path or file content.
+- Done: Docs/cache now state that all uploaded files must be registered in Documents and that OCR/search indexing is deferred.
+
+## Focused Correction Pass - Portal Initial Courrier Submission Workflow
+
+Status Item
+
+- Done: Portal request detail now has one `Courrier initial` section with a mode selector and one final `Soumettre la demande` action.
+- Done: Standalone portal `Televerser le courrier` and `Declarer le depot` business actions were removed from the UI.
+- Done: Portal final submit validates mode-specific data: upload mode requires a file; physical mode requires planned deposit date and location.
+- Done: Physical-deposit portal submission records only planned deposit metadata; actual physical receipt date, official reference, and scan are admin/reception-only.
+- Done: Admin request list defaults to submitted/admin-processable demandes, not draft-side portal preparation states.
+- Done: Admin physical receipt now requires actual deposit date and scan; the scan is registered as `documentType=initial_courrier_scan`.
+- Done: Admin KPIs distinguish portal uploads, planned physical deposits, and received physical courriers.
+- Done: All uploaded initial courrier files and receipt scans enter the Documents registry.
+
+## Focused Correction Pass - Block DN Verification Until DG Return Scan
+
+Status Item
+
+- Done: `Demarrer` / `Demarrer la verification` is hidden unless the request is `oriented_to_dn` and the linked DG review has decision `oriented_to_dn` plus `returnedScannedDocumentId`.
+- Done: Backend `startAdminRequestIntake` enforces the same DG-return-complete condition before mutating status or writing the success audit event.
+- Done: Submitted, printed/en-attente-DG, missing-scan, rejected/cancelled DG requests remain blocked from DN verification.
+- Done: Admin list responses now include initial DG review metadata needed for row-level action guards.
+- Done: Docs/cache now state that oriented status alone is insufficient without the annotated DG return scan.

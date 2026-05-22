@@ -48,6 +48,7 @@ const omaPhaseSchema = new Schema(
     preEvaluationTemplateDocumentId: { type: Schema.Types.ObjectId, ref: "Document" },
     completedPreEvaluationDocumentId: { type: Schema.Types.ObjectId, ref: "Document" },
     preEvaluationDgReviewId: { type: Schema.Types.ObjectId, ref: "DGReview" },
+    preEvaluationDgAnnotatedDocumentId: { type: Schema.Types.ObjectId, ref: "Document" },
     firstMeetingReportDocumentId: { type: Schema.Types.ObjectId, ref: "Document" },
     preliminaryMeetingReportDocumentId: { type: Schema.Types.ObjectId, ref: "Document" },
     closureCourrierDocumentId: { type: Schema.Types.ObjectId, ref: "Document" },

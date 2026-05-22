@@ -92,6 +92,21 @@ export async function apiGet<T>(path: string): Promise<T> {
   return readJson<T>(response);
 }
 
+export async function apiGetBlob(path: string): Promise<{ blob: Blob; fileName: string }> {
+  assertApiConfigured();
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    credentials: 'include',
+    headers: getApiHeaders(),
+  });
+  await assertOk(response);
+
+  const disposition = response.headers.get('Content-Disposition') ?? '';
+  const encodedFileName = disposition.match(/filename="([^"]+)"/)?.[1];
+  const fileName = encodedFileName ? decodeURIComponent(encodedFileName) : 'document';
+
+  return { blob: await response.blob(), fileName };
+}
+
 export async function apiPost<T>(path: string, body: unknown): Promise<T> {
   assertApiConfigured();
   const response = await fetch(`${API_BASE_URL}${path}`, {

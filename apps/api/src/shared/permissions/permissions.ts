@@ -11,6 +11,8 @@ export const Permissions = {
   DG_CIRCUIT_HANDLE: "DG_CIRCUIT_HANDLE",
   DG_DECISION_RECORD: "DG_DECISION_RECORD",
   DG_DECISION_CORRECT: "DG_DECISION_CORRECT",
+  PRE_EVAL_DG_CIRCUIT_HANDLE: "PRE_EVAL_DG_CIRCUIT_HANDLE",
+  PRE_EVAL_DG_RETURN_CONSULT: "PRE_EVAL_DG_RETURN_CONSULT",
   DOSSIER_OPEN: "DOSSIER_OPEN",
   DOSSIER_ASSIGN: "DOSSIER_ASSIGN",
   DOSSIER_VIEW_ALL: "DOSSIER_VIEW_ALL",
@@ -27,7 +29,8 @@ export const Permissions = {
   NOTIFICATION_SEND: "NOTIFICATION_SEND",
   REPORT_VIEW: "REPORT_VIEW",
   REPORT_EXPORT: "REPORT_EXPORT",
-  AUDIT_VIEW: "AUDIT_VIEW"
+  AUDIT_VIEW: "AUDIT_VIEW",
+  DEV_DATA_RESET: "DEV_DATA_RESET"
 } as const;
 
 export type Permission = (typeof Permissions)[keyof typeof Permissions];
@@ -60,6 +63,7 @@ export const rolePermissions: Record<Role, Permission[]> = {
     Permissions.DG_CIRCUIT_HANDLE,
     Permissions.DG_DECISION_RECORD,
     Permissions.DG_DECISION_CORRECT,
+    Permissions.PRE_EVAL_DG_RETURN_CONSULT,
     Permissions.DOSSIER_OPEN,
     Permissions.DOSSIER_ASSIGN,
     Permissions.DOSSIER_VIEW_ALL,
@@ -79,6 +83,7 @@ export const rolePermissions: Record<Role, Permission[]> = {
     Permissions.REQUEST_INTAKE_REVIEW,
     Permissions.DG_CIRCUIT_HANDLE,
     Permissions.DG_DECISION_RECORD,
+    Permissions.PRE_EVAL_DG_RETURN_CONSULT,
     Permissions.DOSSIER_VIEW_ALL,
     Permissions.PHASE_START,
     Permissions.PHASE_CLOSE,
@@ -90,13 +95,23 @@ export const rolePermissions: Record<Role, Permission[]> = {
   [Roles.DG_SECRETARIAT]: [
     Permissions.REQUEST_VIEW_ALL,
     Permissions.DG_CIRCUIT_HANDLE,
-    Permissions.COURRIER_REGISTER_PHYSICAL
+    Permissions.COURRIER_REGISTER_PHYSICAL,
+    Permissions.PRE_EVAL_DG_CIRCUIT_HANDLE,
+    Permissions.PRE_EVAL_DG_RETURN_CONSULT
   ],
-  [Roles.RECEPTION]: [Permissions.REQUEST_VIEW_ALL, Permissions.COURRIER_REGISTER_PHYSICAL, Permissions.DG_CIRCUIT_HANDLE],
+  [Roles.RECEPTION]: [
+    Permissions.REQUEST_VIEW_ALL,
+    Permissions.COURRIER_REGISTER_PHYSICAL,
+    Permissions.DG_CIRCUIT_HANDLE,
+    Permissions.PRE_EVAL_DG_CIRCUIT_HANDLE,
+    Permissions.PRE_EVAL_DG_RETURN_CONSULT
+  ],
   [Roles.BUREAU_COURRIER]: [
     Permissions.REQUEST_VIEW_ALL,
     Permissions.COURRIER_REGISTER_PHYSICAL,
-    Permissions.DG_CIRCUIT_HANDLE
+    Permissions.DG_CIRCUIT_HANDLE,
+    Permissions.PRE_EVAL_DG_CIRCUIT_HANDLE,
+    Permissions.PRE_EVAL_DG_RETURN_CONSULT
   ],
   [Roles.POSTULANT]: [
     Permissions.REQUEST_SUBMIT,

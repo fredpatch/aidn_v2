@@ -59,6 +59,7 @@ export type AdminRequest = {
   physicalDeposit?: {
     declaredAt?: string;
     declaredById?: string;
+    status?: 'planned' | 'received';
     expectedDepositDate?: string;
     physicalDepositDate?: string;
     location?: 'ANAC' | 'DG' | 'DN' | 'other';
@@ -80,8 +81,10 @@ export type AdminRequest = {
     sentToDgBy?: RelatedUser;
     notes?: string;
   };
+  dossierId?: string;
   organization?: RelatedOrganization;
   submittedBy?: RelatedUser;
+  dgReview?: AdminDgReview;
   submittedAt?: string;
   createdAt: string;
   updatedAt: string;
@@ -112,10 +115,31 @@ export type AdminDocument = {
   uploadedById?: string;
 };
 
+export type AdminDossier = {
+  id: string;
+  dossierNumber: string;
+  dossierType: AdminRequestType;
+  status: string;
+  openedAt?: string;
+};
+
+export type AdminDgReview = {
+  id: string;
+  requestId?: string;
+  status?: string;
+  decision?: 'oriented_to_dn' | 'approved' | 'rejected' | 'reoriented' | 'pending' | null;
+  returnedFromDgAt?: string;
+  observations?: string;
+  returnedScannedDocumentId?: string;
+  decisionRecordedById?: string;
+  decisionRecordedAt?: string;
+};
+
 export type AdminRequestDetail = {
   request: AdminRequest;
   courrier?: AdminCourrier;
   document?: AdminDocument;
+  dgReview?: AdminDgReview;
 };
 
 export function listRequests(paramsInput: {
@@ -168,10 +192,23 @@ export function markPrintedForDg(
   return apiPost(`/api/v1/admin/requests/${id}/mark-printed-for-dg`, payload);
 }
 
+export function recordDgReturn(
+  id: string,
+  formData: FormData,
+): Promise<AdminRequestDetail> {
+  return apiPostForm(`/api/v1/admin/requests/${id}/record-dg-return`, formData);
+}
+
+export function openDossierDn(
+  id: string,
+  payload: { notes?: string },
+): Promise<{ request: AdminRequest; dossier: AdminDossier }> {
+  return apiPost(`/api/v1/admin/requests/${id}/open-dossier-dn`, payload);
+}
+
 export function sendToDg(
   id: string,
   payload: { notes?: string },
 ): Promise<{ request: AdminRequest }> {
   return apiPost(`/api/v1/admin/requests/${id}/send-to-dg`, payload);
 }
-

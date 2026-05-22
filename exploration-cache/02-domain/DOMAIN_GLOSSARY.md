@@ -1,10 +1,10 @@
 # Domain Glossary
 
-Last reviewed: 2026-05-05
+Last reviewed: 2026-05-21
 
 - demande: initial request submitted by postulant or registered from physical channel
 - courrier: official letter record tied to demande and DG circuit
-- orientation DG: DG decision outcome (pending/oriented_to_dn/redirected/rejected)
+- orientation DG: MVP decision outcome (pending/oriented_to_dn/rejected); redirected remains legacy/deferred compatibility only
 - dossier DN: operational case opened after favorable DG orientation
 - postulant: external applicant representative
 - organisme: applicant organization name

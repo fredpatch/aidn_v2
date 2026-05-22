@@ -9,12 +9,13 @@ import {
 } from "../lib/api/portal.api";
 import { PortalApiError } from "../lib/api/http";
 import { portalRoutes } from "../lib/routes";
+import { getRequestTypeLabel } from "../components/RequestTypeLabel";
 
 const requestTypeOptions: Array<{ value: PortalRequestType; label: string }> = [
-  { value: "oma_approval", label: "Agrement OMA" },
-  { value: "oma_recognition", label: "Reconnaissance OMA" },
-  { value: "oma_renewal", label: "Renouvellement OMA" },
-  { value: "oma_modification", label: "Modification OMA" },
+  { value: "oma_recognition", label: getRequestTypeLabel("oma_recognition") },
+  { value: "oma_approval", label: getRequestTypeLabel("oma_approval") },
+  { value: "oma_renewal", label: getRequestTypeLabel("oma_renewal") },
+  { value: "oma_modification", label: getRequestTypeLabel("oma_modification") },
 ];
 
 export function NewRequestPage(): React.JSX.Element {
@@ -35,7 +36,7 @@ export function NewRequestPage(): React.JSX.Element {
     }
 
     if (subject.trim().length < 3) {
-      setError("Objet de la demande requis, minimum 3 caracteres.");
+      setError("Objet de la demande requis, minimum 3 caractères.");
       return;
     }
 
@@ -51,7 +52,7 @@ export function NewRequestPage(): React.JSX.Element {
       setError(
         caught instanceof PortalApiError
           ? caught.message
-          : "Une erreur est survenue. Veuillez reessayer.",
+          : "Une erreur est survenue. Veuillez réessayer.",
       );
     } finally {
       setIsSubmitting(false);
@@ -67,7 +68,7 @@ export function NewRequestPage(): React.JSX.Element {
         </Link>
         <h1 className="page-title">Nouvelle demande</h1>
         <p className="page-subtitle">
-          Creez un brouillon de demande avant d'ajouter le courrier initial.
+          Créez un brouillon de demande avant d'ajouter le courrier initial.
         </p>
       </div>
 
@@ -89,7 +90,7 @@ export function NewRequestPage(): React.JSX.Element {
             }
             required
           >
-            <option value="">Selectionner un type</option>
+            <option value="">Sélectionner un type</option>
             {requestTypeOptions.map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
@@ -112,7 +113,7 @@ export function NewRequestPage(): React.JSX.Element {
         </div>
 
         <div className="field">
-          <label htmlFor="message">Message complementaire</label>
+          <label htmlFor="message">Message complémentaire</label>
           <textarea
             id="message"
             className="control min-h-32"
@@ -125,7 +126,7 @@ export function NewRequestPage(): React.JSX.Element {
         <div>
           <button className="btn btn-primary" type="submit" disabled={isSubmitting}>
             <Save size={16} aria-hidden="true" />
-            {isSubmitting ? "Creation..." : "Creer le brouillon"}
+            {isSubmitting ? "Création…" : "Créer le brouillon"}
           </button>
         </div>
       </form>

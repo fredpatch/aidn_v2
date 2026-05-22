@@ -3,19 +3,19 @@ import type { PortalRequestStatus } from "../lib/api/portal.api";
 
 const statusLabels: Record<PortalRequestStatus, string> = {
   draft: "Brouillon",
-  courrier_uploaded: "Courrier ajoute",
-  courrier_physical_declared: "Depot physique declare",
-  submitted: "Demande recue",
-  intake_in_review: "Demande en verification",
+  courrier_uploaded: "Demande reçue",
+  courrier_physical_declared: "Demande reçue",
+  submitted: "Demande reçue",
+  intake_in_review: "En attente d’orientation administrative",
   intake_requires_correction: "Action requise",
-  initial_sent_to_dg: "En attente d'orientation administrative",
+  initial_sent_to_dg: "En attente d’orientation administrative",
   initial_dg_returned: "En cours de traitement administratif",
-  initial_dg_decision_recorded: "Decision administrative enregistree",
-  oriented_to_dn: "Transmise a la Direction de la Navigabilite",
-  rejected: "Demande non retenue",
-  reoriented: "Demande reorientee",
+  initial_dg_decision_recorded: "En cours de traitement administratif",
+  oriented_to_dn: "Transmise à la Direction de la Navigabilité",
+  rejected: "Demande annulée",
+  reoriented: "En cours de traitement administratif",
   dossier_opened: "Dossier en cours de traitement",
-  closed: "Cloturee",
+  closed: "Dossier en cours de traitement",
 };
 
 const statusTones: Record<
@@ -44,12 +44,14 @@ export function getRequestStatusLabel(status: PortalRequestStatus): string {
 
 export function RequestStatusBadge({
   status,
+  label,
 }: {
   status: PortalRequestStatus;
+  label?: string;
 }): React.JSX.Element {
   return (
     <PortalStatusBadge
-      label={getRequestStatusLabel(status)}
+      label={label ?? getRequestStatusLabel(status)}
       tone={statusTones[status] ?? "neutral"}
     />
   );

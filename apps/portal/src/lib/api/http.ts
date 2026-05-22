@@ -123,6 +123,26 @@ export async function portalGet<TResponse>(path: string): Promise<TResponse> {
   return parsePortalResponse<TResponse>(response);
 }
 
+export async function portalGetBlob(path: string): Promise<Blob> {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    let message = "Connexion impossible.";
+    try {
+      const text = await response.text();
+      const payload = text ? (JSON.parse(text) as ApiErrorPayload) : undefined;
+      message = extractErrorMessage(payload);
+    } catch {
+      // use default message
+    }
+    throw new PortalApiError(response.status, message);
+  }
+
+  return response.blob();
+}
+
 async function parsePortalResponse<TResponse>(
   response: Response,
 ): Promise<TResponse> {

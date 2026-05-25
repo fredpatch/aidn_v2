@@ -145,70 +145,49 @@ YYYY-MM-DD-<phase-name>-correction.md
 
 # CURRENT OBJECTIVE
 
-# OMA-OPS-3 — Phase préliminaire checklist + action dialogs
+# OMA-OPS-8A — Phase I transition/date hardening
 
-You are working on the AIDN admin app.
+You are working on AIDN.
 
-## Context
+OMA-OPS-8 audit is complete. Do not move to Phase 2 yet.
 
-OMA-OPS-2 is complete:
+## Objective
 
-- `DossierDetailPage.tsx` was reduced from ~1227 lines to a tabbed cockpit shell.
-- New folder exists:
-  `apps/admin/src/pages/dossiers/`
-- `DossierPhasesTab.tsx` now uses a left phase stepper and right workspace.
-- `PreliminaryPhaseWorkspace.tsx` contains the existing preliminary phase action logic and inline forms.
-- Backend/API contracts must remain unchanged in this slice.
+Fix the urgent workflow/data correctness issues found in the Phase préliminaire audit.
 
-Current issue:
-The Phase préliminaire workspace still displays large inline forms. This is functional but not ideal UX.
+Focus only on:
 
-Goal:
-Replace the inline action panel with:
+1. Phase I close behavior and Phase 2 readiness.
+2. Persistence of important dates for future SLA/delay reports.
+3. Cleanup/quarantine of dead `pre_eval_dg_returned` status.
+4. Meeting report requirement decision/enforcement.
 
-- a checklist-based phase workspace;
-- a clear “prochaine action” card;
-- dialogs for actions;
-- evidence/document blocks where existing fields allow it.
-
-Do not change backend.
-Do not change API contracts.
-Do not change permissions.
-Do not implement document endpoint extension yet.
-Do not implement Documents tab yet.
-Do not implement Phases 2–5 actions yet.
+Do not refactor large files in this slice unless directly needed.
+Do not implement Phase 2 UI/actions.
+Do not implement SLA reports.
+Do not implement Certificat.
 
 ---
 
 ## Mandatory process
 
-Follow exploration-cache protocol first.
-
 Read:
 
 - `exploration-cache/manifest.json`
 - `exploration-cache/tasks/current-task.md`
-- `exploration-cache/tasks/summaries/2026-05-25-oma-ops-1-dossier-operations-ux-plan.md`
-- `exploration-cache/tasks/summaries/2026-05-25-oma-ops-2-dossier-cockpit-tabs.md`
+- `exploration-cache/tasks/summaries/2026-05-25-oma-ops-8-preliminary-hardening-audit.md`
+- `apps/api/src/modules/oma-phases/oma-phase.service.ts`
+- `apps/api/src/modules/oma-phases/oma-phase.model.ts`
+- `apps/api/src/modules/meetings/meeting.model.ts`
+- `apps/api/src/modules/meetings/meeting.service.ts`
 - `apps/admin/src/pages/dossiers/PreliminaryPhaseWorkspace.tsx`
-- `apps/admin/src/pages/dossiers/DossierPhasesTab.tsx`
-- `apps/admin/src/pages/dossiers/dossier-detail.helpers.tsx`
+- `apps/admin/src/pages/dossiers/preliminary-progress.helpers.ts`
 - `apps/admin/src/lib/api/dossiers.api.ts`
-- existing shadcn Dialog/Button/Input/Textarea components
-- `apps/admin/src/components/ui/split-view.tsx`
+- portal dossier/status files if affected
 
-Before implementation:
+Create summary:
 
-1. Inspect `PreliminaryPhaseWorkspace.tsx`.
-2. Identify the existing inline forms and actions.
-3. Confirm all current handlers can be reused inside dialogs.
-4. Confirm no backend change is required.
-5. Report a short plan.
-6. Then implement targeted refactor.
-
-At the end, create summary:
-
-`exploration-cache/tasks/summaries/YYYY-MM-DD-oma-ops-3-preliminary-checklist-dialogs.md`
+`exploration-cache/tasks/summaries/YYYY-MM-DD-oma-ops-8a-phase1-transition-date-hardening.md`
 
 Update:
 
@@ -217,272 +196,115 @@ Update:
 
 ---
 
-## Objective
+## Part A — Phase I close behavior
 
-Refactor Phase préliminaire workspace from inline form flow to:
+Audit found:
 
-Phase header
-Checklist
-Evidence block
-Next action card
-Action dialogs
+- Closing Phase I sets:
+  - phase status `closed`
+  - preliminaryStatus `preliminary_closed`
+  - dossier status `formal_request_phase`
+  - starts `formal_request` phase immediately
 
-Preserve all existing preliminary phase functionality.
+Before changing, inspect actual implementation.
 
-Required components
+Target decision:
 
-Create or extract under:
+- Closing Phase I should **not silently start Phase 2 actions**.
+- Preferred target:
+  - Phase I closes.
+  - Dossier becomes ready for Phase 2.
+  - Formal request phase can exist as `not_started`, but should not be `in_progress` unless explicitly started.
+  - UI can later show `Phase 2 prête à démarrer`.
 
-apps/admin/src/pages/dossiers/
+Acceptable implementation:
 
-Recommended components:
+```txt
+Phase I closed
+→ dossier.status = formal_request_phase
+→ formal_request phase exists with status = not_started
+→ no Phase 2 action workspace active yet
 
-PreliminaryPhaseWorkspace.tsx // orchestrator
-PreliminaryPhaseChecklist.tsx // checklist rendering
-PreliminaryNextActionCard.tsx // current action CTA
-InviteMeetingDialog.tsx
-RecordMeetingDialog.tsx
-PublishPreEvalDialog.tsx
-SendToDgDialog.tsx
-RecordDgReturnDialog.tsx
-UploadClosureCourrierDialog.tsx
-ClosePreliminaryDialog.tsx
+Do not implement Phase 2 start button in this slice unless trivial and already supported.
 
-If this creates too many files, keep small dialog components in one preliminary-dialogs.tsx file, but document the choice.
+Return clearly what was changed.
 
-Checklist model
+Part B — Persist SLA-relevant dates
 
-Represent Phase préliminaire as ordered steps.
+Audit found inputs are accepted but not persisted:
 
-Use existing preliminaryStatus and existing document/meeting fields.
+sendPreEvalToDg.sentAt
+recordPreEvalDgReturn.returnedAt
 
-Suggested steps:
+Implement persistence if fields exist or add minimal fields to OmaPhase / DGReview where appropriate.
 
-const preliminarySteps = [
-{
-key: "opened",
-label: "Dossier ouvert après orientation DG",
-done: true,
-},
-{
-key: "first_meeting_invited",
-label: "Première réunion de contact planifiée",
-done: Boolean(phase.firstMeetingId),
-current: phase.preliminaryStatus === "preliminary_started",
-},
-{
-key: "first_meeting_held",
-label: "Compte rendu première réunion joint",
-done: Boolean(phase.firstMeetingReportDocumentId),
-current: phase.preliminaryStatus === "first_meeting_invited",
-},
-{
-key: "pre_eval_form_available",
-label: "Formulaire pré-évaluation mis à disposition",
-done: Boolean(phase.preEvaluationTemplateDocumentId),
-current: phase.preliminaryStatus === "first_meeting_held",
-},
-{
-key: "pre_eval_form_submitted",
-label: "Formulaire pré-évaluation complété reçu",
-done: Boolean(phase.completedPreEvaluationDocumentId),
-current: phase.preliminaryStatus === "pre_eval_form_available",
-},
-{
-key: "pre_eval_sent_to_dg",
-label: "Pré-évaluation mise en circuit DG",
-done: ["pre_eval_sent_to_dg", "pre_eval_dg_decision_recorded", "preliminary_meeting_invited", "preliminary_meeting_held", "preliminary_ready_to_close", "preliminary_closed"].includes(phase.preliminaryStatus),
-current: phase.preliminaryStatus === "pre_eval_form_submitted",
-},
-{
-key: "pre_eval_dg_decision_recorded",
-label: "Retour DG pré-évaluation enregistré",
-done: Boolean(phase.preEvaluationDgAnnotatedDocumentId),
-current: phase.preliminaryStatus === "pre_eval_sent_to_dg",
-},
-{
-key: "preliminary_meeting_invited",
-label: "Réunion préliminaire planifiée",
-done: Boolean(phase.preliminaryMeetingId),
-current: phase.preliminaryStatus === "pre_eval_dg_decision_recorded",
-},
-{
-key: "preliminary_meeting_held",
-label: "Compte rendu réunion préliminaire joint",
-done: Boolean(phase.preliminaryMeetingReportDocumentId),
-current: phase.preliminaryStatus === "preliminary_meeting_invited",
-},
-{
-key: "closure_courrier_uploaded",
-label: "Courrier de clôture phase I téléversé",
-done: Boolean(phase.closureCourrierDocumentId),
-current: phase.preliminaryStatus === "preliminary_meeting_held",
-},
-{
-key: "preliminary_closed",
-label: "Phase préliminaire clôturée",
-done: phase.preliminaryStatus === "preliminary_closed",
-current: phase.preliminaryStatus === "preliminary_ready_to_close",
-},
-];
+Preferred fields:
 
-Adapt to actual type names.
+preEvaluationSentToDgAt?: Date;
+preEvaluationReturnedFromDgAt?: Date;
 
-Visual indicators:
+or reuse existing DGReview.sentToDgAt and DGReview.returnedFromDgAt if clean.
 
-✓ terminé
-→ en cours
-○ à venir
+Rules:
 
-Use icons if already available, otherwise simple badges.
+If payload date is provided, persist it.
+Else use current server time.
+Serialize these dates in admin dossier detail if useful for Historique/SLA later.
 
-Next action logic
+Also check meeting held date.
 
-Replace the current visible inline form with a single next-action card.
+If Meeting does not have heldAt, add:
 
-Map current preliminaryStatus to action:
+heldAt?: Date
 
-preliminaryStatus Action label Dialog
-preliminary_started Planifier la première réunion de contact InviteMeetingDialog
-first_meeting_invited Joindre le compte rendu de première réunion RecordMeetingDialog
-first_meeting_held Mettre le formulaire pré-évaluation à disposition PublishPreEvalDialog
-pre_eval_form_available no DN action waiting state
-pre_eval_form_submitted Mettre en circuit officiel DG SendToDgDialog
-pre_eval_sent_to_dg Enregistrer le retour DG annoté RecordDgReturnDialog
-pre_eval_dg_decision_recorded Planifier la réunion préliminaire InviteMeetingDialog variant
-preliminary_meeting_invited Joindre le compte rendu de réunion préliminaire RecordMeetingDialog variant
-preliminary_meeting_held Téléverser le courrier de clôture OR Clôturer phase if closure already uploaded UploadClosureCourrierDialog / ClosePreliminaryDialog
-preliminary_ready_to_close Clôturer la phase préliminaire ClosePreliminaryDialog
-preliminary_closed no action completed state
+Set it when recording first/preliminary meeting as held.
 
-Respect existing permission gates:
+Serialize if needed.
 
-meeting actions require the same existing permission/can flags
-DG circuit actions require the same existing permission/can flags
-document upload actions require the same existing permission/can flags
-phase close requires the same existing permission/can flags
+Part C — Dead status cleanup
 
-Do not loosen permissions.
+Audit found:
 
-Dialog behavior
+pre_eval_dg_returned
 
-Each dialog should reuse the same API calls currently used by inline forms.
+exists in backend/admin types but no route sets it.
 
-InviteMeetingDialog
+Preferred:
 
-Used for:
+remove from frontend label maps and API type if safe;
+keep backend enum only if migration risk exists;
+otherwise remove fully if no stored data uses it.
 
-first contact meeting
-preliminary meeting
+Do not create a transition to it unless there is a business reason.
 
-Fields:
+Part D — Meeting report requirement
 
-date prévue optional
-lieu optional
-notes optional
+Audit found:
 
-Props should allow:
+recordFirstMeeting
+recordPreliminaryMeeting
 
-title
-submitLabel
-onSubmit
-RecordMeetingDialog
+allow no report file, but checklist/report evidence expects reports.
 
-Used for:
+Decision target:
 
-first meeting report
-preliminary meeting report
+For MVP, make report file required when marking meeting held.
 
-Fields:
+Expected behavior:
 
-compte rendu file
-notes optional
-visibility to postulant if already present in existing form
-PublishPreEvalDialog
+If no file is provided, return validation error.
+UI dialog should mark file input required.
+Checklist and Documents tab remain consistent.
 
-Confirm only:
+If implementation risk is high, report why and leave as TODO, but do not silently ignore.
 
-explain that the blank form/template becomes available to the postulant.
-submit with existing publish API call.
-SendToDgDialog
-
-Confirm only:
-
-explain that the completed pre-evaluation document enters the official DG/parapheur circuit.
-no upload here.
-RecordDgReturnDialog
-
-Fields:
-
-returned scan file
-returnedAt/date if currently supported
-notes/observations if currently supported
-UploadClosureCourrierDialog
-
-Fields:
-
-file
-title if currently supported
-ClosePreliminaryDialog
-
-Extract existing close dialog logic, preserve behavior.
-
-Evidence block
-
-Add a compact evidence block in the workspace.
-
-Show available evidence from current fields:
-
-firstMeetingReportDocumentId
-preEvaluationTemplateDocumentId
-completedPreEvaluationDocumentId
-preEvaluationDgAnnotatedDocumentId
-preliminaryMeetingReportDocumentId
-closureCourrierDocumentId
-
-For now:
-
-show document IDs / “Document disponible” labels.
-only render download buttons for documents that already have working download behavior.
-Do not implement new download endpoint in this slice.
-For unavailable downloads, show muted text:
-Téléchargement à activer dans OMA-OPS-4
-SplitView Tailwind safety fix
-
-The previous report noted a possible production CSS issue:
-SplitView accepts dynamic arbitrary grid column classes such as lg:grid-cols-[2fr_3fr], which Tailwind may not generate if not statically present.
-
-Fix SplitView in this slice.
-
-Preferred safe implementation:
-
-use CSS variable or inline style for desktop grid template columns
-keep stable classes only:
-
-<div
-  className={cn("grid grid-cols-1 gap-4 lg:grid-cols-[var(--split-view-columns)]", className)}
-  style={{ "--split-view-columns": columns } as React.CSSProperties}
->
-
-If Tailwind arbitrary variable syntax is unsupported, use inline style with media-safe fallback or predefined variant mapping.
-
-Constraint:
-
-Do not break current usage in DgCircuitPage, RequestsPage, or DossierPhasesTab.
-Keep API:
-<SplitView left={...} right={...} columns="[1fr_2fr]" />
-
-Run visual/build check after.
-
-UX requirements
-No large form should be visible by default.
-The workspace should feel like an operational checklist.
-Only one primary action should be visually dominant.
-Dialogs should be compact.
-Keep French labels.
-Keep institutional minimal style.
-Preserve purple primary buttons.
 Verification
+
+Run:
+
+cd apps/api
+npx tsc --noEmit
+npm run build
 
 Run:
 
@@ -490,30 +312,33 @@ cd apps/admin
 npx tsc --noEmit
 npm run build
 
+Run portal only if portal types/statuses changed:
+
+cd apps/portal
+npx tsc --noEmit
+npm run build
+
 Manual checks:
 
-Dossier detail page loads.
-Phases OMA tab loads.
-Phase 1 selected by default.
-No inline meeting/upload form visible by default.
-Checklist appears with correct current step.
-Clicking the next action opens the correct dialog.
-Submitting dialog triggers the same API behavior as before.
-Existing preliminary action flow still works.
-Permission-gated actions remain hidden/disabled when unauthorized.
-Phases 2–5 placeholders still work.
-SplitView still renders correctly in:
-DgCircuitPage
-RequestsPage
-DossierPhasesTab
+Closing Phase I no longer silently starts active Phase 2 workflow.
+Formal phase is not in progress unless explicitly intended.
+Pre-eval sent-to-DG date is persisted.
+Pre-eval DG return date is persisted.
+Meeting held date is persisted.
+Meeting report file is required when marking held.
+pre_eval_dg_returned no longer appears in active UI/type paths, or is clearly quarantined.
+Admin and portal still load dossier detail.
+Existing Phase I happy path still works.
 
 Return:
 
 Files inspected
 Files changed
-Components extracted/created
-Checklist logic summary
-Dialogs created
-SplitView fix result
+Phase I close behavior result
+Date persistence changes
+Dead status cleanup
+Meeting report requirement behavior
 Verification results
-Remaining risks/TODOs
+Runtime checks pending/done
+Risks/TODOs
+```

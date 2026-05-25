@@ -545,7 +545,7 @@ adminRouter.post(
 
 adminRouter.get(
   "/dossiers/:id/documents/:documentId",
-  requirePermission(Permissions.PRE_EVAL_DG_RETURN_CONSULT),
+  requirePermission(Permissions.DOSSIER_VIEW_ALL),
   asyncHandler(async (req, res) => {
     const { buffer, mimeType, fileName } = await downloadAdminDossierDocument(
       String(req.params.id),

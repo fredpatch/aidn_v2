@@ -1054,11 +1054,39 @@ export const downloadAdminRequestOrientationDocument = async (
   const requestObjectId = ensureObjectId(requestId, "requestId");
   const docObjectId = ensureObjectId(documentId, "documentId");
 
-  const dgReview = await DGReviewModel.findOne({ requestId: requestObjectId }).lean();
-  if (!dgReview) throw new HttpError(404, "Revue DG introuvable");
+  const request = await RequestModel.findById(requestObjectId)
+    .select("initialDocumentId initialCourrierId initialDgReviewId")
+    .lean();
+  if (!request) throw new HttpError(404, "Request not found");
 
-  const storedId = dgReview.returnedScannedDocumentId?.toString();
-  if (!storedId || storedId !== docObjectId.toString()) {
+  const [dgReview, courrier] = await Promise.all([
+    request.initialDgReviewId
+      ? DGReviewModel.findById(request.initialDgReviewId).lean()
+      : DGReviewModel.findOne({
+          requestId: requestObjectId,
+          targetType: "initial_request",
+        })
+          .sort({ createdAt: -1 })
+          .lean(),
+    request.initialCourrierId
+      ? CourrierModel.findOne({
+          _id: request.initialCourrierId,
+          requestId: requestObjectId,
+        }).lean()
+      : CourrierModel.findOne({
+          requestId: requestObjectId,
+          type: "initial_request_courrier",
+        }).lean(),
+  ]);
+
+  const requestedId = docObjectId.toString();
+  const allowedIds = [
+    request.initialDocumentId?.toString(),
+    courrier?.documentId?.toString(),
+    dgReview?.returnedScannedDocumentId?.toString(),
+  ].filter(Boolean);
+
+  if (!allowedIds.includes(requestedId)) {
     throw new HttpError(403, "Document non accessible");
   }
 

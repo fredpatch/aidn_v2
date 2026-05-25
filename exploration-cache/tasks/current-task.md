@@ -1,38 +1,62 @@
 # Current Task
 
-## Phase: OMA-OPS-2 — Dossier DN Cockpit Tabs + Phases OMA Skeleton
+## Phase: OMA-OPS-8A - Phase I transition/date hardening
 
 Date: 2026-05-25
-Status: **Complete — typecheck PASS, build PASS**
+Status: **Complete - API/admin verification PASS**
 
 ## Summary file
 
-`exploration-cache/tasks/summaries/2026-05-25-oma-ops-2-dossier-cockpit-tabs.md`
+`exploration-cache/tasks/summaries/2026-05-25-oma-ops-8a-phase1-transition-date-hardening.md`
 
 ## Objective
 
-Refactor `DossierDetailPage.tsx` (1227 lines) into a tabbed cockpit with a phase stepper and split-view workspace. Preserve all existing preliminary phase functionality.
+Fix urgent Phase preliminaire workflow/data correctness issues from the
+OMA-OPS-8 audit without implementing Phase 2 UI/actions, SLA reports, or
+Certificat.
 
 ## Completed deliverables
 
-- New folder: `apps/admin/src/pages/dossiers/` with 9 co-located files.
-- `dossier-detail.helpers.tsx`: label constants, formatDate, 8 shared micro-components.
-- `PreliminaryPhaseWorkspace.tsx`: all 5 inline forms + PreliminaryActionPanel (logic unchanged).
-- `DossierOverviewTab.tsx`: Vue d'ensemble card content.
-- `DossierPhasesTab.tsx`: left stepper (5 phases, click to select) + right workspace (preliminary or placeholder).
-- 5 stub tabs: Documents, Réunions, Courriers, Historique, Certificat.
-- `DossierDetailPage.tsx` reduced from 1227 to ~120 lines.
+- Phase I close keeps dossier status `formal_request_phase` but leaves/creates
+  `formal_request` phase as `not_started`.
+- Added `preEvaluationSentToDgAt` and `preEvaluationReturnedFromDgAt` to
+  `OmaPhase`.
+- `sendPreEvalToDg` and `recordPreEvalDgReturn` persist payload date or server
+  time.
+- Added `Meeting.heldAt` and set it when preliminary meetings are recorded as
+  held.
+- Required report files when recording first/preliminary meetings as held.
+- Removed `pre_eval_dg_returned` from active admin type/label/progress paths and
+  from the OMA phase enum.
+- Admin workspace and history now consume the new dates where useful.
 
-## Key decisions
+## Key findings
 
-- `dossier-detail.helpers.tsx` is `.tsx` (not `.ts`) because it contains JSX.
-- `DossierPhasesTab` uses direct Tailwind class `lg:grid-cols-[1fr_2fr]` instead of `<SplitView columns="[1fr_2fr]">` to avoid Tailwind static scan gap.
-- `PhasesOverview` component dropped — replaced by interactive phase stepper.
+- No Phase 2 UI/action was implemented.
+- The historical audit action string `oma.preliminary.pre_eval_dg_returned`
+  remains, but the workflow status is gone from active paths.
+- Existing DB rows with `pre_eval_dg_returned`, if any, need cleanup/migration
+  before editing those rows.
 
-## Previous task reference
+## Verification
 
-OMA-OPS-1: `exploration-cache/tasks/summaries/2026-05-25-oma-ops-1-dossier-operations-ux-plan.md`
+- API `npx tsc --noEmit`: PASS
+- API `npm run build`: PASS
+- Admin `npx tsc --noEmit`: PASS
+- Admin `npm run build`: PASS after outside-sandbox rerun for known Tailwind
+  native Windows binary issue.
+- Portal not run because portal files were not changed.
+
+## Previous task references
+
+- OMA-OPS-8A certificate readonly tab: `exploration-cache/tasks/summaries/2026-05-25-oma-ops-8a-certificat-readonly-tab-implementation.md`
+- OMA-OPS-7B compact history: `exploration-cache/tasks/summaries/2026-05-25-oma-ops-7b-compact-historique-implementation.md`
+- OMA-OPS-7 history tab: `exploration-cache/tasks/summaries/2026-05-25-oma-ops-7-historique-tab-implementation.md`
+- OMA-OPS-6 courriers tab: `exploration-cache/tasks/summaries/2026-05-25-oma-ops-6-courriers-tab.md`
+- OMA-OPS-5 reunions tab: `exploration-cache/tasks/summaries/2026-05-25-oma-ops-5-reunions-tab.md`
+- OMA-OPS-4 documents/downloads: `exploration-cache/tasks/summaries/2026-05-25-oma-ops-4-documents-tab-downloads.md`
 
 ## Next step
 
-OMA-OPS-3: Phase préliminaire checklist + dialog-based actions (frontend only, no backend).
+OMA-OPS-8B: status/label cleanup and French label/mojibake hardening across
+admin and portal, without broad workflow refactors.

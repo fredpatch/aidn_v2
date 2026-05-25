@@ -13,6 +13,7 @@ const meetingSchema = new Schema(
     scheduledAt: { type: Date },
     location: { type: String, trim: true },
     status: { type: String, enum: ["planned", "invited", "held", "postponed", "cancelled"], default: "planned", index: true },
+    heldAt: { type: Date },
     outlookEmailStatus: {
       type: String,
       enum: ["not_required", "to_be_sent_manually", "sent_manually"],

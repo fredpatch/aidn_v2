@@ -32,7 +32,6 @@ export type PreliminaryStatus =
   | 'pre_eval_form_available'
   | 'pre_eval_form_submitted'
   | 'pre_eval_sent_to_dg'
-  | 'pre_eval_dg_returned'
   | 'pre_eval_dg_decision_recorded'
   | 'preliminary_meeting_invited'
   | 'preliminary_meeting_held'
@@ -65,6 +64,8 @@ export type AdminOmaPhase = {
   preEvaluationTemplateDocumentId?: string;
   completedPreEvaluationDocumentId?: string;
   preEvaluationDgAnnotatedDocumentId?: string;
+  preEvaluationSentToDgAt?: string;
+  preEvaluationReturnedFromDgAt?: string;
   firstMeetingReportDocumentId?: string;
   preliminaryMeetingReportDocumentId?: string;
   closureCourrierDocumentId?: string;
@@ -80,11 +81,31 @@ export type AdminMeetingSummary = {
   title: string;
   status: string;
   scheduledAt?: string;
+  heldAt?: string;
   location?: string;
   outlookEmailStatus?: string;
   reportDocumentId?: string;
   notes?: string;
   createdAt?: string;
+};
+
+export type AdminDossierCourriers = {
+  initialCourrier?: {
+    requestId: string;
+    documentId?: string;
+    title?: string;
+    source?: string;
+    reference?: string;
+    date?: string;
+  };
+  initialDgOrientation?: {
+    requestId: string;
+    documentId?: string;
+    title?: string;
+    decision?: string;
+    returnedAt?: string;
+    observations?: string;
+  };
 };
 
 export type AdminDossierDetail = {
@@ -110,6 +131,7 @@ export type AdminDossierDetail = {
     firstMeeting: AdminMeetingSummary | null;
     preliminaryMeeting: AdminMeetingSummary | null;
   } | null;
+  courriers?: AdminDossierCourriers;
 };
 
 export function listDossiers(filters: {

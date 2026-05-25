@@ -9,6 +9,8 @@ import {
   phaseKeyLabels,
 } from "./dossier-detail.helpers";
 import { PreliminaryActionPanel } from "./PreliminaryPhaseWorkspace";
+import { PreliminaryPhaseChecklist } from "./PreliminaryPhaseChecklist";
+import { getPreliminaryProgress } from "./preliminary-progress.helpers";
 
 function PhaseStepperItem({
   phaseKey,
@@ -28,10 +30,10 @@ function PhaseStepperItem({
       <button
         type="button"
         className={[
-          "w-full rounded-md border px-3 py-2.5 text-left text-sm transition-colors",
+          "w-full rounded-md border px-3 py-2 text-left text-sm transition-colors",
           isSelected
             ? "border-primary/40 bg-primary/5 text-primary"
-            : "border-transparent bg-muted/30 hover:bg-muted/60",
+            : "border-transparent hover:bg-muted/60",
         ].join(" ")}
         onClick={onClick}
       >
@@ -95,24 +97,77 @@ export function DossierPhasesTab({
     return anyStarted ?? "preliminary";
   });
 
-  const stepper = (
-    <ol className="space-y-1.5">
-      {PHASE_ORDER.map((key, index) => (
-        <PhaseStepperItem
-          key={key}
-          phaseKey={key}
-          index={index}
-          phase={byKey.get(key)}
-          isSelected={selectedKey === key}
-          onClick={() => setSelectedKey(key)}
-        />
-      ))}
-    </ol>
+  // ── Left column ─────────────────────────────────────────────────────────────
+
+  const stepperCard = (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm">Phases OMA</CardTitle>
+      </CardHeader>
+      <CardContent className="p-2 pt-0">
+        <ol className="space-y-0.5">
+          {PHASE_ORDER.map((key, index) => (
+            <PhaseStepperItem
+              key={key}
+              phaseKey={key}
+              index={index}
+              phase={byKey.get(key)}
+              isSelected={selectedKey === key}
+              onClick={() => setSelectedKey(key)}
+            />
+          ))}
+        </ol>
+      </CardContent>
+    </Card>
   );
+
+  const prelim = detail.preliminary;
+  const progress =
+    selectedKey === "preliminary" && prelim
+      ? getPreliminaryProgress(prelim.phase)
+      : null;
+
+  const progressionCard =
+    progress && prelim ? (
+      <Card>
+        <CardHeader className="pb-1">
+          <CardTitle className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            Progression phase active
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2 p-3 pt-0">
+          <p className="text-xs text-muted-foreground">
+            <span className="font-semibold text-foreground">
+              {progress.doneCount} / {progress.totalCount}
+            </span>{" "}
+            étapes
+          </p>
+          {progress.currentStep ? (
+            <p className="text-xs text-muted-foreground">
+              En cours :{" "}
+              <span className="text-foreground">
+                {progress.currentStep.label}
+              </span>
+            </p>
+          ) : null}
+          <PreliminaryPhaseChecklist phase={prelim.phase} compact />
+        </CardContent>
+      </Card>
+    ) : (
+      <Card>
+        <CardContent className="p-3">
+          <p className="text-xs text-muted-foreground">
+            Progression détaillée à venir pour cette phase.
+          </p>
+        </CardContent>
+      </Card>
+    );
+
+  // ── Right workspace ──────────────────────────────────────────────────────────
 
   const workspace =
     selectedKey === "preliminary" ? (
-      <Section title="Phase préliminaire - Actions">
+      <Section title="Phase préliminaire">
         <PreliminaryActionPanel
           dossierId={dossierId}
           detail={detail}
@@ -128,7 +183,10 @@ export function DossierPhasesTab({
 
   return (
     <div className="lg:grid lg:grid-cols-[1fr_2fr] lg:items-start lg:gap-4">
-      <div>{stepper}</div>
+      <div className="space-y-3">
+        {stepperCard}
+        {progressionCard}
+      </div>
       <div>{workspace}</div>
     </div>
   );

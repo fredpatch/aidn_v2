@@ -3,11 +3,14 @@ import { Types } from "mongoose";
 import { HttpError } from "../../shared/errors/http-error.js";
 import { storageAdapter } from "../../shared/storage/storage.adapter.js";
 import { writeAuditLog } from "../audit/audit.service.js";
+import { CourrierModel } from "../courriers/courrier.model.js";
+import { DGReviewModel } from "../dg-reviews/dg-review.model.js";
 import { DocumentModel } from "../documents/document.model.js";
 import { DossierModel } from "../dossiers/dossier.model.js";
 import { MeetingModel } from "../meetings/meeting.model.js";
 import { getActivePreEvalTemplate } from "../document-templates/document-template.service.js";
 import { OmaPhaseModel } from "./oma-phase.model.js";
+import { RequestModel } from "../requests/request.model.js";
 import { UserModel } from "../users/user.model.js";
 
 type Actor = { id: string; role: string; userType: "internal" | "postulant" };
@@ -47,6 +50,15 @@ const PRE_EVAL_VISIBLE_STATUSES = new Set([
   "preliminary_closed",
 ]);
 
+const ADMIN_PRELIMINARY_DOWNLOAD_FIELDS = [
+  "firstMeetingReportDocumentId",
+  "preEvaluationTemplateDocumentId",
+  "completedPreEvaluationDocumentId",
+  "preEvaluationDgAnnotatedDocumentId",
+  "preliminaryMeetingReportDocumentId",
+  "closureCourrierDocumentId",
+] as const;
+
 const toId = (value: unknown) => value?.toString();
 
 const toIso = (value: unknown) =>
@@ -55,6 +67,15 @@ const toIso = (value: unknown) =>
     : value
       ? new Date(String(value)).toISOString()
       : undefined;
+
+const parseOptionalDate = (value: unknown, label: string) => {
+  if (!value) return undefined;
+  const date = new Date(String(value));
+  if (Number.isNaN(date.getTime())) {
+    throw new HttpError(400, `${label} must be a valid date`);
+  }
+  return date;
+};
 
 const ensureObjectId = (id: string, label: string) => {
   if (!Types.ObjectId.isValid(id)) {
@@ -121,6 +142,8 @@ const sanitizePhase = (p: GenericRecord) => ({
   preEvaluationDgAnnotatedDocumentId: toId(
     p.preEvaluationDgAnnotatedDocumentId,
   ),
+  preEvaluationSentToDgAt: toIso(p.preEvaluationSentToDgAt),
+  preEvaluationReturnedFromDgAt: toIso(p.preEvaluationReturnedFromDgAt),
   firstMeetingReportDocumentId: toId(p.firstMeetingReportDocumentId),
   preliminaryMeetingReportDocumentId: toId(
     p.preliminaryMeetingReportDocumentId,
@@ -138,12 +161,70 @@ const sanitizeMeeting = (m: GenericRecord) => ({
   title: m.title,
   status: m.status,
   scheduledAt: toIso(m.scheduledAt),
+  heldAt: toIso(m.heldAt),
   location: m.location,
   outlookEmailStatus: m.outlookEmailStatus,
   reportDocumentId: toId(m.reportDocumentId),
   notes: m.notes,
   createdAt: toIso(m.createdAt),
 });
+
+const buildDossierCourriers = async (requestId: unknown) => {
+  const requestObjectId = requestId instanceof Types.ObjectId ? requestId : undefined;
+  if (!requestObjectId) return undefined;
+
+  const request = await RequestModel.findById(requestObjectId).lean();
+  if (!request) return undefined;
+
+  const courrier = request.initialCourrierId
+    ? await CourrierModel.findOne({
+        _id: request.initialCourrierId,
+        requestId: requestObjectId,
+      }).lean()
+    : await CourrierModel.findOne({
+        requestId: requestObjectId,
+        type: "initial_request_courrier",
+      }).lean();
+
+  const initialDocumentId =
+    toId(request.initialDocumentId) ?? toId(courrier?.documentId);
+  const initialDocument = initialDocumentId
+    ? await DocumentModel.findById(initialDocumentId).select("title").lean()
+    : undefined;
+
+  const dgReview = request.initialDgReviewId
+    ? await DGReviewModel.findById(request.initialDgReviewId).lean()
+    : await DGReviewModel.findOne({
+        requestId: requestObjectId,
+        targetType: "initial_request",
+      })
+        .sort({ createdAt: -1 })
+        .lean();
+
+  return {
+    initialCourrier: {
+      requestId: requestObjectId.toString(),
+      documentId: initialDocumentId,
+      title: initialDocument?.title ?? "Courrier initial",
+      source: courrier?.source ?? request.courrierSource,
+      reference: courrier?.officialReference,
+      date:
+        toIso(courrier?.scannedAt) ??
+        toIso(courrier?.physicalDepositDate) ??
+        toIso(courrier?.uploadedAt) ??
+        toIso(request.submittedAt) ??
+        toIso(request.createdAt),
+    },
+    initialDgOrientation: {
+      requestId: requestObjectId.toString(),
+      documentId: toId(dgReview?.returnedScannedDocumentId),
+      title: "Retour DG orientation initiale",
+      decision: dgReview?.decision,
+      returnedAt: toIso(dgReview?.returnedFromDgAt),
+      observations: dgReview?.observations,
+    },
+  };
+};
 
 const resolvePortalUser = async (actor: Actor) => {
   if (actor.userType !== "postulant") {
@@ -328,6 +409,8 @@ export const getAdminDossier = async (dossierId: string, actor: Actor) => {
     }
   }
 
+  const courriers = await buildDossierCourriers(dossier.requestId);
+
   return {
     dossier: sanitizeDossierSummary(dossier as unknown as GenericRecord),
     phases: phases.map((p) => sanitizePhase(p as unknown as GenericRecord)),
@@ -342,6 +425,7 @@ export const getAdminDossier = async (dossierId: string, actor: Actor) => {
             : null,
         }
       : null,
+    courriers,
   };
 };
 
@@ -430,7 +514,7 @@ export const recordFirstMeeting = async (
   const meeting = await MeetingModel.findById(phase.firstMeetingId);
   if (!meeting) throw new HttpError(404, "Réunion introuvable");
 
-  validateFile(file, false, "compte rendu");
+  validateFile(file, true, "compte rendu");
 
   let reportDocumentId: Types.ObjectId | undefined;
   if (file) {
@@ -449,15 +533,19 @@ export const recordFirstMeeting = async (
       uploadedById: new Types.ObjectId(actor.id),
     });
   }
+  if (!reportDocumentId) {
+    throw new HttpError(400, "Compte rendu requis");
+  }
 
   meeting.status = "held";
+  meeting.heldAt = new Date();
   if (input.notes?.trim()) meeting.notes = input.notes.trim();
-  if (reportDocumentId) meeting.reportDocumentId = reportDocumentId;
+  meeting.reportDocumentId = reportDocumentId;
   await meeting.save();
 
   phase.preliminaryStatus = "first_meeting_held";
   phase.status = "in_progress";
-  if (reportDocumentId) phase.firstMeetingReportDocumentId = reportDocumentId;
+  phase.firstMeetingReportDocumentId = reportDocumentId;
   await phase.save();
 
   await writeAuditLog({
@@ -604,7 +692,7 @@ export const recordPreliminaryMeeting = async (
   const meeting = await MeetingModel.findById(phase.preliminaryMeetingId);
   if (!meeting) throw new HttpError(404, "Réunion introuvable");
 
-  validateFile(file, false, "compte rendu");
+  validateFile(file, true, "compte rendu");
 
   let reportDocumentId: Types.ObjectId | undefined;
   if (file) {
@@ -621,16 +709,19 @@ export const recordPreliminaryMeeting = async (
       uploadedById: new Types.ObjectId(actor.id),
     });
   }
+  if (!reportDocumentId) {
+    throw new HttpError(400, "Compte rendu requis");
+  }
 
   meeting.status = "held";
+  meeting.heldAt = new Date();
   if (input.notes?.trim()) meeting.notes = input.notes.trim();
-  if (reportDocumentId) meeting.reportDocumentId = reportDocumentId;
+  meeting.reportDocumentId = reportDocumentId;
   await meeting.save();
 
   phase.preliminaryStatus = "preliminary_meeting_held";
   phase.status = "in_progress";
-  if (reportDocumentId)
-    phase.preliminaryMeetingReportDocumentId = reportDocumentId;
+  phase.preliminaryMeetingReportDocumentId = reportDocumentId;
   await phase.save();
 
   await writeAuditLog({
@@ -744,12 +835,10 @@ export const closePreliminaryPhase = async (
   await OmaPhaseModel.updateOne(
     { dossierId: dossier._id, phaseKey: "formal_request" },
     {
-      $set: {
-        status: "in_progress",
-        startedAt: now,
-        startedById: new Types.ObjectId(actor.id),
-      },
+      $set: { status: "not_started" },
+      $unset: { startedAt: "", startedById: "" },
     },
+    { upsert: true },
   );
 
   await writeAuditLog({
@@ -790,8 +879,11 @@ export const sendPreEvalToDg = async (
     );
   }
 
+  const sentAt = parseOptionalDate(input.sentAt, "sentAt") ?? new Date();
+
   phase.preliminaryStatus = "pre_eval_sent_to_dg";
   phase.status = "waiting_dg";
+  phase.preEvaluationSentToDgAt = sentAt;
   await phase.save();
 
   await writeAuditLog({
@@ -800,7 +892,11 @@ export const sendPreEvalToDg = async (
     action: "oma.preliminary.pre_eval_sent_to_dg",
     entityType: "dossier",
     entityId: dossier._id,
-    after: { preliminaryStatus: "pre_eval_sent_to_dg", notes: input.notes },
+    after: {
+      preliminaryStatus: "pre_eval_sent_to_dg",
+      sentAt: sentAt.toISOString(),
+      notes: input.notes,
+    },
   });
 
   return { ok: true };
@@ -843,9 +939,13 @@ export const recordPreEvalDgReturn = async (
     uploadedById: new Types.ObjectId(actor.id),
   });
 
+  const returnedAt =
+    parseOptionalDate(input.returnedAt, "returnedAt") ?? new Date();
+
   // Jump directly to decision_recorded - the DG return upload is sufficient evidence
   phase.preliminaryStatus = "pre_eval_dg_decision_recorded";
   phase.status = "in_progress";
+  phase.preEvaluationReturnedFromDgAt = returnedAt;
   (
     phase as unknown as Record<string, unknown>
   ).preEvaluationDgAnnotatedDocumentId = documentId;
@@ -860,6 +960,7 @@ export const recordPreEvalDgReturn = async (
     after: {
       preliminaryStatus: "pre_eval_dg_decision_recorded",
       documentId: documentId.toString(),
+      returnedAt: returnedAt.toISOString(),
     },
   });
 
@@ -876,15 +977,23 @@ export const downloadAdminDossierDocument = async (
   const dossierObjectId = ensureObjectId(dossierId, "dossierId");
   const docObjectId = ensureObjectId(documentId, "documentId");
 
+  const dossier = await DossierModel.findById(dossierObjectId)
+    .select("_id")
+    .lean();
+  if (!dossier) throw new HttpError(404, "Dossier introuvable");
+
   const phase = await OmaPhaseModel.findOne({
     dossierId: dossierObjectId,
     phaseKey: "preliminary",
   }).lean();
   if (!phase) throw new HttpError(404, "Phase préliminaire introuvable");
 
-  const annotatedReturnId =
-    phase.preEvaluationDgAnnotatedDocumentId?.toString();
-  if (!annotatedReturnId || annotatedReturnId !== docObjectId.toString()) {
+  const requestedDocumentId = docObjectId.toString();
+  const isLinkedToPreliminaryEvidence = ADMIN_PRELIMINARY_DOWNLOAD_FIELDS.some(
+    (field) => phase[field]?.toString() === requestedDocumentId,
+  );
+
+  if (!isLinkedToPreliminaryEvidence) {
     throw new HttpError(403, "Document non accessible");
   }
 

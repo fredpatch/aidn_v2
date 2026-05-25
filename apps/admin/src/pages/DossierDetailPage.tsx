@@ -124,19 +124,19 @@ export function DossierDetailPage(): React.JSX.Element {
           />
         </TabsContent>
         <TabsContent value="documents" className="mt-4">
-          <DossierDocumentsTab />
+          <DossierDocumentsTab detail={detail} />
         </TabsContent>
         <TabsContent value="meetings" className="mt-4">
-          <DossierMeetingsTab />
+          <DossierMeetingsTab detail={detail} />
         </TabsContent>
         <TabsContent value="courriers" className="mt-4">
-          <DossierCourriersTab />
+          <DossierCourriersTab detail={detail} />
         </TabsContent>
         <TabsContent value="history" className="mt-4">
-          <DossierHistoriqueTab />
+          <DossierHistoriqueTab detail={detail} />
         </TabsContent>
         <TabsContent value="certificate" className="mt-4">
-          <DossierCertificatTab />
+          <DossierCertificatTab detail={detail} />
         </TabsContent>
       </Tabs>
     </div>

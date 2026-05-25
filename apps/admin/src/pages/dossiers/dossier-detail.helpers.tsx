@@ -54,8 +54,7 @@ export const preliminaryStatusLabels: Record<PreliminaryStatus, string> = {
   first_meeting_held: "Première réunion tenue",
   pre_eval_form_available: "Formulaire disponible",
   pre_eval_form_submitted: "Formulaire soumis",
-  pre_eval_sent_to_dg: "Envoyé au DG",
-  pre_eval_dg_returned: "Retour DG reçu",
+  pre_eval_sent_to_dg: "Mise en circuit DG",
   pre_eval_dg_decision_recorded: "Décision DG enregistrée",
   preliminary_meeting_invited: "Réunion préliminaire planifiée",
   preliminary_meeting_held: "Réunion préliminaire tenue",
@@ -183,6 +182,12 @@ export function MeetingCard({
           <div>
             <dt className="inline">Date : </dt>
             <dd className="inline">{formatDate(meeting.scheduledAt)}</dd>
+          </div>
+        ) : null}
+        {meeting.heldAt ? (
+          <div>
+            <dt className="inline">Tenue le : </dt>
+            <dd className="inline">{formatDate(meeting.heldAt)}</dd>
           </div>
         ) : null}
         {meeting.location ? (

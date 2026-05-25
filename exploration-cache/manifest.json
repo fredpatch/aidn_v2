@@ -1,7 +1,7 @@
 {
   "name": "aidn-exploration-cache",
   "version": "1.0.0",
-  "lastUpdated": "2026-05-22",
+  "lastUpdated": "2026-05-25",
   "entrypoints": [
     "00-control/SOURCE_OF_TRUTH.md",
     "00-control/CURRENT_STATE.md",
@@ -42,6 +42,181 @@
     "99-session-notes": "Session-level trace"
   },
   "recentExplorationCacheUpdates": [
+    {
+      "date": "2026-05-25",
+      "phase": "OMA-OPS-8A-PHASE1-TRANSITION-DATE-HARDENING",
+      "created": [
+        "exploration-cache/tasks/summaries/2026-05-25-oma-ops-8a-phase1-transition-date-hardening.md",
+        "exploration-cache/tasks/history/2026-05-25-oma-ops-8a-phase1-transition-date-hardening.md"
+      ],
+      "updated": [
+        "apps/api/src/modules/oma-phases/oma-phase.model.ts",
+        "apps/api/src/modules/meetings/meeting.model.ts",
+        "apps/api/src/modules/oma-phases/oma-phase.service.ts",
+        "apps/admin/src/lib/api/dossiers.api.ts",
+        "apps/admin/src/pages/dossiers/dossier-detail.helpers.tsx",
+        "apps/admin/src/pages/dossiers/preliminary-progress.helpers.ts",
+        "apps/admin/src/pages/dossiers/PreliminaryPhaseWorkspace.tsx",
+        "apps/admin/src/pages/dossiers/preliminary-dialogs.tsx",
+        "apps/admin/src/pages/dossiers/DossierHistoriqueTab.tsx",
+        "exploration-cache/tasks/current-task.md",
+        "exploration-cache/QUICK-REFERENCE.md",
+        "exploration-cache/manifest.json"
+      ]
+    },
+    {
+      "date": "2026-05-25",
+      "phase": "OMA-OPS-8-PRELIMINARY-HARDENING-AUDIT",
+      "created": [
+        "exploration-cache/tasks/summaries/2026-05-25-oma-ops-8-preliminary-hardening-audit.md",
+        "exploration-cache/tasks/history/2026-05-25-oma-ops-8-preliminary-hardening-audit.md"
+      ],
+      "updated": [
+        "exploration-cache/tasks/current-task.md",
+        "exploration-cache/QUICK-REFERENCE.md",
+        "exploration-cache/manifest.json"
+      ]
+    },
+    {
+      "date": "2026-05-25",
+      "phase": "OMA-OPS-8A-CERTIFICAT-READONLY-TAB-IMPLEMENTATION",
+      "created": [
+        "exploration-cache/tasks/summaries/2026-05-25-oma-ops-8a-certificat-readonly-tab-implementation.md",
+        "exploration-cache/tasks/history/2026-05-25-oma-ops-8a-certificat-readonly-tab.md"
+      ],
+      "updated": [
+        "apps/admin/src/pages/DossierDetailPage.tsx",
+        "apps/admin/src/pages/dossiers/DossierCertificatTab.tsx",
+        "exploration-cache/tasks/current-task.md",
+        "exploration-cache/QUICK-REFERENCE.md",
+        "exploration-cache/manifest.json"
+      ]
+    },
+    {
+      "date": "2026-05-25",
+      "phase": "OMA-OPS-8-CERTIFICAT-TAB-PLANNING",
+      "created": [
+        "exploration-cache/tasks/summaries/2026-05-25-oma-ops-8-certificat-tab-plan.md"
+      ],
+      "updated": [
+        "exploration-cache/tasks/current-task.md",
+        "exploration-cache/manifest.json"
+      ]
+    },
+    {
+      "date": "2026-05-25",
+      "phase": "OMA-OPS-7B-COMPACT-HISTORIQUE-IMPLEMENTATION",
+      "created": [
+        "exploration-cache/tasks/summaries/2026-05-25-oma-ops-7b-compact-historique-implementation.md",
+        "exploration-cache/tasks/history/2026-05-25-oma-ops-7b-compact-historique.md"
+      ],
+      "updated": [
+        "apps/admin/src/pages/dossiers/DossierHistoriqueTab.tsx",
+        "exploration-cache/tasks/current-task.md",
+        "exploration-cache/QUICK-REFERENCE.md",
+        "exploration-cache/manifest.json"
+      ]
+    },
+    {
+      "date": "2026-05-25",
+      "phase": "OMA-OPS-7-HISTORIQUE-TAB-IMPLEMENTATION",
+      "created": [
+        "exploration-cache/tasks/summaries/2026-05-25-oma-ops-7-historique-tab-implementation.md",
+        "exploration-cache/tasks/history/2026-05-25-oma-ops-7-historique-tab.md"
+      ],
+      "updated": [
+        "apps/admin/src/pages/DossierDetailPage.tsx",
+        "apps/admin/src/pages/dossiers/DossierHistoriqueTab.tsx",
+        "exploration-cache/tasks/current-task.md",
+        "exploration-cache/QUICK-REFERENCE.md",
+        "exploration-cache/manifest.json"
+      ]
+    },
+    {
+      "date": "2026-05-25",
+      "phase": "OMA-OPS-7-HISTORIQUE-TAB-PLANNING",
+      "created": [
+        "exploration-cache/tasks/summaries/2026-05-25-oma-ops-7-historique-tab-plan.md"
+      ],
+      "updated": [
+        "exploration-cache/tasks/current-task.md",
+        "exploration-cache/manifest.json"
+      ]
+    },
+    {
+      "date": "2026-05-25",
+      "phase": "OMA-OPS-6-COURRIERS-TAB-IMPLEMENTATION",
+      "created": [
+        "exploration-cache/tasks/history/2026-05-25-oma-ops-6-courriers-tab.md"
+      ],
+      "updated": [
+        "apps/api/src/modules/oma-phases/oma-phase.service.ts",
+        "apps/api/src/modules/requests/request.service.ts",
+        "apps/admin/src/lib/api/dossiers.api.ts",
+        "apps/admin/src/pages/DossierDetailPage.tsx",
+        "apps/admin/src/pages/dossiers/DossierCourriersTab.tsx",
+        "exploration-cache/tasks/summaries/2026-05-25-oma-ops-6-courriers-tab.md",
+        "exploration-cache/tasks/current-task.md",
+        "exploration-cache/QUICK-REFERENCE.md",
+        "exploration-cache/manifest.json"
+      ]
+    },
+    {
+      "date": "2026-05-25",
+      "phase": "OMA-OPS-6-COURRIERS-TAB-PLANNING",
+      "created": [
+        "exploration-cache/tasks/summaries/2026-05-25-oma-ops-6-courriers-tab.md"
+      ],
+      "updated": [
+        "exploration-cache/tasks/current-task.md",
+        "exploration-cache/QUICK-REFERENCE.md",
+        "exploration-cache/manifest.json"
+      ]
+    },
+    {
+      "date": "2026-05-25",
+      "phase": "OMA-OPS-5-REUNIONS-TAB-IMPLEMENTATION",
+      "created": [
+        "exploration-cache/tasks/history/2026-05-25-oma-ops-5-reunions-tab.md"
+      ],
+      "updated": [
+        "apps/admin/src/pages/DossierDetailPage.tsx",
+        "apps/admin/src/pages/dossiers/DossierMeetingsTab.tsx",
+        "exploration-cache/tasks/summaries/2026-05-25-oma-ops-5-reunions-tab.md",
+        "exploration-cache/tasks/current-task.md",
+        "exploration-cache/QUICK-REFERENCE.md",
+        "exploration-cache/manifest.json"
+      ]
+    },
+    {
+      "date": "2026-05-25",
+      "phase": "OMA-OPS-5-REUNIONS-TAB-PLANNING",
+      "created": [
+        "exploration-cache/tasks/summaries/2026-05-25-oma-ops-5-reunions-tab.md"
+      ],
+      "updated": [
+        "exploration-cache/tasks/current-task.md",
+        "exploration-cache/manifest.json"
+      ]
+    },
+    {
+      "date": "2026-05-25",
+      "phase": "OMA-OPS-4-DOCUMENTS-TAB-DOWNLOADS",
+      "created": [
+        "exploration-cache/tasks/summaries/2026-05-25-oma-ops-4-documents-tab-downloads.md",
+        "exploration-cache/tasks/history/2026-05-25-oma-ops-4-documents-tab-downloads.md"
+      ],
+      "updated": [
+        "apps/api/src/modules/oma-phases/oma-phase.service.ts",
+        "apps/api/src/modules/admin/admin.routes.ts",
+        "apps/admin/src/pages/DossierDetailPage.tsx",
+        "apps/admin/src/pages/dossiers/DossierDocumentsTab.tsx",
+        "apps/admin/src/pages/dossiers/PreliminaryPhaseWorkspace.tsx",
+        "exploration-cache/QUICK-REFERENCE.md",
+        "exploration-cache/tasks/current-task.md",
+        "exploration-cache/manifest.json"
+      ]
+    },
     {
       "date": "2026-05-25",
       "phase": "ADMIN-SPLIT-VIEW-COMPONENT",

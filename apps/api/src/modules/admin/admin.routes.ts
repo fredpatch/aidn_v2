@@ -19,6 +19,7 @@ import {
 } from "../account-requests/account-request.service.js";
 import { listAuditLogs } from "../audit/audit.service.js";
 import {
+  downloadAdminRequestOrientationDocument,
   getAdminRequest,
   getPortalRequestMaxFileSizeBytes,
   listAdminRequests,
@@ -262,6 +263,22 @@ adminRouter.get(
   requirePermission(Permissions.REQUEST_VIEW_ALL),
   asyncHandler(async (req, res) => {
     res.json(await getAdminRequest(String(req.params.id), req.user!));
+  }),
+);
+
+adminRouter.get(
+  "/requests/:id/documents/:documentId",
+  requirePermission(Permissions.REQUEST_VIEW_ALL),
+  asyncHandler(async (req, res) => {
+    const { buffer, mimeType, fileName } = await downloadAdminRequestOrientationDocument(
+      String(req.params.id),
+      String(req.params.documentId),
+      req.user!,
+    );
+    res.set("Content-Type", mimeType);
+    res.set("Content-Disposition", `attachment; filename="${encodeURIComponent(fileName)}"`);
+    res.set("Content-Length", String(buffer.length));
+    res.end(buffer);
   }),
 );
 

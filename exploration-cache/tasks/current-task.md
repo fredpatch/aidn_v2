@@ -1,34 +1,38 @@
 # Current Task
 
-## Phase: PORTAL-H1D-2 — Convocation A4/ANAC Layout Hardening
+## Phase: OMA-OPS-2 — Dossier DN Cockpit Tabs + Phases OMA Skeleton
 
-Date: 2026-05-22
-Status: **Complete — typecheck PASS, lint PASS, build PASS**
+Date: 2026-05-25
+Status: **Complete — typecheck PASS, build PASS**
 
 ## Summary file
 
-`exploration-cache/tasks/summaries/2026-05-22-PORTAL-H1D-2-convocation-a4-anac-layout-modification.md`
+`exploration-cache/tasks/summaries/2026-05-25-oma-ops-2-dossier-cockpit-tabs.md`
 
 ## Objective
 
-Refine the printable convocation card into an A4-style institutional ANAC document using `public/header.png`.
+Refactor `DossierDetailPage.tsx` (1227 lines) into a tabbed cockpit with a phase stepper and split-view workspace. Preserve all existing preliminary phase functionality.
 
 ## Completed deliverables
 
-- `header.png` integrated as full-width document header (replaces text identity block).
-- Layout uses `max-w-[210mm]` A4-width preview on screen.
-- Toolbar separated from printable content (no-print bar above the article).
-- Field table uses `divide-y` + `border-l` (lighter, more institutional than old grid-with-borders).
-- `@page { size: A4 portrait; margin: 12mm; }` hardened.
-- `.convocation-card` print rule adds `border: none`.
-- All existing actions (Voir la convocation, Imprimer, close) preserved.
+- New folder: `apps/admin/src/pages/dossiers/` with 9 co-located files.
+- `dossier-detail.helpers.tsx`: label constants, formatDate, 8 shared micro-components.
+- `PreliminaryPhaseWorkspace.tsx`: all 5 inline forms + PreliminaryActionPanel (logic unchanged).
+- `DossierOverviewTab.tsx`: Vue d'ensemble card content.
+- `DossierPhasesTab.tsx`: left stepper (5 phases, click to select) + right workspace (preliminary or placeholder).
+- 5 stub tabs: Documents, Réunions, Courriers, Historique, Certificat.
+- `DossierDetailPage.tsx` reduced from 1227 to ~120 lines.
 
-## Verification
+## Key decisions
 
-- Portal `npm run typecheck`: PASS
-- Portal `npm run lint`: PASS
-- Portal `npm run build`: PASS (340 kB / 101 kB gzip)
+- `dossier-detail.helpers.tsx` is `.tsx` (not `.ts`) because it contains JSX.
+- `DossierPhasesTab` uses direct Tailwind class `lg:grid-cols-[1fr_2fr]` instead of `<SplitView columns="[1fr_2fr]">` to avoid Tailwind static scan gap.
+- `PhasesOverview` component dropped — replaced by interactive phase stepper.
+
+## Previous task reference
+
+OMA-OPS-1: `exploration-cache/tasks/summaries/2026-05-25-oma-ops-1-dossier-operations-ux-plan.md`
 
 ## Next step
 
-Runtime validate in browser. Awaiting next task from `prompt.md`.
+OMA-OPS-3: Phase préliminaire checklist + dialog-based actions (frontend only, no backend).

@@ -59,8 +59,6 @@ export const rolePermissions: Record<Role, Permission[]> = {
     Permissions.ORGANIZATION_MANAGE,
     Permissions.REQUEST_VIEW_ALL,
     Permissions.REQUEST_INTAKE_REVIEW,
-    Permissions.COURRIER_REGISTER_PHYSICAL,
-    Permissions.DG_CIRCUIT_HANDLE,
     Permissions.DG_DECISION_RECORD,
     Permissions.DG_DECISION_CORRECT,
     Permissions.PRE_EVAL_DG_RETURN_CONSULT,
@@ -81,7 +79,6 @@ export const rolePermissions: Record<Role, Permission[]> = {
   [Roles.DN_AGENT]: [
     Permissions.REQUEST_VIEW_ALL,
     Permissions.REQUEST_INTAKE_REVIEW,
-    Permissions.DG_CIRCUIT_HANDLE,
     Permissions.DG_DECISION_RECORD,
     Permissions.PRE_EVAL_DG_RETURN_CONSULT,
     Permissions.DOSSIER_VIEW_ALL,

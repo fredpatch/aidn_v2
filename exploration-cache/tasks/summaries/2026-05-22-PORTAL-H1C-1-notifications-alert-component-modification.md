@@ -1,7 +1,7 @@
-# PORTAL-H1C-1 — Notifications Alert Component
+# PORTAL-H1C-1 - Notifications Alert Component
 
 Date: 2026-05-22
-Status: **Complete — typecheck PASS, lint PASS, build PASS**
+Status: **Complete - typecheck PASS, lint PASS, build PASS**
 
 ## Objective
 
@@ -14,21 +14,21 @@ Replace the raw `<article>` notification rows in `NotificationsPage` with a reus
 
 ## Source files inspected
 
-- `apps/portal/package.json` — confirmed: no CVA, no cn, no shadcn
-- `apps/portal/src/components/` (glob) — flat structure, 6 components, no `ui/` subfolder
-- `apps/portal/src/pages/NotificationsPage.tsx` — prior session read
+- `apps/portal/package.json` - confirmed: no CVA, no cn, no shadcn
+- `apps/portal/src/components/` (glob) - flat structure, 6 components, no `ui/` subfolder
+- `apps/portal/src/pages/NotificationsPage.tsx` - prior session read
 
 ## Key decisions
 
-- **No `class-variance-authority`** — portal is too lean; simple typed `Record<variant, Record<appearance, string>>` used instead
-- **No `cn` utility** — plain template literal composition (`${base} ${classes}`)
-- **No `button-1` dependency** — close/action uses native `<button className="btn btn-secondary">` per existing portal pattern
-- **Flat path** — `src/components/Alert.tsx`, not `src/components/ui/alert-1.tsx`, to match existing convention
-- **No new deps installed** — zero dependency footprint change
+- **No `class-variance-authority`** - portal is too lean; simple typed `Record<variant, Record<appearance, string>>` used instead
+- **No `cn` utility** - plain template literal composition (`${base} ${classes}`)
+- **No `button-1` dependency** - close/action uses native `<button className="btn btn-secondary">` per existing portal pattern
+- **Flat path** - `src/components/Alert.tsx`, not `src/components/ui/alert-1.tsx`, to match existing convention
+- **No new deps installed** - zero dependency footprint change
 
 ## Files created
 
-- `apps/portal/src/components/Alert.tsx` — exports `Alert`, `AlertIcon`, `AlertContent`, `AlertTitle`, `AlertDescription`, `AlertToolbar`
+- `apps/portal/src/components/Alert.tsx` - exports `Alert`, `AlertIcon`, `AlertContent`, `AlertTitle`, `AlertDescription`, `AlertToolbar`
   - Variants: `info` | `secondary` | `warning` | `danger`
   - Appearances: `light` | `outline`
 
@@ -44,17 +44,17 @@ Replace the raw `<article>` notification rows in `NotificationsPage` with a reus
 
 ## Alert component mapping
 
-| Notification state | variant | appearance | Bell color |
-|--------------------|---------|------------|------------|
-| Unread | `info` | `light` | `text-sky-500` |
-| Read | `secondary` | `outline` | `text-slate-400` |
-| Error banner | `danger` | `light` | — |
+| Notification state | variant     | appearance | Bell color       |
+| ------------------ | ----------- | ---------- | ---------------- |
+| Unread             | `info`      | `light`    | `text-sky-500`   |
+| Read               | `secondary` | `outline`  | `text-slate-400` |
+| Error banner       | `danger`    | `light`    | -                |
 
 ## Verification
 
-- `npm run typecheck` — PASS
-- `npm run lint` — PASS (lint script = tsc --noEmit)
-- `npm run build` — PASS (324 kB JS / 97 kB gzip)
+- `npm run typecheck` - PASS
+- `npm run lint` - PASS (lint script = tsc --noEmit)
+- `npm run build` - PASS (324 kB JS / 97 kB gzip)
 
 ## Manual checks pending
 
@@ -69,7 +69,7 @@ Replace the raw `<article>` notification rows in `NotificationsPage` with a reus
 ## Known risks / TODOs
 
 - `warn`/`danger` variants exist in Alert but unused in NotificationsPage (available for future use)
-- Historique tab in `RequestDetailPage` is still a placeholder — future timeline API needed
+- Historique tab in `RequestDetailPage` is still a placeholder - future timeline API needed
 
 ## Next step
 

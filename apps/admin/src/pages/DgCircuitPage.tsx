@@ -22,6 +22,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { EmptyState, SkeletonCard } from "@/components/states";
+import { SplitView } from "@/components/ui/split-view";
 import { ApiError } from "@/lib/api/client";
 import {
   downloadDgCircuitTaskDocument,
@@ -158,15 +159,29 @@ function formatDate(value?: string): string {
   );
 }
 
-function saveBlob(blob: Blob, fileName: string): void {
+function openBlobPreview(
+  blob: Blob,
+  fileName: string,
+  previewWindow?: Window | null,
+): void {
   const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = fileName;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(url);
+  const targetWindow =
+    previewWindow && !previewWindow.closed
+      ? previewWindow
+      : window.open("about:blank", "_blank");
+
+  if (!targetWindow) {
+    window.alert(
+      "Impossible d'ouvrir l'aperçu. Autorisez les fenêtres contextuelles pour consulter le document.",
+    );
+    URL.revokeObjectURL(url);
+    return;
+  }
+
+  targetWindow.document.title = fileName;
+  targetWindow.location.href = url;
+
+  window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
 
 function formatApiError(err: unknown): string {
@@ -579,6 +594,12 @@ export function DgCircuitPage(): React.JSX.Element {
   };
 
   const handlePrintAndCircuit = async (task: DgCircuitTask) => {
+    const previewWindow =
+      task.documentToTransmitId &&
+      task.availableActions.includes("download_outgoing")
+        ? window.open("about:blank", "_blank")
+        : null;
+
     if (
       task.documentToTransmitId &&
       task.availableActions.includes("download_outgoing")
@@ -590,8 +611,9 @@ export function DgCircuitPage(): React.JSX.Element {
           task.id,
           task.documentToTransmitId,
         );
-        saveBlob(blob, fileName);
+        openBlobPreview(blob, fileName, previewWindow);
       } catch (err) {
+        previewWindow?.close();
         setError(formatApiError(err));
         setIsSubmitting(false);
         return;
@@ -613,12 +635,13 @@ export function DgCircuitPage(): React.JSX.Element {
 
   const downloadDocument = (task: DgCircuitTask, documentId?: string) => {
     if (!documentId) return;
+    const previewWindow = window.open("about:blank", "_blank");
     void runAction(async () => {
       const { blob, fileName } = await downloadDgCircuitTaskDocument(
         task.id,
         documentId,
       );
-      saveBlob(blob, fileName);
+      openBlobPreview(blob, fileName, previewWindow);
     });
   };
 
@@ -663,9 +686,9 @@ export function DgCircuitPage(): React.JSX.Element {
         </div>
       ) : null}
 
-      <div className="lg:grid lg:grid-cols-[2fr_3fr] lg:gap-4 lg:items-start">
-        {/* Left - task list */}
-        <div className="space-y-3">
+      <SplitView
+        left={
+          <div className="space-y-3">
           <div className="flex flex-wrap gap-2">
             {bucketTabs.map((tab) => (
               <Button
@@ -712,9 +735,9 @@ export function DgCircuitPage(): React.JSX.Element {
             <EmptyState message="Aucun courrier pour ces filtres." />
           )}
         </div>
-
-        {/* Right - detail panel */}
-        {selected ? (
+        }
+        right={
+          selected ? (
           <div className="mt-4 space-y-4 rounded-md border bg-background p-4 lg:mt-0">
             <div>
               <div className="mb-1 flex flex-wrap items-center gap-2">
@@ -829,8 +852,9 @@ export function DgCircuitPage(): React.JSX.Element {
           <div className="mt-4 hidden items-center justify-center rounded-md border border-dashed bg-background p-10 text-sm text-muted-foreground lg:mt-0 lg:flex">
             Sélectionnez un courrier pour voir son détail.
           </div>
-        )}
-      </div>
+        )
+        }
+      />
 
       {modal?.kind === "print-confirm" ? (
         <PrintConfirmDialog

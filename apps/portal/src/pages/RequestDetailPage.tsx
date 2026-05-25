@@ -301,7 +301,11 @@ export function RequestDetailPage(): React.JSX.Element {
       setError("Objet de la demande requis, minimum 3 caractères.");
       return;
     }
-    if (courrierMode === "portal_upload" && !uploadFile && !request.initialDocumentId) {
+    if (
+      courrierMode === "portal_upload" &&
+      !uploadFile &&
+      !request.initialDocumentId
+    ) {
       setError("Veuillez sélectionner le courrier initial à téléverser.");
       return;
     }
@@ -321,7 +325,10 @@ export function RequestDetailPage(): React.JSX.Element {
         subject: subject.trim(),
         message: message.trim() || undefined,
         courrierSource: courrierMode,
-        file: courrierMode === "portal_upload" ? (uploadFile ?? undefined) : undefined,
+        file:
+          courrierMode === "portal_upload"
+            ? (uploadFile ?? undefined)
+            : undefined,
         plannedPhysicalDepositDate:
           courrierMode === "physical_deposit" ? expectedDepositDate : undefined,
         depositLocation:
@@ -380,7 +387,8 @@ export function RequestDetailPage(): React.JSX.Element {
   const evidenceLabel = useMemo(() => {
     if (!request) return "Aucun courrier ajouté";
     if (request.initialDocumentId) return "Courrier initial téléversé";
-    if (request.courrierSource === "physical_deposit") return "Dépôt physique prévu";
+    if (request.courrierSource === "physical_deposit")
+      return "Dépôt physique prévu";
     return "Aucun courrier ajouté";
   }, [request]);
 
@@ -420,7 +428,7 @@ export function RequestDetailPage(): React.JSX.Element {
           <div>
             <h1 className="page-title">Détail de la demande</h1>
             <p className="page-subtitle">
-              <RequestTypeLabel type={request.requestType} /> —{" "}
+              <RequestTypeLabel type={request.requestType} /> -{" "}
               {request.subject}
             </p>
           </div>
@@ -460,7 +468,10 @@ export function RequestDetailPage(): React.JSX.Element {
             >
               {label}
               {needsBadge ? (
-                <span className="h-2 w-2 rounded-full bg-amber-400" aria-label="action requise" />
+                <span
+                  className="h-2 w-2 rounded-full bg-amber-400"
+                  aria-label="action requise"
+                />
               ) : null}
             </button>
           );
@@ -477,7 +488,8 @@ export function RequestDetailPage(): React.JSX.Element {
             </div>
           ) : null}
 
-          {request.portalStatusLabel && portalStatusGuidance[request.portalStatusLabel] ? (
+          {request.portalStatusLabel &&
+          portalStatusGuidance[request.portalStatusLabel] ? (
             <div className="rounded-md border border-sky-200 bg-sky-50 px-4 py-3 text-sm">
               <p className="font-semibold text-sky-800">
                 {request.portalStatusLabel}
@@ -493,7 +505,10 @@ export function RequestDetailPage(): React.JSX.Element {
               label="Type de demande"
               value={getRequestTypeLabel(request.requestType)}
             />
-            <InfoBlock label="Création" value={formatDateTime(request.createdAt)} />
+            <InfoBlock
+              label="Création"
+              value={formatDateTime(request.createdAt)}
+            />
             <InfoBlock
               label="Soumission"
               value={formatDateTime(request.submittedAt)}
@@ -507,7 +522,8 @@ export function RequestDetailPage(): React.JSX.Element {
             <div>
               <h2 className="text-lg font-bold text-slate-950">Informations</h2>
               <p className="mt-1 text-sm text-slate-500">
-                Les champs sont modifiables tant que la demande n'est pas soumise.
+                Les champs sont modifiables tant que la demande n'est pas
+                soumise.
               </p>
             </div>
 
@@ -587,11 +603,13 @@ export function RequestDetailPage(): React.JSX.Element {
       {tab === "courrier" ? (
         <div className="surface flex flex-col gap-5 rounded-lg p-5">
           <div>
-            <h2 className="text-lg font-bold text-slate-950">Courrier initial</h2>
+            <h2 className="text-lg font-bold text-slate-950">
+              Courrier initial
+            </h2>
             <p className="mt-1 text-sm text-slate-500">{evidenceLabel}</p>
             {detail?.document ? (
               <p className="mt-2 text-sm font-medium text-slate-700">
-                Fichier : {detail.document.fileName} —{" "}
+                Fichier : {detail.document.fileName} -{" "}
                 {Math.ceil(detail.document.fileSize / 1024)} Ko
               </p>
             ) : null}
@@ -605,7 +623,9 @@ export function RequestDetailPage(): React.JSX.Element {
           {!isSubmitted ? (
             <div className="grid gap-4 rounded-md border border-slate-200 p-4">
               <div className="field">
-                <label htmlFor="courrierMode">Mode de dépôt du courrier *</label>
+                <label htmlFor="courrierMode">
+                  Mode de dépôt du courrier *
+                </label>
                 <select
                   id="courrierMode"
                   className="control"
@@ -629,12 +649,10 @@ export function RequestDetailPage(): React.JSX.Element {
                     className="control"
                     type="file"
                     accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
-                    onChange={(e) =>
-                      setUploadFile(e.target.files?.[0] ?? null)
-                    }
+                    onChange={(e) => setUploadFile(e.target.files?.[0] ?? null)}
                   />
                   <p className="mt-1 text-xs font-medium text-slate-500">
-                    PDF, JPG ou PNG — taille maximale 10 Mo.
+                    PDF, JPG ou PNG - taille maximale 10 Mo.
                   </p>
                 </div>
               ) : (
@@ -691,7 +709,8 @@ export function RequestDetailPage(): React.JSX.Element {
               <div>
                 <p className="font-bold text-slate-950">Soumettre la demande</p>
                 <p className="mt-1 text-sm text-slate-500">
-                  Une demande soumise ne peut plus être modifiée depuis le portail.
+                  Une demande soumise ne peut plus être modifiée depuis le
+                  portail.
                 </p>
               </div>
               <button
@@ -780,7 +799,7 @@ export function RequestDetailPage(): React.JSX.Element {
                     disabled={isUploading}
                   />
                   <p className="mt-1 text-xs font-medium text-slate-500">
-                    PDF, JPG ou PNG — taille maximale 10 Mo.
+                    PDF, JPG ou PNG - taille maximale 10 Mo.
                   </p>
                 </div>
 
@@ -791,7 +810,9 @@ export function RequestDetailPage(): React.JSX.Element {
                     disabled={isUploading}
                   >
                     <Send size={16} aria-hidden="true" />
-                    {isUploading ? "Envoi en cours…" : "Soumettre le formulaire"}
+                    {isUploading
+                      ? "Envoi en cours…"
+                      : "Soumettre le formulaire"}
                   </button>
                 </div>
               </form>
@@ -802,7 +823,7 @@ export function RequestDetailPage(): React.JSX.Element {
           !dossierDetail.preliminary.canSubmitForm ? (
             <div className="flex items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
               <CheckCircle2 size={16} aria-hidden="true" />
-              Formulaire soumis — en attente d'analyse par l'ANAC.
+              Formulaire soumis - en attente d'analyse par l'ANAC.
             </div>
           ) : null}
 
@@ -912,12 +933,14 @@ export function RequestDetailPage(): React.JSX.Element {
                   }
                 >
                   <Download size={14} aria-hidden="true" />
-                  Télécharger le compte rendu — Première réunion
+                  Télécharger le compte rendu - Première réunion
                 </button>
               ) : null}
 
               <div className="flex items-center justify-between gap-3 text-xs text-slate-400">
-                <span>Ouvert le {formatDate(dossierDetail.dossier.openedAt)}</span>
+                <span>
+                  Ouvert le {formatDate(dossierDetail.dossier.openedAt)}
+                </span>
                 <button
                   type="button"
                   className="btn btn-secondary"

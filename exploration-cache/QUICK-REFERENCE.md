@@ -14,6 +14,15 @@ Last updated: 2026-05-22
 - Reusable patterns: `InviteMeetingForm`, `RecordMeetingForm`, `saveDocument`, `STATUS → portal label` map, per-status sub-components.
 - H1 slice is next; see current-task.md and summary for full roadmap.
 
+## ADMIN-ADJ-1 Notes (2026-05-25)
+
+- `dn_agent` and `dn_supervisor` no longer have `DG_CIRCUIT_HANDLE` - they cannot access `/circuit-dg` (Courriers officiels) and cannot see Imprimer/Retour DG buttons in Demandes page.
+- `dn_supervisor` also lost `COURRIER_REGISTER_PHYSICAL` - the any-of guard on `/circuit-dg` required both to be removed.
+- `Demandes` page refactored to split-view: `lg:grid lg:grid-cols-[2fr_3fr]` left-list + right-detail, auto-selects first item on load.
+- `Ouvrir dossier` → `Démarrer la phase préliminaire` (UI label only, backend enum unchanged).
+- `Prêt pour phase préliminaire` emerald badge shown in detail panel when `canOpenDossier` is true.
+- Permission constants changed: `dn_supervisor` lost `DG_CIRCUIT_HANDLE`, `COURRIER_REGISTER_PHYSICAL`; `dn_agent` lost `DG_CIRCUIT_HANDLE`.
+
 ## Current Objective Notes
 
 - PORTAL-H1D-1 implemented:

@@ -1,198 +1,65 @@
-﻿import {
+import {
+  CheckCircle2,
+  ExternalLink,
   FileCheck2,
   FileUp,
   FolderOpen,
-  Eye,
-  Printer,
-  Search,
   MessageSquareWarning,
+  Printer,
+  RefreshCcw,
+  Search,
 } from 'lucide-react';
-import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
 
 import { Badge } from '../components/ui/badge';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '../components/ui/table';
+import { Card, CardContent, CardFooter, CardHeader } from '../components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
+import { EmptyState, SkeletonCard } from '../components/states';
 import { useAuth } from '../hooks/useAuth';
 import { hasPermission } from '../lib/auth/permissions';
 import { isMockMode } from '../lib/data/data-mode';
 import {
+  downloadRequestOrientationDocument,
   getRequest,
   listRequests,
-  markPrintedForDg,
-  openDossierDn,
-  recordDgReturn,
-  registerPhysicalCourrier,
-  requestCorrection,
-  type AdminDgReview,
-  type AdminDocument,
   type AdminRequest,
   type AdminRequestDetail,
-  type AdminRequestStatus,
-  type AdminRequestType,
-  type CourrierSource,
 } from '../lib/api/requests.api';
 
-const requestTypeLabels: Record<AdminRequestType, string> = {
-  oma_recognition: 'Certificat de reconnaissance OMA',
-  oma_approval: "Certificat d'agrément OMA",
-  oma_renewal: 'Renouvellement de Certificat OMA',
-  oma_modification: 'Modification de Certificat OMA',
-};
+import { SplitView } from '../components/ui/split-view';
+import { ActionDialog, type ActionDialogState } from './requests/ActionDialog';
+import { DetailField } from './requests/DetailField';
+import { DgReturnDialog } from './requests/DgReturnDialog';
+import { RegisterPhysicalDialog } from './requests/RegisterPhysicalDialog';
+import { RequestListCard } from './requests/RequestListCard';
+import {
+  canMarkPrinted,
+  canOpenDossier,
+  canRecordDgReturn,
+  canRegisterPhysical,
+  canRequestCorrection,
+  documentSummary,
+  formatDate,
+  getStatusLabel,
+  isCancelledByDg,
+  isAwaitingDgAction,
+  isOrientedToDn,
+  requestTypeLabels,
+  sourceLabels,
+  statusBadgeVariant,
+  visibleStatusOptions,
+} from './requests/requests.helpers';
 
-const statusLabels: Record<AdminRequestStatus, string> = {
-  draft: 'Brouillon',
-  courrier_uploaded: 'Courrier ajoute',
-  courrier_physical_declared: 'Depot physique declare',
-  submitted: 'Demande soumise',
-  intake_in_review: 'Verification interne',
-  intake_requires_correction: 'Correction demandee',
-  initial_sent_to_dg: "En attente d'orientation DG",
-  initial_dg_returned: 'Retour DG recu',
-  initial_dg_decision_recorded: 'Decision DG enregistree',
-  oriented_to_dn: 'Orientée vers DN',
-  rejected: 'Annulée par DG',
-  reoriented: 'Legacy: hors MVP',
-  dossier_opened: 'Dossier ouvert',
-  closed: 'Cloturee',
-};
-
-const visibleStatusOptions = Object.entries(statusLabels).filter(([value]) => value !== 'reoriented');
-
-const sourceLabels: Record<CourrierSource, string> = {
-  portal_upload: 'Televerse portail',
-  physical_deposit: 'Depot physique',
-  internal_scan: 'Scan interne',
-  generated_from_template: 'Genere',
-};
-
-function getStatusLabel(request: AdminRequest): string {
-  if (
-    request.courrierSource === 'physical_deposit' &&
-    request.physicalDeposit?.status !== 'received' &&
-    request.status === 'submitted'
-  ) {
-    return 'Depot physique prevu';
-  }
-
-  if (
-    request.courrierSource === 'physical_deposit' &&
-    request.physicalDeposit?.status === 'received' &&
-    beforeDgStatuses.includes(request.status as (typeof beforeDgStatuses)[number])
-  ) {
-    return 'Courrier physique recu';
-  }
-
-  return statusLabels[request.status];
-}
-
-const beforeDgStatuses = ['submitted', 'intake_in_review', 'intake_requires_correction'] as const;
-
-function formatDate(value?: string): string {
-  if (!value) return '-';
-  return new Intl.DateTimeFormat('fr-FR', {
-    dateStyle: 'short',
-    timeStyle: 'short',
-  }).format(new Date(value));
-}
-
-function optional(value: string): string | undefined {
-  const next = value.trim();
-  return next ? next : undefined;
-}
-
-function statusBadgeVariant(
-  status: AdminRequestStatus,
-): 'default' | 'secondary' | 'destructive' | 'outline' {
-  if (status === 'initial_sent_to_dg' || status === 'oriented_to_dn') return 'default';
-  if (status === 'intake_requires_correction' || status === 'rejected') return 'destructive';
-  if (status === 'intake_in_review') return 'secondary';
-  return 'outline';
-}
-
-function isDgReturnComplete(request: AdminRequest, dgReview?: AdminDgReview): boolean {
-  const review = dgReview ?? request.dgReview;
-
+function KpiCard({ title, value }: { title: string; value: number }) {
   return (
-    request.status === 'oriented_to_dn' &&
-    review?.decision === 'oriented_to_dn' &&
-    Boolean(review.returnedScannedDocumentId)
-  );
-}
-
-function canOpenDossier(request: AdminRequest, dgReview?: AdminDgReview): boolean {
-  return isDgReturnComplete(request, dgReview) && !request.dossierId;
-}
-
-function canRequestCorrection(request: AdminRequest): boolean {
-  return request.status === 'submitted' || request.status === 'intake_in_review';
-}
-
-function canRegisterPhysical(request: AdminRequest): boolean {
-  return (
-    request.courrierSource === 'physical_deposit' &&
-    request.physicalDeposit?.status !== 'received' &&
-    beforeDgStatuses.includes(request.status as (typeof beforeDgStatuses)[number])
-  );
-}
-
-function canMarkPrinted(request: AdminRequest): boolean {
-  return (
-    request.courrierSource !== 'physical_deposit' &&
-    hasEvidence(request) &&
-    !request.intake?.printedForDgAt &&
-    (request.status === 'submitted' || request.status === 'intake_in_review')
-  );
-}
-
-function isAwaitingDgAction(request: AdminRequest): boolean {
-  return request.status === 'initial_sent_to_dg';
-}
-
-function isOrientedToDn(request: AdminRequest): boolean {
-  return request.status === 'oriented_to_dn' || request.status === 'dossier_opened';
-}
-
-function isCancelledByDg(request: AdminRequest): boolean {
-  return request.status === 'rejected';
-}
-
-function canRecordDgReturn(request: AdminRequest): boolean {
-  return request.status === 'initial_sent_to_dg';
-}
-
-function hasEvidence(request: AdminRequest): boolean {
-  if (request.courrierSource === 'physical_deposit') {
-    return Boolean(request.initialDocumentId && request.physicalDeposit?.status === 'received');
-  }
-
-  return Boolean(
-    request.initialDocumentId ||
-      request.initialCourrierId ||
-      request.physicalDeposit?.declaredAt,
-  );
-}
-
-function documentSummary(document?: AdminDocument): string {
-  if (!document) return '-';
-  return `${document.fileName} (${Math.ceil(document.fileSize / 1024)} Ko)`;
-}
-
-function KpiCard({ title, value }: { title: string; value: number }): React.JSX.Element {
-  return (
-    <div className="surface rounded-lg p-4">
-      <p className="text-sm text-slate-500">{title}</p>
-      <p className="mt-2 text-2xl font-bold text-slate-950 dark:text-white">{value}</p>
+    <div className="surface rounded-lg p-3">
+      <p className="text-xs text-slate-500">{title}</p>
+      <p className="mt-1 text-xl font-bold text-slate-950 dark:text-white">{value}</p>
     </div>
   );
 }
 
-export function RequestsPage(): React.JSX.Element {
+export function RequestsPage() {
   const { user } = useAuth();
   const [items, setItems] = useState<AdminRequest[]>([]);
   const [selected, setSelected] = useState<AdminRequestDetail | null>(null);
@@ -216,42 +83,19 @@ export function RequestsPage(): React.JSX.Element {
     [user],
   );
 
-  const loadRequests = async () => {
-    setError('');
-    setIsLoading(true);
-    try {
-      if (isMockMode()) {
-        setItems([]);
-        return;
-      }
-
-      const response = await listRequests({
-        search,
-        status,
-        requestType,
-        courrierSource,
-      });
-      setItems(response.items);
-    } catch {
-      setError('Impossible de charger les demandes recues.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    void loadRequests();
-  }, []);
-
   const stats = useMemo(
     () => ({
       submitted: items.filter((item) => item.status === 'submitted').length,
       portalUploads: items.filter((item) => item.courrierSource === 'portal_upload').length,
       physicalDepositsPlanned: items.filter(
-        (item) => item.courrierSource === 'physical_deposit' && item.physicalDeposit?.status !== 'received',
+        (item) =>
+          item.courrierSource === 'physical_deposit' &&
+          item.physicalDeposit?.status !== 'received',
       ).length,
       physicalDepositsReceived: items.filter(
-        (item) => item.courrierSource === 'physical_deposit' && item.physicalDeposit?.status === 'received',
+        (item) =>
+          item.courrierSource === 'physical_deposit' &&
+          item.physicalDeposit?.status === 'received',
       ).length,
       awaitingDg: items.filter(isAwaitingDgAction).length,
       orientedToDn: items.filter(isOrientedToDn).length,
@@ -259,6 +103,35 @@ export function RequestsPage(): React.JSX.Element {
     }),
     [items],
   );
+
+  const loadRequests = async (autoSelectFirst = false) => {
+    setError('');
+    setIsLoading(true);
+    try {
+      if (isMockMode()) {
+        setItems([]);
+        return;
+      }
+      const response = await listRequests({ search, status, requestType, courrierSource });
+      setItems(response.items);
+      if (autoSelectFirst && response.items.length > 0) {
+        try {
+          const detail = await getRequest(response.items[0].id);
+          setSelected(detail);
+        } catch {
+          // auto-select failure is non-fatal
+        }
+      }
+    } catch {
+      setError('Impossible de charger les demandes reçues.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadRequests(true);
+  }, []);
 
   const refreshDetail = async (id: string) => {
     if (isMockMode()) return;
@@ -281,8 +154,34 @@ export function RequestsPage(): React.JSX.Element {
       }
       setSelected(await getRequest(request.id));
     } catch {
-      setError('Impossible de charger le detail de la demande.');
+      setError('Impossible de charger le détail de la demande.');
     }
+  };
+
+  const consultOrientationCourrier = (requestId: string, documentId: string) => {
+    const previewWindow = window.open('about:blank', '_blank');
+    setError('');
+    void (async () => {
+      try {
+        const { blob, fileName } = await downloadRequestOrientationDocument(requestId, documentId);
+        const url = URL.createObjectURL(blob);
+        const targetWindow =
+          previewWindow && !previewWindow.closed
+            ? previewWindow
+            : window.open('about:blank', '_blank');
+        if (!targetWindow) {
+          window.alert(
+            "Impossible d'ouvrir l'aperçu. Autorisez les fenêtres contextuelles pour consulter le document.",
+          );
+          return;
+        }
+        targetWindow.location.href = url;
+        targetWindow.document.title = fileName;
+      } catch {
+        previewWindow?.close();
+        setError("Impossible d'ouvrir le courrier orienté.");
+      }
+    })();
   };
 
   const handleFilter = (event: FormEvent<HTMLFormElement>) => {
@@ -290,75 +189,35 @@ export function RequestsPage(): React.JSX.Element {
     void loadRequests();
   };
 
+  const { request, courrier, document: doc, dgReview } = selected ?? {};
+
   return (
     <div className="page-container">
       <div className="page-header">
         <div>
           <h1 className="page-title">Demandes</h1>
-          <p className="page-subtitle">
-            Suivi des demandes initiales avant orientation DG.
-          </p>
+          <p className="page-subtitle">Suivi des demandes initiales avant orientation DG.</p>
         </div>
+        <button
+          className="btn btn-secondary"
+          type="button"
+          onClick={() => void loadRequests()}
+          disabled={isLoading}
+        >
+          <RefreshCcw className="h-4 w-4" aria-hidden="true" />
+          Actualiser
+        </button>
       </div>
 
-      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-7">
-        <KpiCard title="Demandes soumises" value={stats.submitted} />
+      <section className="grid gap-2 sm:grid-cols-4 lg:grid-cols-7">
+        <KpiCard title="Soumises" value={stats.submitted} />
         <KpiCard title="Téléversées portail" value={stats.portalUploads} />
-        <KpiCard title="Depots physiques prevus" value={stats.physicalDepositsPlanned} />
-        <KpiCard title="Courriers physiques recus" value={stats.physicalDepositsReceived} />
+        <KpiCard title="Dépôts prévus" value={stats.physicalDepositsPlanned} />
+        <KpiCard title="Courriers reçus" value={stats.physicalDepositsReceived} />
         <KpiCard title="En attente DG" value={stats.awaitingDg} />
         <KpiCard title="Orientées DN" value={stats.orientedToDn} />
         <KpiCard title="Annulées DG" value={stats.cancelledByDg} />
       </section>
-
-      <form
-        className="surface grid gap-3 rounded-lg p-4 md:grid-cols-[1fr_190px_190px_190px_auto]"
-        onSubmit={handleFilter}
-      >
-        <input
-          className="control"
-          placeholder="Rechercher par objet, organisation ou postulant..."
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-        />
-        <select
-          className="control"
-          value={status}
-          onChange={(event) => setStatus(event.target.value)}
-        >
-          <option value="">Tous les statuts</option>
-          {visibleStatusOptions.map(([value, label]) => (
-            <option key={value} value={value}>
-              {label}
-            </option>
-          ))}
-        </select>
-        <select
-          className="control"
-          value={requestType}
-          onChange={(event) => setRequestType(event.target.value)}
-        >
-          <option value="">Tous les types</option>
-          {Object.entries(requestTypeLabels).map(([value, label]) => (
-            <option key={value} value={value}>
-              {label}
-            </option>
-          ))}
-        </select>
-        <select
-          className="control"
-          value={courrierSource}
-          onChange={(event) => setCourrierSource(event.target.value)}
-        >
-          <option value="">Toutes les sources</option>
-          <option value="portal_upload">Televerse portail</option>
-          <option value="physical_deposit">Depot physique</option>
-        </select>
-        <button className="btn btn-primary" type="submit" disabled={isLoading}>
-          <Search className="h-4 w-4" aria-hidden="true" />
-          Filtrer
-        </button>
-      </form>
 
       {success ? (
         <p className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
@@ -371,89 +230,380 @@ export function RequestsPage(): React.JSX.Element {
         </p>
       ) : null}
 
-      <section className="surface overflow-hidden rounded-lg">
-        <Table className="min-w-[1120px]">
-          <TableHeader className="bg-slate-50 text-xs uppercase text-slate-500 dark:bg-slate-800 dark:text-slate-300">
-            <TableRow>
-              <TableHead>Date</TableHead>
-              <TableHead>Organisation</TableHead>
-              <TableHead>Postulant</TableHead>
-              <TableHead>Type</TableHead>
-              <TableHead>Objet</TableHead>
-              <TableHead>Source courrier</TableHead>
-              <TableHead>Statut</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {items.map((item) => (
-              <TableRow key={item.id}>
-                <TableCell className="whitespace-nowrap text-slate-600 dark:text-slate-300">
-                  {formatDate(item.submittedAt ?? item.createdAt)}
-                </TableCell>
-                <TableCell className="font-semibold text-slate-900 dark:text-slate-100">
-                  {item.organization?.canonicalName ?? item.organizationId}
-                </TableCell>
-                <TableCell>{item.submittedBy?.fullName ?? item.submittedBy?.email ?? item.submittedById}</TableCell>
-                <TableCell>{requestTypeLabels[item.requestType]}</TableCell>
-                <TableCell className="max-w-[220px] truncate">{item.subject}</TableCell>
-                <TableCell>{item.courrierSource ? sourceLabels[item.courrierSource] : '-'}</TableCell>
-                <TableCell>
-                  <Badge variant={statusBadgeVariant(item.status)}>
-                    {getStatusLabel(item)}
-                  </Badge>
-                </TableCell>
-                <TableCell>
-                  <div className="flex flex-wrap justify-end gap-2">
-                    <button className="btn btn-secondary" type="button" onClick={() => void openDetails(item)}>
-                      <Eye className="h-4 w-4" aria-hidden="true" />
-                      Voir
-                    </button>
-                    {permissions.canReview && canOpenDossier(item) ? (
-                      <button className="btn btn-secondary" type="button" onClick={() => setDialog({ kind: 'open_dossier', request: item })}>
-                        <FolderOpen className="h-4 w-4" aria-hidden="true" />
-                        Ouvrir dossier
-                      </button>
-                    ) : null}
-                    {permissions.canHandleDg && canMarkPrinted(item) ? (
-                      <button className="btn btn-secondary" type="button" onClick={() => setDialog({ kind: 'print', request: item })}>
-                        <Printer className="h-4 w-4" aria-hidden="true" />
-                        Imprimer
-                      </button>
-                    ) : null}
-                    {permissions.canHandleDg && canRecordDgReturn(item) ? (
-                      <button className="btn btn-primary" type="button" onClick={() => setDgReturnTarget(item)}>
-                        <FileCheck2 className="h-4 w-4" aria-hidden="true" />
-                        Retour DG
-                      </button>
-                    ) : null}
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
-            {!items.length ? (
-              <TableRow>
-                <TableCell colSpan={8} className="px-4 py-8 text-center text-slate-500">
-                  {isLoading ? 'Chargement...' : 'Aucune demande recue trouvee.'}
-                </TableCell>
-              </TableRow>
-            ) : null}
-          </TableBody>
-        </Table>
-      </section>
+      <SplitView
+        left={
+          <div className="space-y-3">
+          <form className="space-y-2" onSubmit={handleFilter}>
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+              <input
+                className="control pl-9"
+                placeholder="Organisme, postulant, objet…"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+              />
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              <select
+                className="control"
+                value={status}
+                onChange={(event) => setStatus(event.target.value)}
+              >
+                <option value="">Tous statuts</option>
+                {visibleStatusOptions.map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+              <select
+                className="control"
+                value={requestType}
+                onChange={(event) => setRequestType(event.target.value)}
+              >
+                <option value="">Tous types</option>
+                {Object.entries(requestTypeLabels).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+              <select
+                className="control"
+                value={courrierSource}
+                onChange={(event) => setCourrierSource(event.target.value)}
+              >
+                <option value="">Toutes sources</option>
+                <option value="portal_upload">Portail</option>
+                <option value="physical_deposit">Physique</option>
+              </select>
+            </div>
+            <button className="btn btn-primary w-full" type="submit" disabled={isLoading}>
+              <Search className="h-4 w-4" aria-hidden="true" />
+              Filtrer
+            </button>
+          </form>
 
-      {selected ? (
-        <DetailDrawer
-          detail={selected}
-          permissions={permissions}
-          onClose={() => setSelected(null)}
-          onStart={(request) => setDialog({ kind: 'open_dossier', request })}
-          onCorrection={(request) => setDialog({ kind: 'correction', request })}
-          onRegister={(request) => setRegisterTarget(request)}
-          onPrint={(request) => setDialog({ kind: 'print', request })}
-          onDgReturn={(request) => setDgReturnTarget(request)}
-        />
-      ) : null}
+          {isLoading ? (
+            <div className="grid gap-2">
+              <SkeletonCard lines={3} />
+              <SkeletonCard lines={3} />
+              <SkeletonCard lines={3} />
+            </div>
+          ) : items.length > 0 ? (
+            <div className="grid gap-2">
+              {items.map((item) => (
+                <RequestListCard
+                  key={item.id}
+                  item={item}
+                  isSelected={selected?.request.id === item.id}
+                  onClick={() => void openDetails(item)}
+                />
+              ))}
+            </div>
+          ) : (
+            <EmptyState message="Aucune demande trouvée pour ces filtres." />
+          )}
+        </div>
+        }
+        right={
+          request ? (
+          <Card className="mt-4 lg:mt-0">
+            <CardHeader className="px-4 pb-3 pt-4">
+              <div className="flex flex-wrap items-center gap-1.5">
+                <Badge variant={statusBadgeVariant(request.status)}>
+                  {getStatusLabel(request)}
+                </Badge>
+                {canOpenDossier(request, dgReview) ? (
+                  <Badge
+                    variant="outline"
+                    className="border-emerald-200 bg-emerald-50 text-emerald-700"
+                  >
+                    <CheckCircle2 className="mr-1 h-3 w-3" aria-hidden="true" />
+                    Prêt pour phase préliminaire
+                  </Badge>
+                ) : null}
+              </div>
+              <h2 className="mt-1 text-base font-semibold leading-tight text-slate-950 dark:text-white">
+                {request.subject}
+              </h2>
+              <div className="mt-0.5 space-y-0.5">
+                <p className="text-sm text-muted-foreground">
+                  {request.organization?.canonicalName ?? request.organizationId}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {request.submittedBy?.fullName ?? request.submittedBy?.email ?? '-'}
+                  {request.courrierSource ? (
+                    <span className="ml-2 text-slate-400">
+                      · {sourceLabels[request.courrierSource]}
+                    </span>
+                  ) : null}
+                </p>
+              </div>
+            </CardHeader>
+
+            <CardContent className="px-4 pb-0">
+              <Tabs defaultValue="demande">
+                <TabsList className="flex h-auto flex-wrap gap-0.5 bg-muted px-1 py-1">
+                  <TabsTrigger value="demande" className="px-2.5 py-1 text-xs">
+                    Demande
+                  </TabsTrigger>
+                  <TabsTrigger value="postulant" className="px-2.5 py-1 text-xs">
+                    Postulant
+                  </TabsTrigger>
+                  <TabsTrigger value="organisation" className="px-2.5 py-1 text-xs">
+                    Organisation
+                  </TabsTrigger>
+                  <TabsTrigger value="courrier" className="px-2.5 py-1 text-xs">
+                    Courrier
+                  </TabsTrigger>
+                  <TabsTrigger value="verification" className="px-2.5 py-1 text-xs">
+                    Vérification interne
+                  </TabsTrigger>
+                  <TabsTrigger value="orientation" className="px-2.5 py-1 text-xs">
+                    Orientation
+                  </TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="demande">
+                  <dl className="grid gap-3 pt-3 sm:grid-cols-2">
+                    <DetailField label="Type" value={requestTypeLabels[request.requestType]} />
+                    <DetailField label="Statut" value={getStatusLabel(request)} />
+                    <DetailField label="Création" value={formatDate(request.createdAt)} />
+                    <DetailField label="Soumission" value={formatDate(request.submittedAt)} />
+                    <DetailField
+                      label="Objet"
+                      value={request.subject}
+                      className="sm:col-span-2"
+                    />
+                    <DetailField
+                      label="Message"
+                      value={request.message}
+                      className="sm:col-span-2"
+                    />
+                  </dl>
+                </TabsContent>
+
+                <TabsContent value="postulant">
+                  <dl className="grid gap-3 pt-3 sm:grid-cols-2">
+                    <DetailField label="Nom" value={request.submittedBy?.fullName} />
+                    <DetailField label="Email" value={request.submittedBy?.email} />
+                    <DetailField label="Téléphone" value={request.submittedBy?.phone} />
+                  </dl>
+                </TabsContent>
+
+                <TabsContent value="organisation">
+                  <dl className="grid gap-3 pt-3 sm:grid-cols-2">
+                    <DetailField
+                      label="Nom canonique"
+                      value={request.organization?.canonicalName}
+                      className="sm:col-span-2"
+                    />
+                    <DetailField label="Email" value={request.organization?.email} />
+                    <DetailField label="Téléphone" value={request.organization?.phone} />
+                    <DetailField
+                      label="Adresse légale"
+                      value={request.organization?.legalAddress}
+                      className="sm:col-span-2"
+                    />
+                  </dl>
+                </TabsContent>
+
+                <TabsContent value="courrier">
+                  <dl className="grid gap-3 pt-3 sm:grid-cols-2">
+                    <DetailField
+                      label="Source"
+                      value={
+                        courrier?.source
+                          ? sourceLabels[courrier.source]
+                          : request.courrierSource
+                            ? sourceLabels[request.courrierSource]
+                            : undefined
+                      }
+                    />
+                    <DetailField label="Document" value={documentSummary(doc)} />
+                    <DetailField label="Référence officielle" value={courrier?.officialReference} />
+                    <DetailField
+                      label="Date dépôt physique réel"
+                      value={formatDate(
+                        courrier?.physicalDepositDate ??
+                          request.physicalDeposit?.physicalDepositDate,
+                      )}
+                    />
+                    <DetailField
+                      label="Date prévue dépôt"
+                      value={formatDate(request.physicalDeposit?.expectedDepositDate)}
+                    />
+                    <DetailField
+                      label="Notes"
+                      value={courrier?.notes ?? request.physicalDeposit?.notes}
+                      className="sm:col-span-2"
+                    />
+                  </dl>
+                </TabsContent>
+
+                <TabsContent value="verification">
+                  <dl className="grid gap-3 pt-3 sm:grid-cols-2">
+                    <DetailField
+                      label="Démarrée le"
+                      value={formatDate(request.intake?.startedAt)}
+                    />
+                    <DetailField
+                      label="Démarrée par"
+                      value={
+                        request.intake?.startedBy?.fullName ?? request.intake?.startedById
+                      }
+                    />
+                    <DetailField
+                      label="Correction demandée le"
+                      value={formatDate(request.intake?.correctionRequestedAt)}
+                    />
+                    <DetailField
+                      label="Motif correction"
+                      value={request.intake?.correctionReason}
+                      className="sm:col-span-2"
+                    />
+                    <DetailField
+                      label="Imprimé le"
+                      value={formatDate(request.intake?.printedForDgAt)}
+                    />
+                    <DetailField
+                      label="Imprimé par"
+                      value={
+                        request.intake?.printedForDgBy?.fullName ?? request.intake?.printedForDgById
+                      }
+                    />
+                    <DetailField
+                      label="Circuit DG depuis"
+                      value={formatDate(
+                        request.intake?.sentToDgAt ?? request.intake?.printedForDgAt,
+                      )}
+                    />
+                    <DetailField
+                      label="Notes"
+                      value={request.intake?.notes}
+                      className="sm:col-span-2"
+                    />
+                  </dl>
+                </TabsContent>
+
+                <TabsContent value="orientation">
+                  <dl className="grid gap-3 pt-3 sm:grid-cols-2">
+                    <DetailField
+                      label="Date retour"
+                      value={formatDate(dgReview?.returnedFromDgAt)}
+                    />
+                    <DetailField
+                      label="Décision"
+                      value={
+                        dgReview?.decision === 'oriented_to_dn'
+                          ? 'Orientée vers DN'
+                          : dgReview?.decision === 'rejected'
+                            ? 'Annulée par DG'
+                            : undefined
+                      }
+                    />
+                    <DetailField
+                      label="Observations"
+                      value={dgReview?.observations}
+                      className="sm:col-span-2"
+                    />
+                    <div className="sm:col-span-2">
+                      <dt className="text-xs font-medium text-muted-foreground">
+                        Courrier orienté scanné
+                      </dt>
+                      {dgReview?.returnedScannedDocumentId ? (
+                        <dd className="mt-1 flex flex-col gap-1.5">
+                          <button
+                            type="button"
+                            className="btn btn-secondary inline-flex w-fit items-center gap-1.5 text-xs"
+                            onClick={() =>
+                              consultOrientationCourrier(
+                                request.id,
+                                dgReview.returnedScannedDocumentId!,
+                              )
+                            }
+                          >
+                            <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+                            Consulter le courrier orienté
+                          </button>
+                          {canOpenDossier(request, dgReview) && (
+                            <p className="text-xs text-muted-foreground">
+                              Consultation facultative avant démarrage de la phase préliminaire.
+                            </p>
+                          )}
+                        </dd>
+                      ) : (
+                        <dd className="mt-1 text-sm text-muted-foreground">
+                          Aucun courrier orienté scanné disponible.
+                        </dd>
+                      )}
+                    </div>
+                  </dl>
+                </TabsContent>
+              </Tabs>
+            </CardContent>
+
+            <CardFooter className="flex flex-wrap justify-end gap-2 px-4 pb-4 pt-4">
+              {permissions.canReview && canRequestCorrection(request) ? (
+                <button
+                  className="btn btn-danger"
+                  type="button"
+                  onClick={() => setDialog({ kind: 'correction', request })}
+                >
+                  <MessageSquareWarning className="h-4 w-4" aria-hidden="true" />
+                  Demander correction
+                </button>
+              ) : null}
+              {permissions.canRegister && canRegisterPhysical(request) ? (
+                <button
+                  className="btn btn-secondary"
+                  type="button"
+                  onClick={() => setRegisterTarget(request)}
+                >
+                  <FileUp className="h-4 w-4" aria-hidden="true" />
+                  Enregistrer réception courrier
+                </button>
+              ) : null}
+              {permissions.canHandleDg && canMarkPrinted(request) ? (
+                <button
+                  className="btn btn-secondary"
+                  type="button"
+                  onClick={() => setDialog({ kind: 'print', request })}
+                >
+                  <Printer className="h-4 w-4" aria-hidden="true" />
+                  Imprimer
+                </button>
+              ) : null}
+              {permissions.canHandleDg && canRecordDgReturn(request) ? (
+                <button
+                  className="btn btn-primary"
+                  type="button"
+                  onClick={() => setDgReturnTarget(request)}
+                >
+                  <FileCheck2 className="h-4 w-4" aria-hidden="true" />
+                  Enregistrer le retour DG
+                </button>
+              ) : null}
+              {permissions.canReview && canOpenDossier(request, dgReview) ? (
+                <button
+                  className="btn btn-primary"
+                  type="button"
+                  onClick={() => setDialog({ kind: 'open_dossier', request })}
+                >
+                  <FolderOpen className="h-4 w-4" aria-hidden="true" />
+                  Démarrer la phase préliminaire
+                </button>
+              ) : null}
+            </CardFooter>
+          </Card>
+        ) : (
+          <div className="mt-4 flex items-center justify-center rounded-md border border-dashed p-8 text-sm text-muted-foreground lg:mt-0">
+            Sélectionnez une demande dans la liste pour voir les détails.
+          </div>
+        )
+        }
+      />
 
       {dialog ? (
         <ActionDialog
@@ -474,7 +624,7 @@ export function RequestsPage(): React.JSX.Element {
           onError={setError}
           onDone={async (id) => {
             setRegisterTarget(null);
-            await refreshAfterMutation(id, 'Courrier physique enregistre.');
+            await refreshAfterMutation(id, 'Courrier physique enregistré.');
           }}
         />
       ) : null}
@@ -486,530 +636,10 @@ export function RequestsPage(): React.JSX.Element {
           onError={setError}
           onDone={async (id) => {
             setDgReturnTarget(null);
-            await refreshAfterMutation(id, 'Retour DG enregistre.');
+            await refreshAfterMutation(id, 'Retour DG enregistré.');
           }}
         />
       ) : null}
-    </div>
-  );
-}
-
-function DetailDrawer({
-  detail,
-  permissions,
-  onClose,
-  onStart,
-  onCorrection,
-  onRegister,
-  onPrint,
-  onDgReturn,
-}: {
-  detail: AdminRequestDetail;
-  permissions: { canReview: boolean; canRegister: boolean; canHandleDg: boolean };
-  onClose: () => void;
-  onStart: (request: AdminRequest) => void;
-  onCorrection: (request: AdminRequest) => void;
-  onRegister: (request: AdminRequest) => void;
-  onPrint: (request: AdminRequest) => void;
-  onDgReturn: (request: AdminRequest) => void;
-}): React.JSX.Element {
-  const { request, courrier, document, dgReview } = detail;
-
-  return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-slate-950/50">
-      <section className="surface h-full w-full max-w-3xl overflow-y-auto p-6">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h2 className="text-xl font-bold text-slate-950 dark:text-white">
-              Detail de la demande
-            </h2>
-            <p className="mt-1 text-sm text-slate-500">
-              {request.organization?.canonicalName ?? request.organizationId}
-            </p>
-          </div>
-          <button className="btn btn-secondary" type="button" onClick={onClose}>
-            Fermer
-          </button>
-        </div>
-
-        <div className="mt-6 grid gap-5">
-          <DetailSection title="Demande">
-            <DetailField label="Type" value={requestTypeLabels[request.requestType]} />
-            <DetailField label="Objet" value={request.subject} />
-            <DetailField label="Message" value={request.message} />
-            <DetailField label="Statut" value={getStatusLabel(request)} />
-            <DetailField label="Creation" value={formatDate(request.createdAt)} />
-            <DetailField label="Soumission" value={formatDate(request.submittedAt)} />
-          </DetailSection>
-
-          <DetailSection title="Postulant">
-            <DetailField label="Nom" value={request.submittedBy?.fullName} />
-            <DetailField label="Email" value={request.submittedBy?.email} />
-            <DetailField label="Telephone" value={request.submittedBy?.phone} />
-          </DetailSection>
-
-          <DetailSection title="Organisation">
-            <DetailField label="Nom canonique" value={request.organization?.canonicalName} />
-            <DetailField label="Email" value={request.organization?.email} />
-            <DetailField label="Telephone" value={request.organization?.phone} />
-            <DetailField label="Adresse legale" value={request.organization?.legalAddress} />
-          </DetailSection>
-
-          <DetailSection title="Courrier">
-            <DetailField label="Source" value={courrier?.source ? sourceLabels[courrier.source] : request.courrierSource ? sourceLabels[request.courrierSource] : undefined} />
-            <DetailField label="Document" value={documentSummary(document)} />
-            <DetailField label="Reference officielle" value={courrier?.officialReference} />
-            <DetailField label="Date depot physique reel" value={formatDate(courrier?.physicalDepositDate ?? request.physicalDeposit?.physicalDepositDate)} />
-            <DetailField label="Date prevue depot" value={formatDate(request.physicalDeposit?.expectedDepositDate)} />
-            <DetailField label="Notes" value={courrier?.notes ?? request.physicalDeposit?.notes} />
-          </DetailSection>
-
-          <DetailSection title="Verification interne">
-            <DetailField label="Demarree le" value={formatDate(request.intake?.startedAt)} />
-            <DetailField label="Demarree par" value={request.intake?.startedBy?.fullName ?? request.intake?.startedById} />
-            <DetailField label="Correction demandee le" value={formatDate(request.intake?.correctionRequestedAt)} />
-            <DetailField label="Motif correction" value={request.intake?.correctionReason} />
-            <DetailField label="Imprime le" value={formatDate(request.intake?.printedForDgAt)} />
-            <DetailField label="Imprime par" value={request.intake?.printedForDgBy?.fullName ?? request.intake?.printedForDgById} />
-            <DetailField label="Circuit DG depuis" value={formatDate(request.intake?.sentToDgAt ?? request.intake?.printedForDgAt)} />
-            <DetailField label="Notes" value={request.intake?.notes} />
-          </DetailSection>
-
-          <DetailSection title="Retour DG">
-            <DetailField label="Date retour" value={formatDate(dgReview?.returnedFromDgAt)} />
-            <DetailField label="Decision" value={dgReview?.decision === 'oriented_to_dn' ? 'Orientée vers DN' : dgReview?.decision === 'rejected' ? 'Annulée par DG' : undefined} />
-            <DetailField label="Observations" value={dgReview?.observations} />
-            <DetailField label="Scan retour" value={dgReview?.returnedScannedDocumentId ? 'Document enregistre' : undefined} />
-          </DetailSection>
-        </div>
-
-        <div className="mt-6 flex flex-wrap justify-end gap-2">
-          {permissions.canReview && canOpenDossier(request, dgReview) ? (
-            <button className="btn btn-secondary" type="button" onClick={() => onStart(request)}>
-              <FolderOpen className="h-4 w-4" aria-hidden="true" />
-              Ouvrir le dossier DN
-            </button>
-          ) : null}
-          {permissions.canReview && canRequestCorrection(request) ? (
-            <button className="btn btn-danger" type="button" onClick={() => onCorrection(request)}>
-              <MessageSquareWarning className="h-4 w-4" aria-hidden="true" />
-              Demander correction
-            </button>
-          ) : null}
-          {permissions.canRegister && canRegisterPhysical(request) ? (
-            <button className="btn btn-secondary" type="button" onClick={() => onRegister(request)}>
-              <FileUp className="h-4 w-4" aria-hidden="true" />
-              Enregistrer reception courrier
-            </button>
-          ) : null}
-          {permissions.canHandleDg && canMarkPrinted(request) ? (
-            <button className="btn btn-secondary" type="button" onClick={() => onPrint(request)}>
-              <Printer className="h-4 w-4" aria-hidden="true" />
-              Imprimer
-            </button>
-          ) : null}
-          {permissions.canHandleDg && canRecordDgReturn(request) ? (
-            <button className="btn btn-primary" type="button" onClick={() => onDgReturn(request)}>
-              <FileCheck2 className="h-4 w-4" aria-hidden="true" />
-              Enregistrer le retour DG
-            </button>
-          ) : null}
-        </div>
-      </section>
-    </div>
-  );
-}
-
-type ActionDialogState = {
-  kind: 'open_dossier' | 'correction' | 'print';
-  request: AdminRequest;
-};
-
-function ActionDialog({
-  state,
-  onClose,
-  onDone,
-  onError,
-}: {
-  state: ActionDialogState;
-  onClose: () => void;
-  onDone: (id: string, message: string) => Promise<void>;
-  onError: (message: string) => void;
-}): React.JSX.Element {
-  const [text, setText] = useState('');
-  const [localError, setLocalError] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const copy = {
-    open_dossier: {
-      title: 'Ouvrir le dossier DN',
-      label: 'Notes',
-      button: 'Ouvrir le dossier',
-      success: 'Dossier DN ouvert.',
-      icon: FolderOpen,
-    },
-    correction: {
-      title: 'Demander correction',
-      label: 'Motif',
-      button: 'Demander correction',
-      success: 'Correction demandee au postulant.',
-      icon: MessageSquareWarning,
-    },
-    print: {
-      title: 'Imprimer',
-      label: 'Notes',
-      button: 'Imprimer',
-      success: "Demande en attente d'orientation DG.",
-      icon: Printer,
-    },
-  }[state.kind];
-  const Icon = copy.icon;
-
-  const handleSubmit = async () => {
-    setLocalError('');
-
-    if (state.kind === 'correction' && !text.trim()) {
-      setLocalError('Le motif est requis.');
-      return;
-    }
-
-    setIsSubmitting(true);
-    try {
-      if (!isMockMode()) {
-        if (state.kind === 'open_dossier') {
-          await openDossierDn(state.request.id, { notes: optional(text) });
-        } else if (state.kind === 'correction') {
-          await requestCorrection(state.request.id, { reason: text.trim() });
-        } else if (state.kind === 'print') {
-          await markPrintedForDg(state.request.id, { notes: optional(text) });
-        }
-      }
-      await onDone(state.request.id, copy.success);
-    } catch {
-      onError('Action impossible sur cette demande.');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 z-[60] grid place-items-center bg-slate-950/50 px-4">
-      <section className="surface w-full max-w-lg rounded-lg p-6">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h2 className="flex items-center gap-2 text-lg font-bold text-slate-950 dark:text-white">
-              <Icon className="h-5 w-5" aria-hidden="true" />
-              {copy.title}
-            </h2>
-            <p className="mt-1 text-sm text-slate-500">{state.request.subject}</p>
-          </div>
-          <button className="btn btn-secondary" type="button" onClick={onClose}>
-            Annuler
-          </button>
-        </div>
-
-        <label className="mt-5 block text-sm font-medium text-slate-700 dark:text-slate-200">
-          {copy.label}
-          <textarea
-            className="control mt-1 min-h-28"
-            value={text}
-            onChange={(event) => setText(event.target.value)}
-          />
-        </label>
-
-        {localError ? (
-          <p className="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-            {localError}
-          </p>
-        ) : null}
-
-        <div className="mt-5 flex justify-end gap-2">
-          <button className="btn btn-secondary" type="button" onClick={onClose}>
-            Annuler
-          </button>
-          <button className="btn btn-primary" type="button" onClick={handleSubmit} disabled={isSubmitting}>
-            <Icon className="h-4 w-4" aria-hidden="true" />
-            {isSubmitting ? 'Traitement...' : copy.button}
-          </button>
-        </div>
-      </section>
-    </div>
-  );
-}
-
-function DgReturnDialog({
-  request,
-  onClose,
-  onDone,
-  onError,
-}: {
-  request: AdminRequest;
-  onClose: () => void;
-  onDone: (id: string) => Promise<void>;
-  onError: (message: string) => void;
-}): React.JSX.Element {
-  const [decision, setDecision] = useState<'oriented_to_dn' | 'cancelled_by_dg'>('oriented_to_dn');
-  const [returnedAt, setReturnedAt] = useState(() => new Date().toISOString().slice(0, 10));
-  const [observations, setObservations] = useState('');
-  const [file, setFile] = useState<File | null>(null);
-  const [localError, setLocalError] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const handleSubmit = async () => {
-    setLocalError('');
-
-    if (!file) {
-      setLocalError('Le scan du retour DG est obligatoire.');
-      return;
-    }
-
-    setIsSubmitting(true);
-    try {
-      if (!isMockMode()) {
-        const form = new FormData();
-        form.set('decision', decision);
-        if (returnedAt) form.set('returnedAt', returnedAt);
-        if (observations.trim()) form.set('observations', observations.trim());
-        form.set('returnedScannedDocument', file);
-        await recordDgReturn(request.id, form);
-      }
-      await onDone(request.id);
-    } catch {
-      onError('Impossible d enregistrer le retour DG.');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 z-[60] grid place-items-center bg-slate-950/50 px-4">
-      <section className="surface w-full max-w-xl rounded-lg p-6">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h2 className="flex items-center gap-2 text-lg font-bold text-slate-950 dark:text-white">
-              <FileCheck2 className="h-5 w-5" aria-hidden="true" />
-              Enregistrer le retour DG
-            </h2>
-            <p className="mt-1 text-sm text-slate-500">{request.subject}</p>
-          </div>
-          <button className="btn btn-secondary" type="button" onClick={onClose}>
-            Annuler
-          </button>
-        </div>
-
-        <div className="mt-5 grid gap-4 sm:grid-cols-2">
-          <label className="text-sm font-medium text-slate-700 dark:text-slate-200">
-            Decision DG
-            <select
-              className="control mt-1"
-              value={decision}
-              onChange={(event) => setDecision(event.target.value as 'oriented_to_dn' | 'cancelled_by_dg')}
-            >
-              <option value="oriented_to_dn">Orientée vers DN</option>
-              <option value="cancelled_by_dg">Annulée par DG</option>
-            </select>
-          </label>
-          <label className="text-sm font-medium text-slate-700 dark:text-slate-200">
-            Date retour
-            <input
-              className="control mt-1"
-              type="date"
-              value={returnedAt}
-              onChange={(event) => setReturnedAt(event.target.value)}
-            />
-          </label>
-          <label className="text-sm font-medium text-slate-700 dark:text-slate-200 sm:col-span-2">
-            Scan du retour DG annoté *
-            <input
-              className="control mt-1"
-              type="file"
-              required
-              accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,application/pdf,image/jpeg,image/png,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-              onChange={(event) => setFile(event.target.files?.[0] ?? null)}
-            />
-          </label>
-          <label className="text-sm font-medium text-slate-700 dark:text-slate-200 sm:col-span-2">
-            Observations
-            <textarea
-              className="control mt-1 min-h-24"
-              value={observations}
-              onChange={(event) => setObservations(event.target.value)}
-            />
-          </label>
-        </div>
-
-        {localError ? (
-          <p className="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-            {localError}
-          </p>
-        ) : null}
-
-        <div className="mt-5 flex justify-end gap-2">
-          <button className="btn btn-secondary" type="button" onClick={onClose}>
-            Annuler
-          </button>
-          <button className="btn btn-primary" type="button" onClick={handleSubmit} disabled={isSubmitting}>
-            <FileCheck2 className="h-4 w-4" aria-hidden="true" />
-            {isSubmitting ? 'Enregistrement...' : 'Enregistrer'}
-          </button>
-        </div>
-      </section>
-    </div>
-  );
-}
-
-function RegisterPhysicalDialog({
-  request,
-  onClose,
-  onDone,
-  onError,
-}: {
-  request: AdminRequest;
-  onClose: () => void;
-  onDone: (id: string) => Promise<void>;
-  onError: (message: string) => void;
-}): React.JSX.Element {
-  const [physicalDepositDate, setPhysicalDepositDate] = useState('');
-  const [officialReference, setOfficialReference] = useState('');
-  const [notes, setNotes] = useState('');
-  const [file, setFile] = useState<File | null>(null);
-  const [localError, setLocalError] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const handleSubmit = async () => {
-    setLocalError('');
-
-    if (!physicalDepositDate) {
-      setLocalError('La date de depot physique reel est requise.');
-      return;
-    }
-
-    if (!file) {
-      setLocalError('Le scan du courrier recu est obligatoire.');
-      return;
-    }
-
-    setIsSubmitting(true);
-    try {
-      if (!isMockMode()) {
-        const form = new FormData();
-        form.set('physicalDepositDate', physicalDepositDate);
-        if (officialReference.trim()) form.set('officialReference', officialReference.trim());
-        if (notes.trim()) form.set('notes', notes.trim());
-        form.set('file', file);
-        await registerPhysicalCourrier(request.id, form);
-      }
-      await onDone(request.id);
-    } catch {
-      onError('Impossible d enregistrer le courrier physique.');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 z-[60] grid place-items-center bg-slate-950/50 px-4">
-      <section className="surface w-full max-w-xl rounded-lg p-6">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h2 className="flex items-center gap-2 text-lg font-bold text-slate-950 dark:text-white">
-              <FileCheck2 className="h-5 w-5" aria-hidden="true" />
-              Enregistrer reception courrier
-            </h2>
-            <p className="mt-1 text-sm text-slate-500">{request.subject}</p>
-          </div>
-          <button className="btn btn-secondary" type="button" onClick={onClose}>
-            Annuler
-          </button>
-        </div>
-
-        <div className="mt-5 grid gap-4 sm:grid-cols-2">
-          <label className="text-sm font-medium text-slate-700 dark:text-slate-200">
-            Date depot physique reel *
-            <input
-              className="control mt-1"
-              type="date"
-              required
-              value={physicalDepositDate}
-              onChange={(event) => setPhysicalDepositDate(event.target.value)}
-            />
-          </label>
-          <label className="text-sm font-medium text-slate-700 dark:text-slate-200">
-            Reference officielle
-            <input
-              className="control mt-1"
-              value={officialReference}
-              onChange={(event) => setOfficialReference(event.target.value)}
-            />
-          </label>
-          <label className="text-sm font-medium text-slate-700 dark:text-slate-200 sm:col-span-2">
-            Scan du courrier recu *
-            <input
-              className="control mt-1"
-              type="file"
-              required
-              accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,application/pdf,image/jpeg,image/png,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-              onChange={(event) => setFile(event.target.files?.[0] ?? null)}
-            />
-          </label>
-          <label className="text-sm font-medium text-slate-700 dark:text-slate-200 sm:col-span-2">
-            Notes
-            <textarea
-              className="control mt-1 min-h-24"
-              value={notes}
-              onChange={(event) => setNotes(event.target.value)}
-            />
-          </label>
-        </div>
-
-        {localError ? (
-          <p className="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-            {localError}
-          </p>
-        ) : null}
-
-        <div className="mt-5 flex justify-end gap-2">
-          <button className="btn btn-secondary" type="button" onClick={onClose}>
-            Annuler
-          </button>
-          <button className="btn btn-primary" type="button" onClick={handleSubmit} disabled={isSubmitting}>
-            <FileCheck2 className="h-4 w-4" aria-hidden="true" />
-            {isSubmitting ? 'Enregistrement...' : 'Enregistrer'}
-          </button>
-        </div>
-      </section>
-    </div>
-  );
-}
-
-function DetailSection({
-  title,
-  children,
-}: {
-  title: string;
-  children: ReactNode;
-}): React.JSX.Element {
-  return (
-    <section className="rounded-lg border border-slate-200 p-4 dark:border-slate-800">
-      <h3 className="font-bold text-slate-950 dark:text-white">{title}</h3>
-      <dl className="mt-4 grid gap-4 sm:grid-cols-2">{children}</dl>
-    </section>
-  );
-}
-
-function DetailField({
-  label,
-  value,
-}: {
-  label: string;
-  value?: string;
-}): React.JSX.Element {
-  return (
-    <div>
-      <dt className="text-xs font-semibold uppercase text-slate-500">{label}</dt>
-      <dd className="mt-1 break-words text-sm text-slate-900 dark:text-slate-100">
-        {value || '-'}
-      </dd>
     </div>
   );
 }

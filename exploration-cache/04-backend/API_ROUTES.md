@@ -3,6 +3,7 @@
 Last reviewed: 2026-05-21
 
 ## Implemented backend routes in repository
+
 - `GET /health`
 - `GET /api/v1/auth/me`
 - `POST /api/v1/auth/bootstrap/login`
@@ -58,6 +59,7 @@ Last reviewed: 2026-05-21
 - `GET /api/v1/admin/audit-logs?page=&limit=`
 
 ## Route notes
+
 - Admin routes use authentication plus capability middleware.
 - `admin/dg-circuit/tasks` is a focused operational task endpoint for DG circuit actors. It is guarded by any of `DG_CIRCUIT_HANDLE`, `COURRIER_REGISTER_PHYSICAL`, or `PRE_EVAL_DG_CIRCUIT_HANDLE`; it does not require or expose `DOSSIER_VIEW_ALL`.
 - `admin/dg-circuit/tasks/:taskId/documents/:documentId` downloads only task-linked outgoing or annotated-return documents after validating task ownership and the actor's relevant DG circuit capability.
@@ -120,16 +122,18 @@ Last reviewed: 2026-05-21
 - `portal/notifications` is scoped to the current portal user (`recipientUserId === actor.id`); supports `status=unread|read|all` (default: all) and `limit` clamped to 50; returns `{ items, unreadCount }`.
 - `portal/notifications/read-all` marks all unread notifications for the current portal user as read, returns `{ updatedCount }`.
 - `portal/notifications/:id/read` marks a single notification as read; 404 if it doesn't belong to the current user.
-- Portal request and courrier responses now use `sanitizePortalRequest` / `sanitizePortalCourrier` — no `intake` or admin tracking fields exposed to postulants.
+- Portal request and courrier responses now use `sanitizePortalRequest` / `sanitizePortalCourrier` - no `intake` or admin tracking fields exposed to postulants.
 - Backend `portalStatusLabel()` now covers `initial_dg_returned`, `initial_dg_decision_recorded`, `dossier_opened`; accents fixed; `rejected` → "Demande non retenue"; `reoriented` → "Demande réorientée".
 - All preliminary OMA service functions are in `apps/api/src/modules/oma-phases/oma-phase.service.ts`.
 
 ## Frontend-expected route patterns (generic/items only)
+
 - /items
 - /items/:id
-(from apps/admin/src/features/items/api/items.api.ts)
+  (from apps/admin/src/features/items/api/items.api.ts)
 
 ## Admin frontend API wiring
+
 - `apps/admin/src/lib/api/auth.api.ts` wires bootstrap login, internal login, current session, and password change.
 - `apps/admin/src/lib/api/admin.api.ts` wires personnel search, internal account activation/listing, and audit logs.
 - Legacy `apps/admin/src/features/aidn/api/aidn.api.ts` remains mock-only for request/dossier workflow screens; do not infer those workflows are API-backed yet.

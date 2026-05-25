@@ -3,6 +3,7 @@
 Last reviewed: 2026-05-21
 
 ## Implemented In PORTAL-3
+
 - Approved postulants can create an initial demande as a `Request` draft from the portal.
 - The request uses the logged-in postulant user's canonical `organizationId`; raw account request organization names are not reused.
 - The postulant can update request type, subject, and message only while the request is not submitted.
@@ -15,6 +16,7 @@ Last reviewed: 2026-05-21
 - Submitted requests wait for the later DG physical circuit and remain simplified for the postulant.
 
 ## UI Added In PORTAL-3B
+
 - `/demandes` lists the authenticated postulant's own requests.
 - `/demandes/nouvelle` creates a draft request with request type, subject, and optional message.
 - `/demandes/:id` shows the request status, dates, editable basic fields before submission, courrier evidence, and submit controls.
@@ -49,12 +51,13 @@ Last reviewed: 2026-05-21
 
 ## Portal Response Safety (PORTAL-H1B)
 
-- `sanitizePortalRequest`: portal-facing sanitizer — strips `intake`, `closedAt`; no admin tracking fields.
+- `sanitizePortalRequest`: portal-facing sanitizer - strips `intake`, `closedAt`; no admin tracking fields.
 - `sanitizePortalCourrier`: strips `registeredById`, `officialReference`, `scannedAt`.
 - Admin endpoints (`listAdminRequests`, `getAdminRequest`) still use the full `sanitizeRequest` with `intake`.
 - `portalStatusLabel()` now covers all statuses; accents fixed; `rejected` → "Demande non retenue"; `reoriented` → "Demande réorientée".
 
 ## Explicit Boundary
+
 - A demande/courrier is not a DN dossier.
 - PORTAL-3 never creates `Dossier` records.
 - DN dossier opening is deferred until a later slice records DG orientation toward DN.
@@ -62,6 +65,7 @@ Last reviewed: 2026-05-21
 - DN verification cannot start from portal submission alone. It requires an admin-recorded DG return with decision `oriented_to_dn` and a linked annotated scan document.
 
 ## Audit Events
+
 - `portal.request_created`
 - `portal.request_updated`
 - `portal.request_courrier_uploaded`
@@ -70,6 +74,7 @@ Last reviewed: 2026-05-21
 - `admin.request_viewed_optional`
 
 ## Deferred
+
 - DN dossier opening.
 - OMA phase lifecycle.
 - Virus scanning for uploaded files.

@@ -1,4 +1,4 @@
-import { apiGet, apiPost, apiPostForm } from './client';
+import { apiGet, apiGetBlob, apiPost, apiPostForm } from './client';
 
 export type AdminRequestType =
   | 'oma_approval'
@@ -211,4 +211,13 @@ export function sendToDg(
   payload: { notes?: string },
 ): Promise<{ request: AdminRequest }> {
   return apiPost(`/api/v1/admin/requests/${id}/send-to-dg`, payload);
+}
+
+export function downloadRequestOrientationDocument(
+  requestId: string,
+  documentId: string,
+): Promise<{ blob: Blob; fileName: string }> {
+  return apiGetBlob(
+    `/api/v1/admin/requests/${encodeURIComponent(requestId)}/documents/${encodeURIComponent(documentId)}`,
+  );
 }

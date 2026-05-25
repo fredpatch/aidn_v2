@@ -43,6 +43,48 @@
   },
   "recentExplorationCacheUpdates": [
     {
+      "date": "2026-05-25",
+      "phase": "ADMIN-SPLIT-VIEW-COMPONENT",
+      "created": [
+        "apps/admin/src/components/ui/split-view.tsx"
+      ],
+      "updated": [
+        "apps/admin/src/pages/RequestsPage.tsx",
+        "apps/admin/src/pages/DgCircuitPage.tsx",
+        "exploration-cache/manifest.json"
+      ]
+    },
+    {
+      "date": "2026-05-25",
+      "phase": "ADMIN-REQUESTS-PAGE-REFACTOR",
+      "created": [
+        "apps/admin/src/pages/requests/requests.helpers.ts",
+        "apps/admin/src/pages/requests/DetailField.tsx",
+        "apps/admin/src/pages/requests/RequestListCard.tsx",
+        "apps/admin/src/pages/requests/ActionDialog.tsx",
+        "apps/admin/src/pages/requests/DgReturnDialog.tsx",
+        "apps/admin/src/pages/requests/RegisterPhysicalDialog.tsx"
+      ],
+      "updated": [
+        "apps/admin/src/pages/RequestsPage.tsx",
+        "exploration-cache/manifest.json"
+      ]
+    },
+    {
+      "date": "2026-05-25",
+      "phase": "ADMIN-ADJ-1-PERMISSIONS-DEMANDES-SPLIT-VIEW",
+      "created": [
+        "exploration-cache/tasks/summaries/2026-05-25-admin-adj-1-permissions-demandes-split-view.md"
+      ],
+      "updated": [
+        "apps/api/src/shared/permissions/permissions.ts",
+        "apps/admin/src/pages/RequestsPage.tsx",
+        "exploration-cache/QUICK-REFERENCE.md",
+        "exploration-cache/tasks/current-task.md",
+        "exploration-cache/manifest.json"
+      ]
+    },
+    {
       "date": "2026-05-22",
       "phase": "PORTAL-H1D-1-MEETING-CONVOCATION-PRINTABLE-CARD-IMPLEMENTATION",
       "created": [
@@ -889,6 +931,13 @@
     "apps/admin/src/pages/InternalAccountsPage.tsx",
     "apps/admin/src/pages/PersonnelPage.tsx",
     "apps/admin/src/pages/RequestsPage.tsx",
+    "apps/admin/src/pages/requests/requests.helpers.ts",
+    "apps/admin/src/pages/requests/DetailField.tsx",
+    "apps/admin/src/pages/requests/RequestListCard.tsx",
+    "apps/admin/src/pages/requests/ActionDialog.tsx",
+    "apps/admin/src/pages/requests/DgReturnDialog.tsx",
+    "apps/admin/src/pages/requests/RegisterPhysicalDialog.tsx",
+    "apps/admin/src/components/ui/split-view.tsx",
     "apps/portal/.env.example",
     "apps/portal/index.html",
     "apps/portal/package-lock.json",

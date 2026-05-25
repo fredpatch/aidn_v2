@@ -1044,6 +1044,35 @@ export const getAdminRequest = async (requestId: string, actor: Actor) => {
   };
 };
 
+export const downloadAdminRequestOrientationDocument = async (
+  requestId: string,
+  documentId: string,
+  actor: Actor,
+) => {
+  ensureInternalActor(actor);
+
+  const requestObjectId = ensureObjectId(requestId, "requestId");
+  const docObjectId = ensureObjectId(documentId, "documentId");
+
+  const dgReview = await DGReviewModel.findOne({ requestId: requestObjectId }).lean();
+  if (!dgReview) throw new HttpError(404, "Revue DG introuvable");
+
+  const storedId = dgReview.returnedScannedDocumentId?.toString();
+  if (!storedId || storedId !== docObjectId.toString()) {
+    throw new HttpError(403, "Document non accessible");
+  }
+
+  const doc = await DocumentModel.findById(docObjectId).lean();
+  if (!doc) throw new HttpError(404, "Document introuvable");
+
+  const buffer = await storageAdapter.getBuffer(doc.storageKey as string);
+  return {
+    buffer,
+    mimeType: doc.mimeType as string,
+    fileName: doc.fileName as string,
+  };
+};
+
 export const startAdminRequestIntake = async (
   requestId: string,
   input: { notes?: string },

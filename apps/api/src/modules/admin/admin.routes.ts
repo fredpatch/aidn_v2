@@ -47,7 +47,10 @@ import {
 } from "../oma-phases/oma-phase.service.js";
 import {
   getAdminFormalRequestPhase,
+  recordFormalRequestDgDecision,
+  recordFormalRequestDgReturn,
   registerFormalRequestCourrier,
+  sendFormalRequestToDg,
 } from "../oma-phases/formal-request.service.js";
 import {
   createDocumentTemplate,
@@ -494,6 +497,62 @@ adminRouter.post(
           notes: typeof req.body.notes === "string" ? req.body.notes : undefined,
         },
         req.user!,
+      ),
+    );
+  }),
+);
+
+adminRouter.post(
+  "/dossiers/:id/phases/formal-request/send-to-dg",
+  requirePermission(Permissions.DG_CIRCUIT_HANDLE),
+  asyncHandler(async (req, res) => {
+    res.status(201).json(await sendFormalRequestToDg(String(req.params.id), req.user!));
+  }),
+);
+
+adminRouter.post(
+  "/dossiers/:id/phases/formal-request/dg-return",
+  requirePermission(Permissions.DG_CIRCUIT_HANDLE),
+  handleOmaDocumentUpload,
+  asyncHandler(async (req, res) => {
+    res.status(201).json(
+      await recordFormalRequestDgReturn(
+        String(req.params.id),
+        req.user!,
+        req.file,
+        {
+          returnedFromDgAt:
+            typeof req.body.returnedFromDgAt === "string" ? req.body.returnedFromDgAt : undefined,
+          officialReference:
+            typeof req.body.officialReference === "string" ? req.body.officialReference : undefined,
+          notes: typeof req.body.notes === "string" ? req.body.notes : undefined,
+        },
+      ),
+    );
+  }),
+);
+
+adminRouter.post(
+  "/dossiers/:id/phases/formal-request/dg-decision",
+  requirePermission(Permissions.DG_DECISION_RECORD),
+  asyncHandler(async (req, res) => {
+    const decision = req.body.decision as string;
+    if (!["approved", "rejected", "reoriented", "pending"].includes(decision)) {
+      throw new HttpError(400, "decision doit être approved, rejected, reoriented ou pending.");
+    }
+    res.status(201).json(
+      await recordFormalRequestDgDecision(
+        String(req.params.id),
+        req.user!,
+        {
+          decision: decision as "approved" | "rejected" | "reoriented" | "pending",
+          orientedDirection:
+            typeof req.body.orientedDirection === "string" ? req.body.orientedDirection : undefined,
+          observations:
+            typeof req.body.observations === "string" ? req.body.observations : undefined,
+          decisionRecordedAt:
+            typeof req.body.decisionRecordedAt === "string" ? req.body.decisionRecordedAt : undefined,
+        },
       ),
     );
   }),

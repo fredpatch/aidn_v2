@@ -1,6 +1,38 @@
 # Current Task
 
-## Phase: OMA-FORMAL-2 — Formal Request Courrier Registration API
+## Phase: OMA-FORMAL-3 — DG Circuit for Phase 2 Demande formelle
+
+Date: 2026-05-27
+Status: **Complete — API typecheck PASS, API lint PASS, API build PASS**
+
+## Summary file
+
+`exploration-cache/tasks/summaries/2026-05-27-oma-formal-3-dg-circuit.md`
+
+## Files created
+
+_(none)_
+
+## Files modified
+
+- `apps/api/src/modules/oma-phases/formal-request.service.ts` — added `sendFormalRequestToDg`, `recordFormalRequestDgReturn`, `recordFormalRequestDgDecision` + 5 private helpers
+- `apps/api/src/modules/admin/admin.routes.ts` — added 3 Phase 2 DG routes
+
+## Key decisions
+
+- DGReview reuses generic `createDgReview`/`recordDgReturn`/`recordDgDecision` from `dg-circuit.service.ts`; `targetType="formal_request"`.
+- Only `approved` DG decision sets `formal_dg_decision_recorded` → unlocks `canInviteFormalMeeting`.
+- Rejected/reoriented: stored as `formal_requires_correction`, no auto-close, no meeting unlock.
+- Supporting checklist non-blocking at all stages.
+- TODO: rejected/reoriented final flow pending PO validation.
+
+## Next step
+
+OMA-FORMAL-4 — Formal meeting mutations and phase closure
+
+---
+
+## Previous task: OMA-FORMAL-2 — Formal Request Courrier Registration API
 
 Date: 2026-05-27
 Status: **Complete — API typecheck PASS, API lint PASS, API build PASS**

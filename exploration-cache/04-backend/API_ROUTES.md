@@ -60,6 +60,9 @@ Last reviewed: 2026-05-21
 - `GET /api/v1/admin/dossiers/:id/phases/formal-request` — Phase 2 read state (OMA-FORMAL-1)
 - `POST /api/v1/admin/dossiers/:id/phases/formal-request/courrier` — Register formal request courrier, admin internal, DOCUMENT_UPLOAD_INTERNAL (OMA-FORMAL-2)
 - `POST /api/v1/portal/dossiers/:id/phases/formal-request/courrier` — Upload formal request courrier, portal postulant, ownership-scoped (OMA-FORMAL-2)
+- `POST /api/v1/admin/dossiers/:id/phases/formal-request/send-to-dg` — Send formal request to DG circuit, DG_CIRCUIT_HANDLE (OMA-FORMAL-3)
+- `POST /api/v1/admin/dossiers/:id/phases/formal-request/dg-return` — Record DG return scan, DG_CIRCUIT_HANDLE, multipart file (OMA-FORMAL-3)
+- `POST /api/v1/admin/dossiers/:id/phases/formal-request/dg-decision` — Record DG decision (approved|rejected|reoriented|pending), DG_DECISION_RECORD (OMA-FORMAL-3)
 
 ## Route notes
 
@@ -134,6 +137,12 @@ Last reviewed: 2026-05-21
 - Duplicate formal request courrier returns 409; no replacement/versioning implemented yet.
 - Phase 2 gate: only `formalRequestCourrierId` blocks `canSendToDg`; supporting checklist is non-blocking.
 - `getOwnedDossier` is exported from `oma-phase.service.ts` for reuse by Phase 2 service.
+- Phase 2 DG circuit reuses generic `createDgReview`, `recordDgReturn`, `recordDgDecision` from `dg-circuit.service.ts`; `targetType="formal_request"`.
+- `send-to-dg` blocks if `formalRequestCourrierId` absent or DGReview already exists.
+- `dg-return` stores `documentType=dg_annotated_courrier` under `ownerType=dg_review`.
+- `dg-decision approved` → `formalRequestStatus=formal_dg_decision_recorded` → unlocks `canInviteFormalMeeting`.
+- `dg-decision rejected|reoriented|pending` → `formalRequestStatus=formal_requires_correction`; meeting NOT unlocked; no auto-close.
+- TODO: formal rejection/reorientation final business flow needs PO validation before adding closure logic.
 
 ## Frontend-expected route patterns (generic/items only)
 

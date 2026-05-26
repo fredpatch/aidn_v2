@@ -63,6 +63,9 @@ Last reviewed: 2026-05-21
 - `POST /api/v1/admin/dossiers/:id/phases/formal-request/send-to-dg` — Send formal request to DG circuit, DG_CIRCUIT_HANDLE (OMA-FORMAL-3)
 - `POST /api/v1/admin/dossiers/:id/phases/formal-request/dg-return` — Record DG return scan, DG_CIRCUIT_HANDLE, multipart file (OMA-FORMAL-3)
 - `POST /api/v1/admin/dossiers/:id/phases/formal-request/dg-decision` — Record DG decision (approved|rejected|reoriented|pending), DG_DECISION_RECORD (OMA-FORMAL-3)
+- `POST /api/v1/admin/dossiers/:id/phases/formal-request/meeting` — Create formal meeting, MEETING_MANAGE (OMA-FORMAL-4)
+- `POST /api/v1/admin/dossiers/:id/phases/formal-request/meeting/mark-held` — Mark formal meeting held, MEETING_MANAGE (OMA-FORMAL-4)
+- `POST /api/v1/admin/dossiers/:id/phases/formal-request/meeting-report` — Upload formal meeting report, DOCUMENT_UPLOAD_INTERNAL, multipart (OMA-FORMAL-4)
 
 ## Route notes
 
@@ -143,6 +146,11 @@ Last reviewed: 2026-05-21
 - `dg-decision approved` → `formalRequestStatus=formal_dg_decision_recorded` → unlocks `canInviteFormalMeeting`.
 - `dg-decision rejected|reoriented|pending` → `formalRequestStatus=formal_requires_correction`; meeting NOT unlocked; no auto-close.
 - TODO: formal rejection/reorientation final business flow needs PO validation before adding closure logic.
+- Formal meeting creation requires `formalRequestStatus="formal_dg_decision_recorded"` (approved DG decision); creates in-app notification for postulant.
+- `meeting/mark-held` sets `formalRequestStatus=formal_meeting_held`, `status=in_progress`, `formalMeetingHeldAt`.
+- `meeting-report` uploads `documentType=meeting_report` under `ownerType=meeting`; sets `Meeting.reportDocumentId` and `OmaPhase.formalMeetingReportDocumentId`; does not auto-close.
+- `getAdminFormalRequestPhase` now includes optional `meeting` block in response.
+- Phase 2 closure (recevability + closure courrier) deferred to OMA-FORMAL-5.
 
 ## Frontend-expected route patterns (generic/items only)
 

@@ -14,6 +14,8 @@ import { DGReviewModel } from "../dg-reviews/dg-review.model.js";
 import { DocumentRequirementModel } from "../documents/document-requirement.model.js";
 import { DocumentSubmissionModel } from "../documents/document-submission.model.js";
 import { DossierModel } from "../dossiers/dossier.model.js";
+import { MeetingModel } from "../meetings/meeting.model.js";
+import { NotificationModel } from "../notifications/notification.model.js";
 import { getOwnedDossier } from "./oma-phase.service.js";
 import { OmaPhaseModel } from "./oma-phase.model.js";
 
@@ -97,6 +99,13 @@ export const getAdminFormalRequestPhase = async (dossierId: string, actor: Actor
     ).lean()) as unknown as GenericRecord;
   }
 
+  // ── Meeting ───────────────────────────────────────────────────────────────
+
+  let formalMeeting: GenericRecord | null = null;
+  if (phase.formalMeetingId) {
+    formalMeeting = (await MeetingModel.findById(phase.formalMeetingId).lean()) as unknown as GenericRecord;
+  }
+
   // ── Action gates ──────────────────────────────────────────────────────────
 
   const canSendToDg = gateExists && !phase.formalRequestDgReviewId;
@@ -177,6 +186,19 @@ export const getAdminFormalRequestPhase = async (dossierId: string, actor: Actor
         : undefined,
     },
     requirements: requirementList,
+    meeting: formalMeeting
+      ? {
+          id: formalMeeting._id.toString(),
+          status: String(formalMeeting.status),
+          scheduledAt: toIso(formalMeeting.scheduledAt),
+          location: formalMeeting.location ? String(formalMeeting.location) : undefined,
+          outlookEmailStatus: formalMeeting.outlookEmailStatus
+            ? String(formalMeeting.outlookEmailStatus)
+            : undefined,
+          outlookEmailSentAt: toIso(formalMeeting.outlookEmailSentAt),
+          reportDocumentId: toId(formalMeeting.reportDocumentId),
+        }
+      : null,
     progress: {
       totalTracked,
       submitted,
@@ -575,6 +597,228 @@ export const recordFormalRequestDgDecision = async (
       dgReviewId: ((review as GenericRecord)._id as Types.ObjectId).toString(),
       formalRequestCourrierId: (phase.formalRequestCourrierId as Types.ObjectId).toString(),
       decision: payload.decision,
+    },
+  });
+
+  return getAdminFormalRequestPhase(dossierId, actor);
+};
+
+// ── OMA-FORMAL-4: Formal meeting helpers ─────────────────────────────────────
+
+const assertFormalDgDecisionRecorded = (phase: { formalRequestStatus?: unknown }) => {
+  if (phase.formalRequestStatus !== "formal_dg_decision_recorded") {
+    throw new HttpError(
+      409,
+      "La décision DG doit être approuvée et enregistrée avant de planifier la réunion formelle.",
+    );
+  }
+};
+
+const assertNoFormalMeetingYet = (phase: { formalMeetingId?: unknown }) => {
+  if (phase.formalMeetingId) {
+    throw new HttpError(409, "Une réunion formelle a déjà été planifiée pour cette phase.");
+  }
+};
+
+const loadFormalMeetingOrThrow = async (phase: { formalMeetingId?: unknown; _id: Types.ObjectId }) => {
+  if (!phase.formalMeetingId) {
+    throw new HttpError(409, "Aucune réunion formelle enregistrée pour cette phase.");
+  }
+  const meeting = await MeetingModel.findById(phase.formalMeetingId);
+  if (!meeting) throw new HttpError(404, "Réunion formelle introuvable.");
+  return meeting;
+};
+
+// ── OMA-FORMAL-4: Create formal meeting ──────────────────────────────────────
+
+export const createFormalMeeting = async (
+  dossierId: string,
+  actor: Actor,
+  payload: {
+    scheduledAt?: string;
+    location?: string;
+    notes?: string;
+    outlookEmailStatus?: "not_required" | "to_be_sent_manually" | "sent_manually";
+    outlookEmailSentAt?: string;
+  },
+) => {
+  ensureInternalActor(actor);
+
+  const dossierObjId = ensureObjectId(dossierId, "Dossier ID");
+  const dossier = await DossierModel.findById(dossierObjId).lean();
+  if (!dossier) throw new HttpError(404, "Dossier introuvable.");
+
+  const phase = await loadFormalRequestPhaseOrThrow(dossierObjId);
+  assertPhaseNotClosed(phase);
+  assertFormalDgDecisionRecorded(phase);
+  assertNoFormalMeetingYet(phase);
+
+  const outlookStatus = payload.outlookEmailStatus ?? "to_be_sent_manually";
+
+  const meeting = await MeetingModel.create({
+    dossierId: dossierObjId,
+    phaseId: phase._id,
+    meetingType: "formal_meeting",
+    title: "Réunion formelle",
+    status: payload.scheduledAt ? "invited" : "planned",
+    scheduledAt: payload.scheduledAt ? new Date(payload.scheduledAt) : undefined,
+    location: payload.location?.trim() || undefined,
+    outlookEmailStatus: outlookStatus,
+    outlookEmailSentAt: payload.outlookEmailSentAt ? new Date(payload.outlookEmailSentAt) : undefined,
+    notes: payload.notes?.trim() || undefined,
+    createdById: new Types.ObjectId(actor.id),
+  });
+
+  phase.formalMeetingId = meeting._id as Types.ObjectId;
+  phase.formalRequestStatus = "formal_meeting_invited" as never;
+  phase.status = "waiting_meeting" as never;
+  await phase.save();
+
+  // In-app notification for postulant
+  const postulantUserId = (dossier as unknown as GenericRecord).postulantUserId;
+  if (postulantUserId) {
+    await NotificationModel.create({
+      recipientUserId: postulantUserId,
+      channel: "in_app",
+      title: "Réunion formelle programmée",
+      message: "Une réunion formelle a été programmée pour votre dossier.",
+      relatedType: "meeting",
+      relatedId: meeting._id,
+      status: "unread",
+    });
+  }
+
+  await writeAuditLog({
+    actorId: actor.id,
+    actorRole: actor.role,
+    action: "formal_request.meeting_created",
+    entityType: "dossier",
+    entityId: dossierObjId,
+    metadata: {
+      dossierId: dossierObjId.toString(),
+      phaseId: (phase._id as Types.ObjectId).toString(),
+      meetingId: (meeting._id as Types.ObjectId).toString(),
+      scheduledAt: payload.scheduledAt,
+      outlookEmailStatus: outlookStatus,
+    },
+  });
+
+  return getAdminFormalRequestPhase(dossierId, actor);
+};
+
+// ── OMA-FORMAL-4: Mark formal meeting held ────────────────────────────────────
+
+export const markFormalMeetingHeld = async (
+  dossierId: string,
+  actor: Actor,
+  payload: {
+    heldAt?: string;
+    notes?: string;
+  },
+) => {
+  ensureInternalActor(actor);
+
+  const dossierObjId = ensureObjectId(dossierId, "Dossier ID");
+  const dossier = await DossierModel.findById(dossierObjId).lean();
+  if (!dossier) throw new HttpError(404, "Dossier introuvable.");
+
+  const phase = await loadFormalRequestPhaseOrThrow(dossierObjId);
+  assertPhaseNotClosed(phase);
+
+  const meeting = await loadFormalMeetingOrThrow(phase);
+  if (meeting.status === "cancelled") {
+    throw new HttpError(409, "La réunion formelle est annulée.");
+  }
+  if (meeting.meetingType !== "formal_meeting") {
+    throw new HttpError(409, "Type de réunion invalide.");
+  }
+
+  const heldAt = payload.heldAt ? new Date(payload.heldAt) : new Date();
+
+  meeting.status = "held" as never;
+  meeting.heldAt = heldAt;
+  if (payload.notes?.trim()) {
+    meeting.notes = payload.notes.trim() as never;
+  }
+  await meeting.save();
+
+  phase.formalRequestStatus = "formal_meeting_held" as never;
+  phase.status = "in_progress" as never;
+  phase.formalMeetingHeldAt = heldAt;
+  await phase.save();
+
+  await writeAuditLog({
+    actorId: actor.id,
+    actorRole: actor.role,
+    action: "formal_request.meeting_held",
+    entityType: "dossier",
+    entityId: dossierObjId,
+    metadata: {
+      dossierId: dossierObjId.toString(),
+      phaseId: (phase._id as Types.ObjectId).toString(),
+      meetingId: (meeting._id as Types.ObjectId).toString(),
+    },
+  });
+
+  return getAdminFormalRequestPhase(dossierId, actor);
+};
+
+// ── OMA-FORMAL-4: Upload formal meeting report ────────────────────────────────
+
+export const uploadFormalMeetingReport = async (
+  dossierId: string,
+  actor: Actor,
+  file: Express.Multer.File | undefined,
+  payload: { notes?: string },
+) => {
+  ensureInternalActor(actor);
+  validateFile(file);
+
+  const dossierObjId = ensureObjectId(dossierId, "Dossier ID");
+  const dossier = await DossierModel.findById(dossierObjId).lean();
+  if (!dossier) throw new HttpError(404, "Dossier introuvable.");
+
+  const phase = await loadFormalRequestPhaseOrThrow(dossierObjId);
+  assertPhaseNotClosed(phase);
+
+  const meeting = await loadFormalMeetingOrThrow(phase);
+  if (meeting.meetingType !== "formal_meeting") {
+    throw new HttpError(409, "Type de réunion invalide.");
+  }
+
+  const documentId = await saveDocument({
+    file: file!,
+    ownerPath: `dossiers/${dossierObjId.toString()}/formal-request/meeting-report`,
+    ownerType: "meeting",
+    ownerId: meeting._id as Types.ObjectId,
+    category: "meeting_report",
+    documentType: "meeting_report",
+    title: "Compte rendu — Réunion formelle",
+    visibility: "internal_only",
+    status: "uploaded",
+    uploadedById: new Types.ObjectId(actor.id),
+  });
+
+  meeting.reportDocumentId = documentId as never;
+  if (payload.notes?.trim()) {
+    meeting.notes = payload.notes.trim() as never;
+  }
+  await meeting.save();
+
+  phase.formalMeetingReportDocumentId = documentId as Types.ObjectId;
+  await phase.save();
+
+  await writeAuditLog({
+    actorId: actor.id,
+    actorRole: actor.role,
+    action: "formal_request.meeting_report_uploaded",
+    entityType: "dossier",
+    entityId: dossierObjId,
+    metadata: {
+      dossierId: dossierObjId.toString(),
+      phaseId: (phase._id as Types.ObjectId).toString(),
+      meetingId: (meeting._id as Types.ObjectId).toString(),
+      documentId: documentId.toString(),
     },
   });
 

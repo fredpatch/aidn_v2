@@ -1,6 +1,33 @@
 # Current Task
 
-## Phase: OMA-FORMAL-3 — DG Circuit for Phase 2 Demande formelle
+## Phase: OMA-FORMAL-4 — Formal Meeting Mutations for Phase 2 Demande formelle
+
+Date: 2026-05-27
+Status: **Complete — API typecheck PASS, API lint PASS, API build PASS**
+
+## Summary file
+
+`exploration-cache/tasks/summaries/2026-05-27-oma-formal-4-formal-meeting.md`
+
+## Files modified
+
+- `apps/api/src/modules/oma-phases/formal-request.service.ts` — added `createFormalMeeting`, `markFormalMeetingHeld`, `uploadFormalMeetingReport`, 3 private helpers, `meeting` block in read state, `MeetingModel` + `NotificationModel` imports
+- `apps/api/src/modules/admin/admin.routes.ts` — added 3 Phase 2 meeting routes
+
+## Key decisions
+
+- Meeting creation requires `formalRequestStatus="formal_dg_decision_recorded"`.
+- In-app notification created for postulant on meeting creation.
+- `meeting-report` does not require `meeting.status=held`.
+- Phase 2 closure deferred to OMA-FORMAL-5.
+
+## Next step
+
+OMA-FORMAL-5 — Phase 2 closure: recevability + closure courrier + close phase mutation
+
+---
+
+## Previous task: OMA-FORMAL-3 — DG Circuit for Phase 2 Demande formelle
 
 Date: 2026-05-27
 Status: **Complete — API typecheck PASS, API lint PASS, API build PASS**

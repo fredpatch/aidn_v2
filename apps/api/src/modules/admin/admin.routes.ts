@@ -46,11 +46,14 @@ import {
   uploadClosureCourrier,
 } from "../oma-phases/oma-phase.service.js";
 import {
+  createFormalMeeting,
   getAdminFormalRequestPhase,
+  markFormalMeetingHeld,
   recordFormalRequestDgDecision,
   recordFormalRequestDgReturn,
   registerFormalRequestCourrier,
   sendFormalRequestToDg,
+  uploadFormalMeetingReport,
 } from "../oma-phases/formal-request.service.js";
 import {
   createDocumentTemplate,
@@ -552,6 +555,65 @@ adminRouter.post(
             typeof req.body.observations === "string" ? req.body.observations : undefined,
           decisionRecordedAt:
             typeof req.body.decisionRecordedAt === "string" ? req.body.decisionRecordedAt : undefined,
+        },
+      ),
+    );
+  }),
+);
+
+adminRouter.post(
+  "/dossiers/:id/phases/formal-request/meeting",
+  requirePermission(Permissions.MEETING_MANAGE),
+  asyncHandler(async (req, res) => {
+    const outlookStatus = typeof req.body.outlookEmailStatus === "string"
+      ? req.body.outlookEmailStatus as "not_required" | "to_be_sent_manually" | "sent_manually"
+      : undefined;
+    res.status(201).json(
+      await createFormalMeeting(
+        String(req.params.id),
+        req.user!,
+        {
+          scheduledAt: typeof req.body.scheduledAt === "string" ? req.body.scheduledAt : undefined,
+          location: typeof req.body.location === "string" ? req.body.location : undefined,
+          notes: typeof req.body.notes === "string" ? req.body.notes : undefined,
+          outlookEmailStatus: outlookStatus,
+          outlookEmailSentAt:
+            typeof req.body.outlookEmailSentAt === "string" ? req.body.outlookEmailSentAt : undefined,
+        },
+      ),
+    );
+  }),
+);
+
+adminRouter.post(
+  "/dossiers/:id/phases/formal-request/meeting/mark-held",
+  requirePermission(Permissions.MEETING_MANAGE),
+  asyncHandler(async (req, res) => {
+    res.status(201).json(
+      await markFormalMeetingHeld(
+        String(req.params.id),
+        req.user!,
+        {
+          heldAt: typeof req.body.heldAt === "string" ? req.body.heldAt : undefined,
+          notes: typeof req.body.notes === "string" ? req.body.notes : undefined,
+        },
+      ),
+    );
+  }),
+);
+
+adminRouter.post(
+  "/dossiers/:id/phases/formal-request/meeting-report",
+  requirePermission(Permissions.DOCUMENT_UPLOAD_INTERNAL),
+  handleOmaDocumentUpload,
+  asyncHandler(async (req, res) => {
+    res.status(201).json(
+      await uploadFormalMeetingReport(
+        String(req.params.id),
+        req.user!,
+        req.file,
+        {
+          notes: typeof req.body.notes === "string" ? req.body.notes : undefined,
         },
       ),
     );

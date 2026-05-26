@@ -266,7 +266,7 @@ const resolvePortalUser = async (actor: Actor) => {
   return { userId: user._id, organizationId: user.organizationId };
 };
 
-const getOwnedDossier = async (dossierId: string, actor: Actor) => {
+export const getOwnedDossier = async (dossierId: string, actor: Actor) => {
   const portalUser = await resolvePortalUser(actor);
   const dossier = await DossierModel.findOne({
     _id: ensureObjectId(dossierId, "id"),

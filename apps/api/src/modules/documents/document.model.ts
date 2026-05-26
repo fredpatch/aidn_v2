@@ -23,6 +23,7 @@ const documentSchema = new Schema(
         "pre_evaluation_blank_form",
         "pre_evaluation_completed_form",
         "pre_evaluation_dg_return",
+        "formal_request_letter",
         "meeting_report",
         "phase_closure_letter",
         "certificate_template",

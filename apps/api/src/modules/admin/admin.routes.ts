@@ -45,7 +45,10 @@ import {
   sendPreEvalToDg,
   uploadClosureCourrier,
 } from "../oma-phases/oma-phase.service.js";
-import { getAdminFormalRequestPhase } from "../oma-phases/formal-request.service.js";
+import {
+  getAdminFormalRequestPhase,
+  registerFormalRequestCourrier,
+} from "../oma-phases/formal-request.service.js";
 import {
   createDocumentTemplate,
   listDocumentTemplates,
@@ -466,6 +469,33 @@ adminRouter.get(
   requirePermission(Permissions.DOSSIER_VIEW_ALL),
   asyncHandler(async (req, res) => {
     res.json(await getAdminFormalRequestPhase(String(req.params.id), req.user!));
+  }),
+);
+
+adminRouter.post(
+  "/dossiers/:id/phases/formal-request/courrier",
+  requirePermission(Permissions.DOCUMENT_UPLOAD_INTERNAL),
+  handleOmaDocumentUpload,
+  asyncHandler(async (req, res) => {
+    const source = typeof req.body.source === "string" ? req.body.source : undefined;
+    if (source !== "physical_deposit" && source !== "internal_scan") {
+      throw new HttpError(400, "source doit être physical_deposit ou internal_scan.");
+    }
+    res.status(201).json(
+      await registerFormalRequestCourrier(
+        String(req.params.id),
+        req.file,
+        {
+          source,
+          officialReference:
+            typeof req.body.officialReference === "string" ? req.body.officialReference : undefined,
+          physicalDepositDate:
+            typeof req.body.physicalDepositDate === "string" ? req.body.physicalDepositDate : undefined,
+          notes: typeof req.body.notes === "string" ? req.body.notes : undefined,
+        },
+        req.user!,
+      ),
+    );
   }),
 );
 

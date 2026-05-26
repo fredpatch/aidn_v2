@@ -28,6 +28,7 @@ import {
   getPortalDossier,
   uploadCompletedPreEvaluationForm,
 } from "../oma-phases/oma-phase.service.js";
+import { registerFormalRequestCourrier } from "../oma-phases/formal-request.service.js";
 import {
   createPortalRequest,
   declarePortalPhysicalDeposit,
@@ -217,6 +218,27 @@ portalRouter.post(
   asyncHandler(async (req, res) => {
     res.status(201).json(
       await uploadCompletedPreEvaluationForm(String(req.params.id), req.file, req.user!),
+    );
+  }),
+);
+
+portalRouter.post(
+  "/dossiers/:id/phases/formal-request/courrier",
+  requireAuth({ scope: "portal" }),
+  handleCourrierUpload,
+  asyncHandler(async (req, res) => {
+    res.status(201).json(
+      await registerFormalRequestCourrier(
+        String(req.params.id),
+        req.file,
+        {
+          source: "portal_upload",
+          officialReference:
+            typeof req.body.officialReference === "string" ? req.body.officialReference : undefined,
+          notes: typeof req.body.notes === "string" ? req.body.notes : undefined,
+        },
+        req.user!,
+      ),
     );
   }),
 );

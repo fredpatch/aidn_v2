@@ -57,6 +57,9 @@ Last reviewed: 2026-05-21
 - `POST /api/v1/portal/notifications/read-all`
 - `POST /api/v1/portal/notifications/:id/read`
 - `GET /api/v1/admin/audit-logs?page=&limit=`
+- `GET /api/v1/admin/dossiers/:id/phases/formal-request` — Phase 2 read state (OMA-FORMAL-1)
+- `POST /api/v1/admin/dossiers/:id/phases/formal-request/courrier` — Register formal request courrier, admin internal, DOCUMENT_UPLOAD_INTERNAL (OMA-FORMAL-2)
+- `POST /api/v1/portal/dossiers/:id/phases/formal-request/courrier` — Upload formal request courrier, portal postulant, ownership-scoped (OMA-FORMAL-2)
 
 ## Route notes
 
@@ -125,6 +128,12 @@ Last reviewed: 2026-05-21
 - Portal request and courrier responses now use `sanitizePortalRequest` / `sanitizePortalCourrier` - no `intake` or admin tracking fields exposed to postulants.
 - Backend `portalStatusLabel()` now covers `initial_dg_returned`, `initial_dg_decision_recorded`, `dossier_opened`; accents fixed; `rejected` → "Demande non retenue"; `reoriented` → "Demande réorientée".
 - All preliminary OMA service functions are in `apps/api/src/modules/oma-phases/oma-phase.service.ts`.
+- Phase 2 (formal request) service functions are in `apps/api/src/modules/oma-phases/formal-request.service.ts`.
+- `POST /admin/dossiers/:id/phases/formal-request/courrier` requires `source=physical_deposit|internal_scan`; `portal_upload` is rejected on admin endpoint.
+- `POST /portal/dossiers/:id/phases/formal-request/courrier` hardcodes `source=portal_upload`, verifies postulant owns the dossier, rejects non-owned dossier with 404.
+- Duplicate formal request courrier returns 409; no replacement/versioning implemented yet.
+- Phase 2 gate: only `formalRequestCourrierId` blocks `canSendToDg`; supporting checklist is non-blocking.
+- `getOwnedDossier` is exported from `oma-phase.service.ts` for reuse by Phase 2 service.
 
 ## Frontend-expected route patterns (generic/items only)
 

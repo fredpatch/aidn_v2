@@ -6,7 +6,7 @@ const courrierSchema = new Schema(
     dossierId: { type: Schema.Types.ObjectId, ref: "Dossier", index: true },
     type: {
       type: String,
-      enum: ["initial_request_courrier", "dg_annotated_courrier", "phase_closure_courrier", "other"],
+      enum: ["initial_request_courrier", "dg_annotated_courrier", "phase_closure_courrier", "formal_request_courrier", "other"],
       required: true
     },
     source: {

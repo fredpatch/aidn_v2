@@ -45,6 +45,7 @@ import {
   sendPreEvalToDg,
   uploadClosureCourrier,
 } from "../oma-phases/oma-phase.service.js";
+import { getAdminFormalRequestPhase } from "../oma-phases/formal-request.service.js";
 import {
   createDocumentTemplate,
   listDocumentTemplates,
@@ -457,6 +458,14 @@ adminRouter.get(
   requirePermission(Permissions.DOSSIER_VIEW_ALL),
   asyncHandler(async (req, res) => {
     res.json(await getAdminDossier(String(req.params.id), req.user!));
+  }),
+);
+
+adminRouter.get(
+  "/dossiers/:id/phases/formal-request",
+  requirePermission(Permissions.DOSSIER_VIEW_ALL),
+  asyncHandler(async (req, res) => {
+    res.json(await getAdminFormalRequestPhase(String(req.params.id), req.user!));
   }),
 );
 

@@ -145,269 +145,435 @@ YYYY-MM-DD-<phase-name>-correction.md
 
 # CURRENT OBJECTIVE
 
-# OMA-OPS-9C — Frontend primitive refactor before Phase 2
+# OMA-FORMAL-2 — Formal Request Courrier Registration API
 
-You are working inside the existing AIDN_V2 repository.
+You are working inside the existing `AIDN_V2` repository.
 
-Current state:
+## Current validated state
 
-- OMA-OPS-9A backend primitive refactor is complete.
-- OMA-OPS-9B DG circuit history / receptionist traceability is complete.
-- OMA-OPS-9B-FIX dashboard/timeline consistency is complete.
-- API and Admin builds passed.
-- Phase 2 / Demande formelle has not started yet.
+OMA-FORMAL-1 is complete.
 
-## Objective
+Implemented:
 
-Extract small reusable frontend primitives before implementing Phase 2.
+- `DocumentRequirement` model
+- `DocumentSubmission` model
+- Phase 2 requirements seed
+- `OmaPhase` Phase 2 fields
+- `GET /api/v1/admin/dossiers/:id/phases/formal-request`
+- Gate/progress computation
 
-This is a frontend refactor-only slice.
+Verified:
 
-Do not implement Phase 2.
-Do not add backend routes.
-Do not change API contracts.
-Do not change workflow behavior.
-Do not extract a PhaseWorkspaceShell yet.
+- API typecheck PASS
+- API lint PASS
+- API build PASS
+
+Important current limitation:
+
+- `formalRequestCourrierId` is still always null because no Phase 2 formal courrier mutation exists yet.
+- Therefore `gate.exists = false` and `canSendToDg = false`.
+
+Now implement OMA-FORMAL-2.
+
+This task is API/backend only.
+
+Do not implement frontend UI.
+Do not implement DG send/return mutations.
+Do not implement supporting document uploads.
+Do not implement document review.
+Do not implement formal meeting mutations.
+Do not implement phase close mutation.
 
 ---
 
-## Files to inspect first
+## Objective
 
-Inspect:
+Implement formal request courrier registration for Phase 2.
 
-apps/admin/src/pages/dossiers/PreliminaryPhaseWorkspace.tsx
-apps/admin/src/pages/dossiers/preliminary-dialogs.tsx
-apps/admin/src/pages/dossiers/DossierDocumentsTab.tsx
-apps/admin/src/pages/dossiers/DossierMeetingsTab.tsx
-apps/admin/src/pages/dossiers/DossierCourriersTab.tsx
-apps/admin/src/pages/DgCircuitPage.tsx
-apps/admin/src/pages/dossiers/preliminary-evidence.helpers.ts
-apps/admin/src/lib/api/dossiers.api.ts
-apps/admin/src/lib/api/dg-circuit.api.ts
-apps/admin/src/components/ui/dialog.tsx
-apps/admin/src/components/ui/button.tsx
-apps/admin/src/components/ui/input.tsx
-apps/admin/src/components/ui/textarea.tsx
+This is the main Phase 2 gate.
 
-Follow existing component style and imports.
+The system must support:
 
-Part 1 — Extract blob utility
+1. Portal upload of formal request courrier.
+2. Admin/internal registration of formal request courrier.
+3. Creation of central `Document`.
+4. Creation of `Courrier`.
+5. Creation of `DocumentSubmission` linked to the `formal_request_letter` gate requirement.
+6. Update of `OmaPhase.formalRequestCourrierId`.
+7. Update of `OmaPhase.formalRequestStatus`.
+8. Update of generic phase status to `in_progress`.
+9. Audit logging.
+10. Updated Phase 2 read state reflecting `gate.exists = true`.
 
-Create:
+---
 
-apps/admin/src/lib/utils/blob.ts
+## Locked business rule
 
-Move duplicated openBlobInNewTab logic into this helper.
+Only the formal request courrier blocks Phase 2 progression.
 
-Expected helper:
+Correct:
 
-export function openBlobInNewTab(blob: Blob, filename?: string): void {
-const url = window.URL.createObjectURL(blob);
-window.open(url, "\_blank", "noopener,noreferrer");
-window.setTimeout(() => window.URL.revokeObjectURL(url), 60_000);
-}
+```ts
+canSendToDg = Boolean(phase.formalRequestCourrierId) && !phase.formalRequestDgReviewId;
 
-If current implementation handles popup failure or filename differently, preserve the existing behavior.
+Wrong:
 
-Update imports in all touched files.
+canSendToDg = allExpectedSupportingDocumentsUploaded;
 
-Do not change download API calls.
+Supporting documents remain non-blocking.
 
-Part 2 — Extract error utility
+The CDC describes Phase 2 as beginning with the postulant submitting the formal application dossier, then DG receiving/instructing DN before the formal meeting and closure evidence. The broader document checklist must be tracked, but it must not block DG progression.
 
-Create:
+Explore first
 
-apps/admin/src/lib/utils/error.ts
+Read cache first:
+
+exploration-cache/manifest.json
+exploration-cache/QUICK-REFERENCE.md
+exploration-cache/04-backend/API_ROUTES.md
+exploration-cache/05-data/DATA_MODELS.md
+exploration-cache/06-workflows/OMA_FORMAL_REQUEST_WORKFLOW.md
+exploration-cache/06-workflows/ADMIN_INTAKE_WORKFLOW.md
+exploration-cache/06-workflows/PORTAL_REQUEST_WORKFLOW.md
+exploration-cache/tasks/current-task.md
+
+Then inspect:
+
+apps/api/src/modules/oma-phases/formal-request.service.ts
+apps/api/src/modules/oma-phases/oma-phase.model.ts
+apps/api/src/modules/documents/document.model.ts
+apps/api/src/modules/documents/document-requirement.model.ts
+apps/api/src/modules/documents/document-submission.model.ts
+apps/api/src/modules/courriers/courrier.model.ts
+apps/api/src/modules/dossiers/dossier.model.ts
+apps/api/src/modules/admin/admin.routes.ts
+apps/api/src/modules/portal/portal.routes.ts
+apps/api/src/shared/storage/storage.adapter.ts
+apps/api/src/modules/audit/audit.service.ts
+apps/api/src/shared/permissions/permissions.ts
+
+Follow existing upload/storage conventions from previous request/courrier/preliminary flows.
+
+Required enum/model update
+
+Update Courrier.type enum to include:
+
+"formal_request_courrier"
+
+Use this type for the Phase 2 formal request courrier.
+
+Do not reuse initial_request_courrier.
+
+Reason:
+
+initial request courrier belongs to pre-DN dossier/request intake;
+formal request courrier belongs to Phase 2 inside an opened DN dossier.
+API endpoints
+1. Portal upload formal request courrier
 
 Add:
 
-export function extractError(error: unknown, fallback = "Une erreur est survenue."): string {
-// preserve existing API error shape if present
+POST /api/v1/portal/dossiers/:id/phases/formal-request/courrier
+
+Auth:
+
+portal authenticated postulant
+must own the dossier / belong to dossier organization using existing portal ownership rules
+
+Permission:
+
+portal user only; use existing portal auth guard conventions
+
+Payload:
+
+multipart/form-data
+file required
+optional metadata:
+officialReference
+notes
+
+Source:
+
+source = "portal_upload"
+
+Expected behavior:
+
+Validate dossier ownership.
+Resolve or create/read Phase 2 OmaPhase using existing conventions.
+Find active DocumentRequirement:
+phaseKey = "formal_request"
+code = "formal_request_letter"
+requirementLevel = "gate"
+Store file using existing storage adapter.
+Create Document:
+ownerType = "phase"
+ownerId = phase._id
+category = "courrier"
+documentType = "formal_request_letter" or closest compatible existing enum
+visibility = "internal_only" or existing convention; if portal should also see own uploaded file, preserve current portal behavior
+status = "uploaded"
+Create Courrier:
+dossierId
+requestId if dossier has requestId
+type = "formal_request_courrier"
+source = "portal_upload"
+documentId
+uploadedAt
+registeredById = portal user id
+officialReference
+notes
+Create DocumentSubmission:
+dossierId
+phaseId
+phaseKey = "formal_request"
+requirementId = gate requirement id
+documentId
+submittedById = portal user id
+submittedByRole = "postulant"
+source = "portal_upload"
+status = "submitted"
+Update OmaPhase:
+formalRequestCourrierId = courrier._id
+formalRequestStatus = "formal_request_received"
+status = "in_progress"
+formalRequestReceivedAt = now
+preserve existing fields
+Audit:
+formal_request.courrier_registered
+Return updated Phase 2 state using the same read model from OMA-FORMAL-1.
+2. Admin/internal register formal request courrier
+
+Add:
+
+POST /api/v1/admin/dossiers/:id/phases/formal-request/courrier
+
+Auth:
+
+admin/internal auth
+
+Permission:
+
+use DOCUMENT_UPLOAD_INTERNAL
+also require dossier visibility permission if existing route conventions require it
+
+Payload:
+
+multipart/form-data
+file required
+metadata:
+source: "physical_deposit" or "internal_scan"
+officialReference?
+physicalDepositDate?
+notes?
+
+Validation:
+
+reject source = "portal_upload" on admin endpoint
+accept only:
+physical_deposit
+internal_scan
+
+Expected behavior:
+Same as portal endpoint, except:
+
+submittedByRole = actor.role;
+source = payload.source;
+registeredById = actor.id;
+
+For physicalDepositDate, set it on Courrier if the model supports it.
+
+Return updated Phase 2 state.
+
+Duplicate / replacement behavior
+
+For OMA-FORMAL-2, keep it simple and safe.
+
+If phase.formalRequestCourrierId already exists:
+
+reject with 409
+message: La demande formelle est déjà enregistrée pour cette phase.
+
+Do not implement replacement/versioning yet.
+
+Replacement will be a later slice.
+
+Phase safety guards
+
+Reject if:
+
+- dossier not found
+- formal_request phase not found and existing architecture does not auto-create it
+- dossier is closed/cancelled/suspended if existing conventions block mutations
+- Phase 2 is already closed
+- file missing
+- gate requirement not seeded
+- formalRequestCourrierId already exists
+
+Do not require all checklist documents.
+
+Do not require preliminary documents here, unless existing phase sequencing already enforces Phase 1 closed before Phase 2.
+
+If phase sequencing guard exists, respect it.
+
+Response shape
+
+Return the same shape as:
+
+GET /api/v1/admin/dossiers/:id/phases/formal-request
+
+For portal endpoint, either:
+
+return the same full state if safe; or
+return a sanitized portal-safe subset if existing portal conventions require limited data.
+
+At minimum, return:
+
+{
+  phase: {
+    id: string;
+    phaseKey: "formal_request";
+    status: string;
+    formalRequestStatus: "formal_request_received";
+    canSendToDg: true;
+  },
+  gate: {
+    exists: true;
+    formalRequestCourrierId: string;
+    source: "portal_upload" | "physical_deposit" | "internal_scan";
+    receivedAt: string;
+  },
+  progress: {
+    blockingMissing: false;
+    completionRate: number;
+  }
 }
+Audit events
 
-Support likely shapes:
+Add/use:
 
-error instanceof Error
-(error as any)?.response?.data?.error?.message
-(error as any)?.response?.data?.message
+formal_request.courrier_registered
 
-Update duplicated local extractError implementations in touched files.
+Metadata should include:
 
-Preserve displayed French fallback messages.
+dossierId
+phaseId
+courrierId
+documentId
+source
+officialReference if provided
 
-Part 3 — Create generic UploadDocumentDialog
+Do not log file contents.
 
-Create:
-
-apps/admin/src/pages/dossiers/components/UploadDocumentDialog.tsx
-
-Generic props:
-
-export type UploadDocumentDialogProps = {
-open: boolean;
-title: string;
-description?: string;
-fileLabel?: string;
-dateLabel?: string;
-notesLabel?: string;
-submitLabel?: string;
-isSubmitting?: boolean;
-error?: string | null;
-requireDate?: boolean;
-requireNotes?: boolean;
-onOpenChange: (open: boolean) => void;
-onSubmit: (payload: {
-file: File;
-date?: string;
-notes?: string;
-}) => Promise<void> | void;
-};
-
-Behavior:
-
-file is always required;
-date is optional unless requireDate=true;
-notes are optional unless requireNotes=true;
-reset local form state when dialog closes or after successful submit;
-preserve existing visual style;
-French labels by default:
-Document
-Date du document
-Observations
-Enregistrer
-Veuillez sélectionner un fichier.
-Veuillez renseigner la date.
-Veuillez renseigner les observations.
-
-Then refactor existing specialized dialogs in:
-
-apps/admin/src/pages/dossiers/preliminary-dialogs.tsx
-
-Use the generic dialog internally for:
-
-DG return upload dialog
-phase closure courrier upload dialog
-
-Do not change external behavior of the existing specialized dialogs if other files depend on them.
-
-Part 4 — Stabilize EvidenceRequirement type
-
-Inspect:
-
-apps/admin/src/pages/dossiers/preliminary-evidence.helpers.ts
-
-Extend the existing EvidenceRequirement type to support future checklist documents:
-
-submittedDocumentId?: string;
-reviewStatus?: string;
-
-If status union exists, make sure it can represent:
-
-missing
-available
-under_review
-validated
-rejected
-requires_correction
-optional
-
-Do not add Phase 2 requirements yet.
-Do not change visible preliminary checklist behavior unless needed for types.
-
-Strict constraints
-
-Do not:
-
-implement Phase 2;
-add formal request checklist;
-add backend code;
-add new API calls;
-change route behavior;
-extract PhaseWorkspaceShell;
-redesign dossier pages;
-change business labels beyond cleanup consistency;
-remove existing dialogs if they are imported elsewhere.
-Verification
-
-Run:
-
-cd apps/admin
-npx tsc --noEmit
-npm run build
-
-If shared types cause API imports or workspace scripts to run, also run:
-
-cd apps/api
-npm run typecheck
-npm run build
-
-Manual checks:
-
-1. Documents tab downloads still open.
-2. Meetings tab report downloads still open.
-3. Courriers tab downloads still open.
-4. Preliminary workspace document downloads still open.
-5. DG circuit returned document download still opens if touched.
-6. Record DG return dialog opens, validates, submits.
-7. Upload closure courrier dialog opens, validates, submits.
-8. Existing error messages still appear.
-9. Preliminary evidence checklist still renders.
-10. No Phase 2 UI appears.
-    Cache updates
+Documentation updates
 
 Update:
 
 TASK.md
+exploration-cache/04-backend/API_ROUTES.md
+exploration-cache/05-data/DATA_MODELS.md
+exploration-cache/06-workflows/OMA_FORMAL_REQUEST_WORKFLOW.md
+exploration-cache/06-workflows/PORTAL_REQUEST_WORKFLOW.md
+exploration-cache/06-workflows/ADMIN_INTAKE_WORKFLOW.md
 exploration-cache/tasks/current-task.md
-exploration-cache/03-frontend/ADMIN_APP_MAP.md
-exploration-cache/06-workflows/OMA_WORKFLOW.md if relevant
-exploration-cache/09-qa/BUILD_AND_TEST_COMMANDS.md if commands changed
+exploration-cache/manifest.json
 
-Create summary:
+Create:
 
-exploration-cache/tasks/summaries/2026-05-26-oma-ops-9c-frontend-primitive-refactor.md
+exploration-cache/tasks/summaries/2026-05-26-oma-formal-2-formal-courrier-registration.md
 
-Summary must include:
+Document clearly:
 
-Files created.
-Files modified.
-Blob utility extraction.
-Error utility extraction.
-UploadDocumentDialog behavior.
-EvidenceRequirement changes.
-Verification results.
-Runtime/manual tests.
-Known limitations.
-Next recommended slice.
+Phase 2 formal request courrier registration implemented.
+Formal request courrier is the only Phase 2 blocking gate.
+Supporting checklist remains non-blocking.
+Duplicate formal request courrier is blocked for now.
+Replacement/versioning deferred.
+DG mutation deferred.
+Meeting mutation deferred.
+Verification
+
+Run:
+
+cd apps/api
+npm run typecheck
+npm run lint
+npm run build
+
+Manual runtime checks if possible:
+
+Admin upload
+curl -X POST http://localhost:4000/api/v1/admin/dossiers/<DOSSIER_ID>/phases/formal-request/courrier \
+  -H "Cookie: <ADMIN_COOKIE>" \
+  -F "file=@/path/to/formal-request.pdf" \
+  -F "source=internal_scan" \
+  -F "officialReference=REF-FORMAL-001" \
+  -F "notes=Demande formelle scannée"
+
+Expected:
+
+200/201
+gate.exists = true
+blockingMissing = false
+canSendToDg = true
+formalRequestStatus = formal_request_received
+formalRequestCourrierId set
+Document created
+Courrier created with type = formal_request_courrier
+DocumentSubmission created for formal_request_letter
+Duplicate upload
+
+Call same endpoint again.
+
+Expected:
+
+409
+no duplicate courrier created
+Portal upload
+curl -X POST http://localhost:4000/api/v1/portal/dossiers/<DOSSIER_ID>/phases/formal-request/courrier \
+  -H "Cookie: <PORTAL_COOKIE>" \
+  -F "file=@/path/to/formal-request.pdf" \
+  -F "officialReference=REF-P-001"
+
+Expected:
+
+works only for owned dossier
+rejects non-owned dossier
 Expected implementation report
 
 Return:
 
-OMA-OPS-9C Implementation Report
-
-1. Files created
-2. Files modified
-3. Blob utility extraction
-4. Error utility extraction
-5. UploadDocumentDialog extraction
-6. EvidenceRequirement changes
-7. Behavior preserved
-8. Verification commands
-9. Runtime/manual validation
-10. Risks/TODOs
-11. Next recommended slice
-
----
-
-# Acceptance checklist
-
-✅ openBlobInNewTab extracted
-✅ extractError extracted
-✅ UploadDocumentDialog created
-✅ existing upload dialogs reuse generic component
-✅ EvidenceRequirement ready for Phase 2 checklist
-✅ no Phase 2 behavior added
-✅ admin typecheck passes
-✅ admin build passes
-✅ existing downloads still work
-✅ existing upload dialogs still work
+Files created
+Files modified
+Routes added
+Courrier enum changes
+Document creation behavior
+Courrier creation behavior
+DocumentSubmission creation behavior
+OmaPhase update behavior
+Gate/progress behavior after upload
+Duplicate protection behavior
+Permissions/guards used
+Verification commands run
+Manual runtime tests run or not run
+Risks/TODOs
+Next recommended slice
+Acceptance checklist
+✅ Admin can register formal request courrier
+✅ Portal can upload formal request courrier for owned dossier
+✅ Non-owned portal dossier is rejected
+✅ File creates Document
+✅ Registration creates Courrier with type formal_request_courrier
+✅ Registration creates DocumentSubmission linked to gate requirement
+✅ OmaPhase.formalRequestCourrierId is set
+✅ formalRequestStatus becomes formal_request_received
+✅ phase.status becomes in_progress
+✅ gate.exists becomes true
+✅ progress.blockingMissing becomes false
+✅ canSendToDg becomes true
+✅ Supporting checklist still does not block canSendToDg
+✅ Duplicate formal courrier registration returns 409
+✅ No DG mutation added
+✅ No meeting mutation added
+✅ No frontend added
+✅ Typecheck/lint/build pass
+```

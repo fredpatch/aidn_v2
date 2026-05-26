@@ -44,6 +44,23 @@
   "recentExplorationCacheUpdates": [
     {
       "date": "2026-05-26",
+      "phase": "OMA-FORMAL-1-API-FOUNDATION-PHASE2",
+      "created": [
+        "apps/api/src/modules/documents/document-requirement.model.ts",
+        "apps/api/src/modules/documents/document-submission.model.ts",
+        "apps/api/src/modules/oma-phases/formal-request.service.ts",
+        "apps/api/src/scripts/seed-document-requirements.ts",
+        "exploration-cache/tasks/summaries/2026-05-26-oma-formal-1-api-foundation.md"
+      ],
+      "updated": [
+        "apps/api/src/modules/oma-phases/oma-phase.model.ts",
+        "apps/api/src/modules/admin/admin.routes.ts",
+        "exploration-cache/tasks/current-task.md",
+        "exploration-cache/manifest.json"
+      ]
+    },
+    {
+      "date": "2026-05-26",
       "phase": "OMA-OPS-9C-FRONTEND-PRIMITIVE-REFACTOR",
       "created": [
         "apps/admin/src/lib/utils/blob.ts",

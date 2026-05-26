@@ -1,6 +1,40 @@
 # Current Task
 
-## Phase: OMA-OPS-9C — Frontend Primitive Refactor Before Phase 2
+## Phase: OMA-FORMAL-1 — API Foundation for Phase 2 Demande formelle
+
+Date: 2026-05-26
+Status: **Complete — API typecheck PASS, API lint PASS, API build PASS**
+
+## Summary file
+
+`exploration-cache/tasks/summaries/2026-05-26-oma-formal-1-api-foundation.md`
+
+## Files created
+
+- `apps/api/src/modules/documents/document-requirement.model.ts`
+- `apps/api/src/modules/documents/document-submission.model.ts`
+- `apps/api/src/modules/oma-phases/formal-request.service.ts`
+- `apps/api/src/scripts/seed-document-requirements.ts`
+
+## Files modified
+
+- `apps/api/src/modules/oma-phases/oma-phase.model.ts` — 15 Phase 2 fields added
+- `apps/api/src/modules/admin/admin.routes.ts` — GET /dossiers/:id/phases/formal-request
+
+## Key decisions
+
+- Gate = `formalRequestCourrierId` only; supporting checklist is non-blocking.
+- `formal_request` OmaPhase always exists (created by `insertMany` in `openAdminDossierDn`).
+- Service placed in new `formal-request.service.ts` to keep Phase 2 separate from Phase 1.
+- `blockingMissing` only depends on gate; `completionRate` is informational.
+
+## Next step
+
+OMA-FORMAL-2 — Phase 2 upload mutations + DG circuit + formal meeting
+
+---
+
+## Previous task: OMA-OPS-9C — Frontend Primitive Refactor Before Phase 2
 
 Date: 2026-05-26
 Status: **Complete — Admin typecheck PASS, Admin build PASS**

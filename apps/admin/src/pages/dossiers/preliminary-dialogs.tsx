@@ -20,8 +20,9 @@ import {
   sendPreEvalToDg,
   uploadClosureCourrier,
 } from "@/lib/api/dossiers.api";
-import { ApiError } from "@/lib/api/client";
+import { extractError } from "@/lib/utils/error";
 import { ActionError } from "./dossier-detail.helpers";
+import { UploadDocumentDialog } from "./components/UploadDocumentDialog";
 
 type BaseProps = {
   open: boolean;
@@ -30,9 +31,6 @@ type BaseProps = {
   onSuccess: () => void;
 };
 
-function extractError(err: unknown): string {
-  return err instanceof ApiError ? err.message : "Une erreur est survenue. Réessayez.";
-}
 
 function buildScheduledAt(date: Date, timeStr: string): string {
   const match = /^(\d{2}):(\d{2}) (AM|PM)$/.exec(timeStr);
@@ -463,120 +461,24 @@ export function RecordDgReturnDialog({
   dossierId,
   onSuccess,
 }: BaseProps): React.JSX.Element {
-  const fileRef = useRef<HTMLInputElement>(null);
-  const [returnedAt, setReturnedAt] = useState("");
-  const [notes, setNotes] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState("");
-
-  const reset = () => {
-    setReturnedAt("");
-    setNotes("");
-    setError("");
-    if (fileRef.current) fileRef.current.value = "";
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-    setError("");
-    try {
-      const file = fileRef.current?.files?.[0];
-      const fd = new FormData();
-      if (file) fd.append("file", file);
-      if (returnedAt) fd.append("returnedAt", returnedAt);
-      if (notes.trim()) fd.append("notes", notes.trim());
-      await recordPreEvalDgReturn(dossierId, fd);
-      reset();
-      onOpenChange(false);
-      onSuccess();
-    } catch (err) {
-      setError(extractError(err));
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
   return (
-    <Dialog
+    <UploadDocumentDialog
       open={open}
-      onOpenChange={(v) => {
-        if (!v) reset();
-        onOpenChange(v);
+      title="Enregistrer le retour DG annoté"
+      fileLabel="Document retourné par le DG"
+      dateLabel="Date de retour (optionnel)"
+      notesLabel="Notes (optionnel)"
+      submitLabel="Enregistrer le retour DG"
+      onOpenChange={onOpenChange}
+      onSubmit={async ({ file, date, notes }) => {
+        const fd = new FormData();
+        fd.append("file", file);
+        if (date) fd.append("returnedAt", date);
+        if (notes) fd.append("notes", notes);
+        await recordPreEvalDgReturn(dossierId, fd);
+        onSuccess();
       }}
-    >
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Enregistrer le retour DG annoté</DialogTitle>
-        </DialogHeader>
-        <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="space-y-1">
-              <Label htmlFor="dg-file" className="text-xs">
-                Document retourné par le DG{" "}
-                <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                id="dg-file"
-                ref={fileRef}
-                type="file"
-                accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
-                required
-                className="h-8 text-sm"
-              />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="dg-returned-at" className="text-xs">
-                Date de retour (optionnel)
-              </Label>
-              <Input
-                id="dg-returned-at"
-                type="date"
-                value={returnedAt}
-                onChange={(e) => setReturnedAt(e.target.value)}
-                className="h-8 text-sm"
-              />
-            </div>
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="dg-notes" className="text-xs">
-              Notes (optionnel)
-            </Label>
-            <Textarea
-              id="dg-notes"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              rows={2}
-              className="text-sm"
-            />
-          </div>
-          {error ? <ActionError message={error} /> : null}
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                reset();
-                onOpenChange(false);
-              }}
-              disabled={isSubmitting}
-            >
-              Annuler
-            </Button>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? (
-                <>
-                  <Clock className="mr-2 h-4 w-4 animate-spin" />
-                  En cours…
-                </>
-              ) : (
-                "Enregistrer le retour DG"
-              )}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+    />
   );
 }
 
@@ -587,109 +489,23 @@ export function UploadClosureCourrierDialog({
   dossierId,
   onSuccess,
 }: BaseProps): React.JSX.Element {
-  const fileRef = useRef<HTMLInputElement>(null);
-  const [title, setTitle] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState("");
-
-  const reset = () => {
-    setTitle("");
-    setError("");
-    if (fileRef.current) fileRef.current.value = "";
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const file = fileRef.current?.files?.[0];
-    if (!file) return;
-    setIsSubmitting(true);
-    setError("");
-    try {
-      const fd = new FormData();
-      fd.append("file", file);
-      if (title.trim()) fd.append("title", title.trim());
-      await uploadClosureCourrier(dossierId, fd);
-      reset();
-      onOpenChange(false);
-      onSuccess();
-    } catch (err) {
-      setError(extractError(err));
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
   return (
-    <Dialog
+    <UploadDocumentDialog
       open={open}
-      onOpenChange={(v) => {
-        if (!v) reset();
-        onOpenChange(v);
+      title="Téléverser le courrier de clôture"
+      description="Document de clôture de la phase préliminaire — sera visible au postulant."
+      fileLabel="Courrier de clôture"
+      notesLabel="Intitulé (optionnel)"
+      submitLabel="Téléverser"
+      onOpenChange={onOpenChange}
+      onSubmit={async ({ file, notes: title }) => {
+        const fd = new FormData();
+        fd.append("file", file);
+        if (title) fd.append("title", title);
+        await uploadClosureCourrier(dossierId, fd);
+        onSuccess();
       }}
-    >
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Téléverser le courrier de clôture</DialogTitle>
-          <DialogDescription>
-            Document de clôture de la phase préliminaire — sera visible au
-            postulant.
-          </DialogDescription>
-        </DialogHeader>
-        <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="space-y-1">
-              <Label htmlFor="cl-file" className="text-xs">
-                Courrier de clôture <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                id="cl-file"
-                ref={fileRef}
-                type="file"
-                accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
-                required
-                className="h-8 text-sm"
-              />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="cl-title" className="text-xs">
-                Intitulé (optionnel)
-              </Label>
-              <Input
-                id="cl-title"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="Courrier de clôture - Phase préliminaire"
-                className="h-8 text-sm"
-              />
-            </div>
-          </div>
-          {error ? <ActionError message={error} /> : null}
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                reset();
-                onOpenChange(false);
-              }}
-              disabled={isSubmitting}
-            >
-              Annuler
-            </Button>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? (
-                <>
-                  <Clock className="mr-2 h-4 w-4 animate-spin" />
-                  En cours…
-                </>
-              ) : (
-                "Téléverser"
-              )}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+    />
   );
 }
 

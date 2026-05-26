@@ -6,9 +6,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   downloadDossierDocument,
   type AdminDossierDetail,
+  type AdminDossierDocumentEvidence,
   type AdminOmaPhase,
 } from "@/lib/api/dossiers.api";
 import { ApiError } from "@/lib/api/client";
+import { openBlobInNewTab } from "@/lib/utils/blob";
 import { ActionError } from "./dossier-detail.helpers";
 
 type PreliminaryDocumentField =
@@ -19,8 +21,17 @@ type PreliminaryDocumentField =
   | "preliminaryMeetingReportDocumentId"
   | "closureCourrierDocumentId";
 
+type PreliminaryEvidenceKey =
+  | "firstMeetingReportDocument"
+  | "preEvaluationTemplateDocument"
+  | "completedPreEvaluationDocument"
+  | "preEvaluationDgAnnotatedDocument"
+  | "preliminaryMeetingReportDocument"
+  | "closureCourrierDocument";
+
 type PreliminaryDocumentDefinition = {
   field: PreliminaryDocumentField;
+  evidenceKey: PreliminaryEvidenceKey;
   label: string;
   optional?: boolean;
 };
@@ -28,45 +39,50 @@ type PreliminaryDocumentDefinition = {
 const PRELIMINARY_DOCUMENTS: PreliminaryDocumentDefinition[] = [
   {
     field: "firstMeetingReportDocumentId",
+    evidenceKey: "firstMeetingReportDocument",
     label: "Compte rendu - 1ère réunion",
   },
   {
     field: "preEvaluationTemplateDocumentId",
+    evidenceKey: "preEvaluationTemplateDocument",
     label: "Formulaire pré-évaluation - modèle",
   },
   {
     field: "completedPreEvaluationDocumentId",
+    evidenceKey: "completedPreEvaluationDocument",
     label: "Formulaire pré-évaluation - soumis",
   },
   {
     field: "preEvaluationDgAnnotatedDocumentId",
+    evidenceKey: "preEvaluationDgAnnotatedDocument",
     label: "Retour DG annoté",
   },
   {
     field: "preliminaryMeetingReportDocumentId",
+    evidenceKey: "preliminaryMeetingReportDocument",
     label: "Compte rendu - réunion préliminaire",
   },
   {
     field: "closureCourrierDocumentId",
-    label: "Courrier de clôture phase I - optionnel",
+    evidenceKey: "closureCourrierDocument",
+    label: "Courrier de clôture phase I",
     optional: true,
   },
 ];
 
-function openBlobInNewTab(blob: Blob, fileName: string): void {
-  const url = URL.createObjectURL(blob);
-  const targetWindow = window.open("about:blank", "_blank");
-  if (!targetWindow) {
-    window.alert(
-      "Impossible d'ouvrir l'aperçu. Autorisez les fenêtres contextuelles pour consulter le document.",
-    );
-    URL.revokeObjectURL(url);
-    return;
-  }
-  targetWindow.document.title = fileName;
-  targetWindow.location.href = url;
-  window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
-}
+const visibilityLabels: Record<string, string> = {
+  internal_only: "Interne uniquement",
+  postulant_visible: "Visible postulant",
+};
+
+const formatUploadedAt = (value?: string) => {
+  if (!value) return null;
+  const d = new Date(value);
+  return Number.isNaN(d.getTime())
+    ? null
+    : new Intl.DateTimeFormat("fr-FR", { dateStyle: "medium" }).format(d);
+};
+
 
 function DocumentStatusBadge({
   documentId,
@@ -91,21 +107,40 @@ function DocumentStatusBadge({
   return <Badge variant="secondary">Manquant</Badge>;
 }
 
+function VisibilityBadge({ visibility }: { visibility?: string }): React.JSX.Element | null {
+  if (!visibility) return null;
+  const label = visibilityLabels[visibility] ?? visibility;
+  if (visibility === "postulant_visible") {
+    return (
+      <Badge
+        variant="outline"
+        className="border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-900 dark:bg-sky-950 dark:text-sky-200"
+      >
+        {label}
+      </Badge>
+    );
+  }
+  return <Badge variant="outline">{label}</Badge>;
+}
+
 function PhaseDocumentRow({
   dossierId,
   phase,
+  evidence,
   definition,
   downloadingId,
   onDownload,
 }: {
   dossierId: string;
   phase: AdminOmaPhase | null;
+  evidence: AdminDossierDocumentEvidence | null | undefined;
   definition: PreliminaryDocumentDefinition;
   downloadingId: string;
   onDownload: (dossierId: string, documentId: string) => void;
 }): React.JSX.Element {
   const documentId = phase?.[definition.field];
   const isDownloading = Boolean(documentId) && downloadingId === documentId;
+  const uploadedDate = formatUploadedAt(evidence?.uploadedAt);
 
   return (
     <li className="flex flex-col gap-3 border-b py-3 last:border-b-0 sm:flex-row sm:items-center sm:justify-between">
@@ -118,7 +153,13 @@ function PhaseDocumentRow({
             documentId={documentId}
             optional={definition.optional}
           />
+          {evidence ? <VisibilityBadge visibility={evidence.visibility} /> : null}
         </div>
+        {evidence && uploadedDate ? (
+          <p className="text-xs text-muted-foreground">
+            Déposé le {uploadedDate}
+          </p>
+        ) : null}
         {!documentId ? (
           <p className="text-xs text-muted-foreground">
             {definition.optional
@@ -156,6 +197,7 @@ export function DossierDocumentsTab({
   const [downloadError, setDownloadError] = useState("");
 
   const preliminaryPhase = detail.preliminary?.phase ?? null;
+  const documentEvidence = detail.preliminary?.documentEvidence ?? null;
 
   const handleDownload = async (dossierId: string, documentId: string) => {
     setDownloadingId(documentId);
@@ -204,6 +246,7 @@ export function DossierDocumentsTab({
                 key={definition.field}
                 dossierId={detail.dossier.id}
                 phase={preliminaryPhase}
+                evidence={documentEvidence?.[definition.evidenceKey]}
                 definition={definition}
                 downloadingId={downloadingId}
                 onDownload={(dossierId, documentId) =>

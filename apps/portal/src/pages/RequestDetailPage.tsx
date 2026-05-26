@@ -126,8 +126,10 @@ function MeetingBlock({
   meeting: PortalDossierMeeting;
 }): React.JSX.Element {
   const meetingStatusLabels: Record<string, string> = {
+    planned: "Planifié",
     invited: "Planifié",
     held: "Tenu",
+    postponed: "Reporté",
     cancelled: "Annulé",
   };
 
@@ -138,7 +140,7 @@ function MeetingBlock({
         <div>
           <dt className="inline text-slate-500">Statut : </dt>
           <dd className="inline font-medium text-slate-800">
-            {meetingStatusLabels[meeting.status] ?? meeting.status}
+            {meetingStatusLabels[meeting.status] ?? "Statut non reconnu"}
           </dd>
         </div>
         {meeting.scheduledAt ? (

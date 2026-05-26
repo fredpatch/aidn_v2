@@ -49,17 +49,25 @@ export const phaseStatusLabels: Record<string, string> = {
 
 export const preliminaryStatusLabels: Record<PreliminaryStatus, string> = {
   preliminary_not_started: "Non démarrée",
-  preliminary_started: "Démarrée",
+  preliminary_started: "Phase préliminaire démarrée",
   first_meeting_invited: "Première réunion planifiée",
   first_meeting_held: "Première réunion tenue",
-  pre_eval_form_available: "Formulaire disponible",
-  pre_eval_form_submitted: "Formulaire soumis",
-  pre_eval_sent_to_dg: "Mise en circuit DG",
-  pre_eval_dg_decision_recorded: "Décision DG enregistrée",
+  pre_eval_form_available: "Formulaire pré-évaluation disponible",
+  pre_eval_form_submitted: "Formulaire pré-évaluation soumis",
+  pre_eval_sent_to_dg: "Pré-évaluation mise en circuit DG",
+  pre_eval_dg_decision_recorded: "Retour DG pré-évaluation enregistré",
   preliminary_meeting_invited: "Réunion préliminaire planifiée",
   preliminary_meeting_held: "Réunion préliminaire tenue",
-  preliminary_ready_to_close: "Prête à clore",
-  preliminary_closed: "Clôturée",
+  preliminary_ready_to_close: "Prêt à clôturer",
+  preliminary_closed: "Phase préliminaire clôturée",
+};
+
+export const meetingStatusLabels: Record<string, string> = {
+  planned: "Planifiée",
+  invited: "Invitation envoyée",
+  held: "Tenue",
+  postponed: "Reportée",
+  cancelled: "Annulée",
 };
 
 export const PHASE_ORDER: OmaPhaseKey[] = [
@@ -82,7 +90,7 @@ export function PhaseStatusBadge({
 }: {
   status: string;
 }): React.JSX.Element {
-  const label = phaseStatusLabels[status] ?? status;
+  const label = phaseStatusLabels[status] ?? "Statut non reconnu";
   if (status === "closed") {
     return (
       <Badge
@@ -176,7 +184,9 @@ export function MeetingCard({
       <dl className="mt-2 grid gap-1 text-xs text-muted-foreground sm:grid-cols-2">
         <div>
           <dt className="inline">Statut : </dt>
-          <dd className="inline">{meeting.status}</dd>
+          <dd className="inline">
+            {meetingStatusLabels[meeting.status] ?? "Statut non reconnu"}
+          </dd>
         </div>
         {meeting.scheduledAt ? (
           <div>

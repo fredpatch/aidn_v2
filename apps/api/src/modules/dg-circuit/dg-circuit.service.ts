@@ -3,6 +3,8 @@ import { Types } from "mongoose";
 import { HttpError } from "../../shared/errors/http-error.js";
 import { Permissions } from "../../shared/permissions/permissions.js";
 import { storageAdapter } from "../../shared/storage/storage.adapter.js";
+import { saveDocument } from "../../shared/utils/document.helpers.js";
+import { ensureObjectId, toId, toIso } from "../../shared/utils/service.helpers.js";
 import { DocumentModel } from "../documents/document.model.js";
 import { DossierModel } from "../dossiers/dossier.model.js";
 import { DGReviewModel } from "../dg-reviews/dg-review.model.js";
@@ -16,19 +18,16 @@ type Actor = {
   permissions: string[];
 };
 
-type TaskBucket = "to_transmit" | "awaiting_return" | "returns_to_register" | "processed";
+type TaskBucket = "to_transmit" | "awaiting_return" | "returned_scanned" | "decision_recorded";
 type TaskSource = "initial_request" | "pre_evaluation";
 type GenericRecord = Record<string, unknown> & { _id: Types.ObjectId };
+type DgReviewHandledByRole = "dg_secretariat" | "reception" | "bureau_courrier" | "dn_agent" | "admin";
 
 const DG_TASK_PERMISSIONS = [
   Permissions.DG_CIRCUIT_HANDLE,
   Permissions.COURRIER_REGISTER_PHYSICAL,
   Permissions.PRE_EVAL_DG_CIRCUIT_HANDLE,
 ] as const;
-
-const toId = (value: unknown) => value?.toString();
-const toIso = (value: unknown) =>
-  value instanceof Date ? value.toISOString() : value ? new Date(String(value)).toISOString() : undefined;
 
 const ensureInternalActor = (actor: Actor) => {
   if (actor.userType !== "internal") {
@@ -48,13 +47,30 @@ const ensureCanViewTasks = (actor: Actor) => {
 
 const can = (actor: Actor, permission: string) => actor.permissions.includes(permission);
 
+const toDgRole = (role: string): DgReviewHandledByRole => {
+  const allowed: DgReviewHandledByRole[] = [
+    "dg_secretariat",
+    "reception",
+    "bureau_courrier",
+    "dn_agent",
+    "admin",
+  ];
+  return allowed.includes(role as DgReviewHandledByRole) ? (role as DgReviewHandledByRole) : "admin";
+};
+
 const taskMatches = (
   task: { bucket: TaskBucket; source: TaskSource; subject: string; organizationName?: string; applicantName?: string; reference?: string },
   filters: { bucket?: string; source?: string; search?: string },
 ) => {
   if (filters.bucket) {
-    const requestedBucket = filters.bucket === "returns_to_register" ? "awaiting_return" : filters.bucket;
-    if (task.bucket !== requestedBucket) return false;
+    if (filters.bucket === "returns_to_register") {
+      if (task.bucket !== "awaiting_return") return false;
+    } else if (filters.bucket === "processed") {
+      // backward compat: "processed" covers returned_scanned + decision_recorded
+      if (task.bucket !== "returned_scanned" && task.bucket !== "decision_recorded") return false;
+    } else {
+      if ((task.bucket as string) !== filters.bucket) return false;
+    }
   }
   if (filters.source && task.source !== filters.source) return false;
   if (!filters.search) return true;
@@ -79,23 +95,122 @@ const userName = (source: unknown) => {
   return String((source as GenericRecord).fullName ?? "");
 };
 
-const latestReviewByRequestId = async (requestIds: Types.ObjectId[]) => {
-  const reviews = requestIds.length
-    ? await DGReviewModel.find({ requestId: { $in: requestIds }, targetType: "initial_request" })
-      .sort({ createdAt: -1 })
-      .lean()
-    : [];
-  const byRequestId = new Map<string, GenericRecord>();
+// ── Generic DG review operations ─────────────────────────────────────────────
 
-  for (const review of reviews as unknown as GenericRecord[]) {
-    const requestId = toId(review.requestId);
-    if (requestId && !byRequestId.has(requestId)) {
-      byRequestId.set(requestId, review);
-    }
-  }
-
-  return byRequestId;
+export const createDgReview = async (params: {
+  targetType: string;
+  targetId: Types.ObjectId;
+  requestId?: Types.ObjectId;
+  dossierId?: Types.ObjectId;
+  phaseId?: Types.ObjectId;
+  handledByRole: string;
+  handledById?: Types.ObjectId;
+  outgoingDocumentId?: Types.ObjectId;
+  sentToDgAt?: Date;
+  observations?: string;
+}): Promise<{ _id: Types.ObjectId }> => {
+  const review = await DGReviewModel.findOneAndUpdate(
+    { targetId: params.targetId, targetType: params.targetType },
+    {
+      $set: {
+        targetType: params.targetType,
+        targetId: params.targetId,
+        requestId: params.requestId,
+        dossierId: params.dossierId,
+        phaseId: params.phaseId,
+        status: "awaiting_return",
+        handledByRole: toDgRole(params.handledByRole),
+        handledById: params.handledById,
+        sentToDgAt: params.sentToDgAt ?? new Date(),
+        outgoingDocumentId: params.outgoingDocumentId,
+        observations: params.observations,
+      },
+    },
+    { new: true, upsert: true, setDefaultsOnInsert: true },
+  );
+  return { _id: review._id };
 };
+
+export const markSentToDg = async (params: {
+  reviewId: Types.ObjectId;
+  actorId?: Types.ObjectId;
+  sentToDgAt?: Date;
+}): Promise<void> => {
+  await DGReviewModel.updateOne(
+    { _id: params.reviewId },
+    {
+      $set: {
+        status: "awaiting_return",
+        sentToDgAt: params.sentToDgAt ?? new Date(),
+        handledById: params.actorId,
+      },
+    },
+  );
+};
+
+export const recordDgReturn = async (params: {
+  reviewId: Types.ObjectId;
+  file: Express.Multer.File;
+  returnedFromDgAt?: Date;
+  uploadedById: Types.ObjectId;
+  title: string;
+  documentType: string;
+  ownerType: string;
+  ownerId: Types.ObjectId;
+  ownerPath: string;
+}): Promise<{ documentId: Types.ObjectId }> => {
+  const documentId = await saveDocument({
+    file: params.file,
+    ownerPath: params.ownerPath,
+    ownerType: params.ownerType,
+    ownerId: params.ownerId,
+    category: "decision",
+    documentType: params.documentType,
+    title: params.title,
+    visibility: "internal_only",
+    status: "uploaded",
+    uploadedById: params.uploadedById,
+  });
+
+  await DGReviewModel.updateOne(
+    { _id: params.reviewId },
+    {
+      $set: {
+        status: "returned_scanned",
+        returnedFromDgAt: params.returnedFromDgAt ?? new Date(),
+        returnedScannedDocumentId: documentId,
+      },
+    },
+  );
+
+  return { documentId };
+};
+
+export const recordDgDecision = async (params: {
+  reviewId: Types.ObjectId;
+  decision: string;
+  orientedDirection?: string;
+  observations?: string;
+  actorId: Types.ObjectId;
+  handledByRole?: string;
+  decidedAt?: Date;
+}): Promise<void> => {
+  const setFields: Record<string, unknown> = {
+    status: "decision_recorded",
+    decision: params.decision,
+    orientedDirection: params.orientedDirection,
+    observations: params.observations,
+    decisionRecordedById: params.actorId,
+    decisionRecordedAt: params.decidedAt ?? new Date(),
+  };
+  if (params.handledByRole) {
+    setFields.handledByRole = toDgRole(params.handledByRole);
+    setFields.handledById = params.actorId;
+  }
+  await DGReviewModel.updateOne({ _id: params.reviewId }, { $set: setFields });
+};
+
+// ── Task list ─────────────────────────────────────────────────────────────────
 
 export const listDgCircuitTasks = async (
   filters: { bucket?: string; source?: string; search?: string; limit?: number },
@@ -105,53 +220,91 @@ export const listDgCircuitTasks = async (
 
   const tasks: Array<Record<string, unknown> & { bucket: TaskBucket; source: TaskSource; subject: string }> = [];
 
-  const requestStatuses = ["submitted", "intake_in_review", "initial_sent_to_dg", "oriented_to_dn", "rejected"];
-  const requests = await RequestModel.find({
-    status: { $in: requestStatuses },
-    courrierSource: { $in: ["portal_upload", "physical_deposit"] },
-  })
-    .populate("organizationId", "canonicalName")
-    .populate("submittedById", "fullName")
-    .sort({ updatedAt: -1 })
-    .lean();
+  // ── Initial requests ───────────────────────────────────────────────────────
+  // Query all DGReviews for initial_request first so historical records are included.
+  const allReviews = await DGReviewModel.find({ targetType: "initial_request" })
+    .sort({ createdAt: -1 })
+    .lean() as unknown as GenericRecord[];
 
-  const reviewByRequestId = await latestReviewByRequestId(requests.map((request) => request._id));
+  const reviewByRequestId = new Map<string, GenericRecord>();
+  for (const review of allReviews) {
+    const reqId = toId(review.requestId);
+    if (reqId && !reviewByRequestId.has(reqId)) {
+      reviewByRequestId.set(reqId, review);
+    }
+  }
 
-  for (const request of requests as unknown as GenericRecord[]) {
+  const reviewedRequestIds = [...reviewByRequestId.keys()].map((id) => new Types.ObjectId(id));
+
+  const [reviewedRequests, pendingRequests] = await Promise.all([
+    reviewedRequestIds.length
+      ? RequestModel.find({ _id: { $in: reviewedRequestIds } })
+          .populate("organizationId", "canonicalName")
+          .populate("submittedById", "fullName")
+          .lean()
+      : Promise.resolve([]),
+    // Pending: no DGReview yet, waiting to enter circuit
+    RequestModel.find({
+      _id: { $nin: reviewedRequestIds },
+      courrierSource: { $in: ["portal_upload", "physical_deposit"] },
+      status: { $in: ["submitted", "intake_in_review"] },
+    })
+      .populate("organizationId", "canonicalName")
+      .populate("submittedById", "fullName")
+      .lean(),
+  ]);
+
+  const allRequests = [...reviewedRequests, ...pendingRequests] as unknown as GenericRecord[];
+
+  for (const request of allRequests) {
     const review = reviewByRequestId.get(request._id.toString());
-    const status = String(request.status);
+    const reviewStatus = review ? String(review.status ?? "") : null;
     const courrierSource = String(request.courrierSource ?? "");
+    const physicalDeposit = request.physicalDeposit as { status?: string } | undefined;
     let bucket: TaskBucket | null = null;
     const actions: string[] = [];
-    const physicalDeposit = request.physicalDeposit as { status?: string } | undefined;
 
-    if (
-      ["submitted", "intake_in_review"].includes(status) &&
-      courrierSource === "portal_upload" &&
-      request.initialDocumentId
-    ) {
-      bucket = "to_transmit";
-      if (can(actor, Permissions.DG_CIRCUIT_HANDLE)) {
-        actions.push("download_outgoing", "mark_transmitted");
+    if (reviewStatus === "decision_recorded") {
+      bucket = "decision_recorded";
+      if (can(actor, Permissions.DG_CIRCUIT_HANDLE) && review?.returnedScannedDocumentId) {
+        actions.push("download_annotated_return");
       }
-    } else if (
-      status === "submitted" &&
-      courrierSource === "physical_deposit" &&
-      physicalDeposit?.status === "planned"
-    ) {
-      bucket = "to_transmit";
-      if (can(actor, Permissions.COURRIER_REGISTER_PHYSICAL)) {
-        actions.push("record_physical_receipt");
+    } else if (reviewStatus === "returned_scanned") {
+      bucket = "returned_scanned";
+      if (can(actor, Permissions.DG_CIRCUIT_HANDLE) && review?.returnedScannedDocumentId) {
+        actions.push("download_annotated_return");
       }
-    } else if (status === "initial_sent_to_dg") {
+    } else if (reviewStatus === "awaiting_return" || reviewStatus === "sent_to_dg_circuit") {
       bucket = "awaiting_return";
       if (can(actor, Permissions.DG_CIRCUIT_HANDLE)) {
         actions.push("record_annotated_return");
       }
-    } else if (["oriented_to_dn", "rejected"].includes(status) && review?.returnedScannedDocumentId) {
-      bucket = "processed";
+    } else if (reviewStatus === "created") {
+      bucket = "to_transmit";
       if (can(actor, Permissions.DG_CIRCUIT_HANDLE)) {
-        actions.push("download_annotated_return");
+        actions.push("download_outgoing", "mark_transmitted");
+      }
+    } else {
+      // No DGReview — determine bucket from request state
+      const reqStatus = String(request.status ?? "");
+      if (
+        ["submitted", "intake_in_review"].includes(reqStatus) &&
+        courrierSource === "portal_upload" &&
+        request.initialDocumentId
+      ) {
+        bucket = "to_transmit";
+        if (can(actor, Permissions.DG_CIRCUIT_HANDLE)) {
+          actions.push("download_outgoing", "mark_transmitted");
+        }
+      } else if (
+        reqStatus === "submitted" &&
+        courrierSource === "physical_deposit" &&
+        physicalDeposit?.status === "planned"
+      ) {
+        bucket = "to_transmit";
+        if (can(actor, Permissions.COURRIER_REGISTER_PHYSICAL)) {
+          actions.push("record_physical_receipt");
+        }
       }
     }
 
@@ -165,31 +318,46 @@ export const listDgCircuitTasks = async (
       organizationName: organizationName(request.organizationId),
       applicantName: userName(request.submittedById),
       requestId: request._id.toString(),
-      status,
+      status: reviewStatus ?? String(request.status ?? ""),
       documentToTransmitId: toId(request.initialDocumentId),
       annotatedReturnDocumentId: toId(review?.returnedScannedDocumentId),
       submittedAt: toIso(request.submittedAt),
-      transmittedAt: toIso((request.intake as Record<string, unknown> | undefined)?.sentToDgAt),
+      transmittedAt: toIso(review?.sentToDgAt),
       returnedAt: toIso(review?.returnedFromDgAt),
       processedAt: toIso(review?.decisionRecordedAt),
+      sentToDgAt: toIso(review?.sentToDgAt),
+      returnedFromDgAt: toIso(review?.returnedFromDgAt),
+      decisionRecordedAt: toIso(review?.decisionRecordedAt),
+      decision: review?.decision != null ? String(review.decision) : undefined,
+      orientedDirection: review?.orientedDirection ? String(review.orientedDirection) : undefined,
+      observations: review?.observations ? String(review.observations) : undefined,
+      handledByRole: review?.handledByRole ? String(review.handledByRole) : undefined,
       availableActions: actions,
     });
   }
 
+  // ── Pre-evaluation items ───────────────────────────────────────────────────
+  // Include all phases that have ever entered the pre-eval DG circuit.
   const phases = await OmaPhaseModel.find({
     phaseKey: "preliminary",
-    preliminaryStatus: {
-      $in: ["pre_eval_form_submitted", "pre_eval_sent_to_dg", "pre_eval_dg_decision_recorded"],
-    },
+    $or: [
+      {
+        preliminaryStatus: {
+          $in: ["pre_eval_form_submitted", "pre_eval_sent_to_dg", "pre_eval_dg_decision_recorded"],
+        },
+      },
+      { preEvaluationSentToDgAt: { $exists: true, $ne: null } },
+    ],
   })
     .sort({ updatedAt: -1 })
     .lean();
+
   const dossierIds = phases.map((phase) => phase.dossierId).filter(Boolean) as Types.ObjectId[];
   const dossiers = dossierIds.length
     ? await DossierModel.find({ _id: { $in: dossierIds } })
-      .populate("organizationId", "canonicalName")
-      .populate("postulantUserId", "fullName")
-      .lean()
+        .populate("organizationId", "canonicalName")
+        .populate("postulantUserId", "fullName")
+        .lean()
     : [];
   const dossierById = new Map<string, GenericRecord>();
   for (const dossier of dossiers as unknown as GenericRecord[]) {
@@ -212,8 +380,12 @@ export const listDgCircuitTasks = async (
       if (can(actor, Permissions.PRE_EVAL_DG_CIRCUIT_HANDLE)) {
         actions.push("record_annotated_return");
       }
-    } else if (preliminaryStatus === "pre_eval_dg_decision_recorded" && phase.preEvaluationDgAnnotatedDocumentId) {
-      bucket = "processed";
+    } else if (
+      preliminaryStatus === "pre_eval_dg_decision_recorded" ||
+      (phase.preEvaluationSentToDgAt && phase.preEvaluationDgAnnotatedDocumentId)
+    ) {
+      // No decision field exists on OmaPhase for pre-eval — map to returned_scanned (closest available)
+      bucket = "returned_scanned";
       if (can(actor, Permissions.PRE_EVAL_DG_RETURN_CONSULT)) {
         actions.push("download_annotated_return");
       }
@@ -225,7 +397,7 @@ export const listDgCircuitTasks = async (
       id: `pre_evaluation:${phase._id.toString()}`,
       source: "pre_evaluation",
       bucket,
-      subject: "Formulaire de pre-evaluation",
+      subject: "Formulaire de pré-évaluation",
       organizationName: organizationName(dossier?.organizationId),
       applicantName: userName(dossier?.postulantUserId),
       reference: String(dossier?.dossierNumber ?? ""),
@@ -235,17 +407,36 @@ export const listDgCircuitTasks = async (
       documentToTransmitId: toId(phase.completedPreEvaluationDocumentId),
       annotatedReturnDocumentId: toId(phase.preEvaluationDgAnnotatedDocumentId),
       submittedAt: toIso(phase.updatedAt),
-      transmittedAt: preliminaryStatus === "pre_eval_sent_to_dg" ? toIso(phase.updatedAt) : undefined,
-      processedAt: preliminaryStatus === "pre_eval_dg_decision_recorded" ? toIso(phase.updatedAt) : undefined,
+      transmittedAt: toIso(phase.preEvaluationSentToDgAt),
+      returnedAt: toIso(phase.preEvaluationReturnedFromDgAt),
+      processedAt:
+        preliminaryStatus === "pre_eval_dg_decision_recorded"
+          ? toIso(phase.preEvaluationReturnedFromDgAt ?? phase.updatedAt)
+          : undefined,
+      sentToDgAt: toIso(phase.preEvaluationSentToDgAt),
+      returnedFromDgAt: toIso(phase.preEvaluationReturnedFromDgAt),
+      decisionRecordedAt: undefined,
+      decision: undefined,
+      orientedDirection: undefined,
+      observations: undefined,
+      handledByRole: undefined,
       availableActions: actions,
     });
   }
 
+  const toTransmit = tasks.filter((t) => t.bucket === "to_transmit").length;
+  const awaitingReturn = tasks.filter((t) => t.bucket === "awaiting_return").length;
+  const returnedScanned = tasks.filter((t) => t.bucket === "returned_scanned").length;
+  const decisionRecorded = tasks.filter((t) => t.bucket === "decision_recorded").length;
+
   const counts = {
-    toTransmit: tasks.filter((task) => task.bucket === "to_transmit").length,
-    awaitingReturn: tasks.filter((task) => task.bucket === "awaiting_return").length,
-    processed: tasks.filter((task) => task.bucket === "processed").length,
+    toTransmit,
+    awaitingReturn,
+    returnedScanned,
+    decisionRecorded,
+    processed: returnedScanned + decisionRecorded, // backward compat
   };
+
   const limit = Number.isFinite(filters.limit) ? Math.max(1, Math.min(Number(filters.limit), 200)) : 100;
 
   return {
@@ -254,13 +445,6 @@ export const listDgCircuitTasks = async (
       .slice(0, limit),
     counts,
   };
-};
-
-const ensureObjectId = (id: string, label: string) => {
-  if (!Types.ObjectId.isValid(id)) {
-    throw new HttpError(400, `${label} is invalid`);
-  }
-  return new Types.ObjectId(id);
 };
 
 export const downloadDgCircuitTaskDocument = async (

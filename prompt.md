@@ -145,166 +145,189 @@ YYYY-MM-DD-<phase-name>-correction.md
 
 # CURRENT OBJECTIVE
 
-# OMA-OPS-8A — Phase I transition/date hardening
+# OMA-OPS-9C — Frontend primitive refactor before Phase 2
 
-You are working on AIDN.
+You are working inside the existing AIDN_V2 repository.
 
-OMA-OPS-8 audit is complete. Do not move to Phase 2 yet.
+Current state:
+
+- OMA-OPS-9A backend primitive refactor is complete.
+- OMA-OPS-9B DG circuit history / receptionist traceability is complete.
+- OMA-OPS-9B-FIX dashboard/timeline consistency is complete.
+- API and Admin builds passed.
+- Phase 2 / Demande formelle has not started yet.
 
 ## Objective
 
-Fix the urgent workflow/data correctness issues found in the Phase préliminaire audit.
+Extract small reusable frontend primitives before implementing Phase 2.
 
-Focus only on:
+This is a frontend refactor-only slice.
 
-1. Phase I close behavior and Phase 2 readiness.
-2. Persistence of important dates for future SLA/delay reports.
-3. Cleanup/quarantine of dead `pre_eval_dg_returned` status.
-4. Meeting report requirement decision/enforcement.
-
-Do not refactor large files in this slice unless directly needed.
-Do not implement Phase 2 UI/actions.
-Do not implement SLA reports.
-Do not implement Certificat.
+Do not implement Phase 2.
+Do not add backend routes.
+Do not change API contracts.
+Do not change workflow behavior.
+Do not extract a PhaseWorkspaceShell yet.
 
 ---
 
-## Mandatory process
+## Files to inspect first
 
-Read:
+Inspect:
 
-- `exploration-cache/manifest.json`
-- `exploration-cache/tasks/current-task.md`
-- `exploration-cache/tasks/summaries/2026-05-25-oma-ops-8-preliminary-hardening-audit.md`
-- `apps/api/src/modules/oma-phases/oma-phase.service.ts`
-- `apps/api/src/modules/oma-phases/oma-phase.model.ts`
-- `apps/api/src/modules/meetings/meeting.model.ts`
-- `apps/api/src/modules/meetings/meeting.service.ts`
-- `apps/admin/src/pages/dossiers/PreliminaryPhaseWorkspace.tsx`
-- `apps/admin/src/pages/dossiers/preliminary-progress.helpers.ts`
-- `apps/admin/src/lib/api/dossiers.api.ts`
-- portal dossier/status files if affected
+apps/admin/src/pages/dossiers/PreliminaryPhaseWorkspace.tsx
+apps/admin/src/pages/dossiers/preliminary-dialogs.tsx
+apps/admin/src/pages/dossiers/DossierDocumentsTab.tsx
+apps/admin/src/pages/dossiers/DossierMeetingsTab.tsx
+apps/admin/src/pages/dossiers/DossierCourriersTab.tsx
+apps/admin/src/pages/DgCircuitPage.tsx
+apps/admin/src/pages/dossiers/preliminary-evidence.helpers.ts
+apps/admin/src/lib/api/dossiers.api.ts
+apps/admin/src/lib/api/dg-circuit.api.ts
+apps/admin/src/components/ui/dialog.tsx
+apps/admin/src/components/ui/button.tsx
+apps/admin/src/components/ui/input.tsx
+apps/admin/src/components/ui/textarea.tsx
 
-Create summary:
+Follow existing component style and imports.
 
-`exploration-cache/tasks/summaries/YYYY-MM-DD-oma-ops-8a-phase1-transition-date-hardening.md`
+Part 1 — Extract blob utility
 
-Update:
+Create:
 
-- `exploration-cache/tasks/current-task.md`
-- manifest if required.
+apps/admin/src/lib/utils/blob.ts
 
----
+Move duplicated openBlobInNewTab logic into this helper.
 
-## Part A — Phase I close behavior
+Expected helper:
 
-Audit found:
+export function openBlobInNewTab(blob: Blob, filename?: string): void {
+const url = window.URL.createObjectURL(blob);
+window.open(url, "\_blank", "noopener,noreferrer");
+window.setTimeout(() => window.URL.revokeObjectURL(url), 60_000);
+}
 
-- Closing Phase I sets:
-  - phase status `closed`
-  - preliminaryStatus `preliminary_closed`
-  - dossier status `formal_request_phase`
-  - starts `formal_request` phase immediately
+If current implementation handles popup failure or filename differently, preserve the existing behavior.
 
-Before changing, inspect actual implementation.
+Update imports in all touched files.
 
-Target decision:
+Do not change download API calls.
 
-- Closing Phase I should **not silently start Phase 2 actions**.
-- Preferred target:
-  - Phase I closes.
-  - Dossier becomes ready for Phase 2.
-  - Formal request phase can exist as `not_started`, but should not be `in_progress` unless explicitly started.
-  - UI can later show `Phase 2 prête à démarrer`.
+Part 2 — Extract error utility
 
-Acceptable implementation:
+Create:
 
-```txt
-Phase I closed
-→ dossier.status = formal_request_phase
-→ formal_request phase exists with status = not_started
-→ no Phase 2 action workspace active yet
+apps/admin/src/lib/utils/error.ts
 
-Do not implement Phase 2 start button in this slice unless trivial and already supported.
+Add:
 
-Return clearly what was changed.
+export function extractError(error: unknown, fallback = "Une erreur est survenue."): string {
+// preserve existing API error shape if present
+}
 
-Part B — Persist SLA-relevant dates
+Support likely shapes:
 
-Audit found inputs are accepted but not persisted:
+error instanceof Error
+(error as any)?.response?.data?.error?.message
+(error as any)?.response?.data?.message
 
-sendPreEvalToDg.sentAt
-recordPreEvalDgReturn.returnedAt
+Update duplicated local extractError implementations in touched files.
 
-Implement persistence if fields exist or add minimal fields to OmaPhase / DGReview where appropriate.
+Preserve displayed French fallback messages.
 
-Preferred fields:
+Part 3 — Create generic UploadDocumentDialog
 
-preEvaluationSentToDgAt?: Date;
-preEvaluationReturnedFromDgAt?: Date;
+Create:
 
-or reuse existing DGReview.sentToDgAt and DGReview.returnedFromDgAt if clean.
+apps/admin/src/pages/dossiers/components/UploadDocumentDialog.tsx
 
-Rules:
+Generic props:
 
-If payload date is provided, persist it.
-Else use current server time.
-Serialize these dates in admin dossier detail if useful for Historique/SLA later.
+export type UploadDocumentDialogProps = {
+open: boolean;
+title: string;
+description?: string;
+fileLabel?: string;
+dateLabel?: string;
+notesLabel?: string;
+submitLabel?: string;
+isSubmitting?: boolean;
+error?: string | null;
+requireDate?: boolean;
+requireNotes?: boolean;
+onOpenChange: (open: boolean) => void;
+onSubmit: (payload: {
+file: File;
+date?: string;
+notes?: string;
+}) => Promise<void> | void;
+};
 
-Also check meeting held date.
+Behavior:
 
-If Meeting does not have heldAt, add:
+file is always required;
+date is optional unless requireDate=true;
+notes are optional unless requireNotes=true;
+reset local form state when dialog closes or after successful submit;
+preserve existing visual style;
+French labels by default:
+Document
+Date du document
+Observations
+Enregistrer
+Veuillez sélectionner un fichier.
+Veuillez renseigner la date.
+Veuillez renseigner les observations.
 
-heldAt?: Date
+Then refactor existing specialized dialogs in:
 
-Set it when recording first/preliminary meeting as held.
+apps/admin/src/pages/dossiers/preliminary-dialogs.tsx
 
-Serialize if needed.
+Use the generic dialog internally for:
 
-Part C — Dead status cleanup
+DG return upload dialog
+phase closure courrier upload dialog
 
-Audit found:
+Do not change external behavior of the existing specialized dialogs if other files depend on them.
 
-pre_eval_dg_returned
+Part 4 — Stabilize EvidenceRequirement type
 
-exists in backend/admin types but no route sets it.
+Inspect:
 
-Preferred:
+apps/admin/src/pages/dossiers/preliminary-evidence.helpers.ts
 
-remove from frontend label maps and API type if safe;
-keep backend enum only if migration risk exists;
-otherwise remove fully if no stored data uses it.
+Extend the existing EvidenceRequirement type to support future checklist documents:
 
-Do not create a transition to it unless there is a business reason.
+submittedDocumentId?: string;
+reviewStatus?: string;
 
-Part D — Meeting report requirement
+If status union exists, make sure it can represent:
 
-Audit found:
+missing
+available
+under_review
+validated
+rejected
+requires_correction
+optional
 
-recordFirstMeeting
-recordPreliminaryMeeting
+Do not add Phase 2 requirements yet.
+Do not change visible preliminary checklist behavior unless needed for types.
 
-allow no report file, but checklist/report evidence expects reports.
+Strict constraints
 
-Decision target:
+Do not:
 
-For MVP, make report file required when marking meeting held.
-
-Expected behavior:
-
-If no file is provided, return validation error.
-UI dialog should mark file input required.
-Checklist and Documents tab remain consistent.
-
-If implementation risk is high, report why and leave as TODO, but do not silently ignore.
-
+implement Phase 2;
+add formal request checklist;
+add backend code;
+add new API calls;
+change route behavior;
+extract PhaseWorkspaceShell;
+redesign dossier pages;
+change business labels beyond cleanup consistency;
+remove existing dialogs if they are imported elsewhere.
 Verification
-
-Run:
-
-cd apps/api
-npx tsc --noEmit
-npm run build
 
 Run:
 
@@ -312,33 +335,79 @@ cd apps/admin
 npx tsc --noEmit
 npm run build
 
-Run portal only if portal types/statuses changed:
+If shared types cause API imports or workspace scripts to run, also run:
 
-cd apps/portal
-npx tsc --noEmit
+cd apps/api
+npm run typecheck
 npm run build
 
 Manual checks:
 
-Closing Phase I no longer silently starts active Phase 2 workflow.
-Formal phase is not in progress unless explicitly intended.
-Pre-eval sent-to-DG date is persisted.
-Pre-eval DG return date is persisted.
-Meeting held date is persisted.
-Meeting report file is required when marking held.
-pre_eval_dg_returned no longer appears in active UI/type paths, or is clearly quarantined.
-Admin and portal still load dossier detail.
-Existing Phase I happy path still works.
+1. Documents tab downloads still open.
+2. Meetings tab report downloads still open.
+3. Courriers tab downloads still open.
+4. Preliminary workspace document downloads still open.
+5. DG circuit returned document download still opens if touched.
+6. Record DG return dialog opens, validates, submits.
+7. Upload closure courrier dialog opens, validates, submits.
+8. Existing error messages still appear.
+9. Preliminary evidence checklist still renders.
+10. No Phase 2 UI appears.
+    Cache updates
+
+Update:
+
+TASK.md
+exploration-cache/tasks/current-task.md
+exploration-cache/03-frontend/ADMIN_APP_MAP.md
+exploration-cache/06-workflows/OMA_WORKFLOW.md if relevant
+exploration-cache/09-qa/BUILD_AND_TEST_COMMANDS.md if commands changed
+
+Create summary:
+
+exploration-cache/tasks/summaries/2026-05-26-oma-ops-9c-frontend-primitive-refactor.md
+
+Summary must include:
+
+Files created.
+Files modified.
+Blob utility extraction.
+Error utility extraction.
+UploadDocumentDialog behavior.
+EvidenceRequirement changes.
+Verification results.
+Runtime/manual tests.
+Known limitations.
+Next recommended slice.
+Expected implementation report
 
 Return:
 
-Files inspected
-Files changed
-Phase I close behavior result
-Date persistence changes
-Dead status cleanup
-Meeting report requirement behavior
-Verification results
-Runtime checks pending/done
-Risks/TODOs
-```
+OMA-OPS-9C Implementation Report
+
+1. Files created
+2. Files modified
+3. Blob utility extraction
+4. Error utility extraction
+5. UploadDocumentDialog extraction
+6. EvidenceRequirement changes
+7. Behavior preserved
+8. Verification commands
+9. Runtime/manual validation
+10. Risks/TODOs
+11. Next recommended slice
+
+---
+
+# Acceptance checklist
+
+✅ openBlobInNewTab extracted
+✅ extractError extracted
+✅ UploadDocumentDialog created
+✅ existing upload dialogs reuse generic component
+✅ EvidenceRequirement ready for Phase 2 checklist
+✅ no Phase 2 behavior added
+✅ admin typecheck passes
+✅ admin build passes
+✅ existing downloads still work
+✅ existing upload dialogs still work

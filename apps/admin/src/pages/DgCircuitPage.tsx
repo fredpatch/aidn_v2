@@ -3,6 +3,7 @@ import {
   CheckCircle2,
   Clock,
   Download,
+  FileCheck2,
   FileUp,
   Printer,
   RefreshCcw,
@@ -40,6 +41,8 @@ import { recordPreEvalDgReturn, sendPreEvalToDg } from "@/lib/api/dossiers.api";
 type DgCircuitTaskCounts = {
   toTransmit: number;
   awaitingReturn: number;
+  returnedScanned: number;
+  decisionRecorded: number;
   processed: number;
 };
 
@@ -57,11 +60,12 @@ const bucketTabs: Array<{
   { key: "all", label: "Tous" },
   { key: "to_transmit", label: "À imprimer", countKey: "toTransmit" },
   { key: "awaiting_return", label: "En circuit", countKey: "awaitingReturn" },
-  { key: "processed", label: "Traités", countKey: "processed" },
+  { key: "returned_scanned", label: "Retours enregistrés", countKey: "returnedScanned" },
+  { key: "decision_recorded", label: "Décision enregistrée", countKey: "decisionRecorded" },
 ];
 
 const sourceLabels: Record<string, string> = {
-  initial_request: "Courrier initial",
+  initial_request: "Demande initiale",
   pre_evaluation: "Formulaire de pré-évaluation",
 };
 
@@ -83,6 +87,18 @@ const bucketStyle: Record<
     icon: <Clock className="h-4 w-4 text-blue-600 dark:text-blue-400" />,
     accentBorder: "border-l-blue-400",
     iconBg: "bg-blue-50 dark:bg-blue-950/40",
+  },
+  returned_scanned: {
+    icon: <FileCheck2 className="h-4 w-4 text-teal-600 dark:text-teal-400" />,
+    accentBorder: "border-l-teal-400",
+    iconBg: "bg-teal-50 dark:bg-teal-950/40",
+  },
+  decision_recorded: {
+    icon: (
+      <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+    ),
+    accentBorder: "border-l-emerald-400",
+    iconBg: "bg-emerald-50 dark:bg-emerald-950/40",
   },
   processed: {
     icon: (
@@ -198,18 +214,28 @@ function StatusBadge({
 }: {
   bucket: DgCircuitBucket;
 }): React.JSX.Element {
-  if (bucket === "processed") {
+  if (bucket === "decision_recorded" || bucket === "processed") {
     return (
       <Badge
         variant="outline"
         className="border-emerald-200 bg-emerald-50 text-emerald-700"
       >
-        Traité
+        Décision saisie
+      </Badge>
+    );
+  }
+  if (bucket === "returned_scanned") {
+    return (
+      <Badge
+        variant="outline"
+        className="border-teal-200 bg-teal-50 text-teal-700"
+      >
+        Retour DG enregistré
       </Badge>
     );
   }
   if (bucket === "awaiting_return") {
-    return <Badge variant="secondary">En circuit</Badge>;
+    return <Badge variant="secondary">En circuit DG</Badge>;
   }
   return <Badge variant="outline">À imprimer</Badge>;
 }
@@ -219,6 +245,12 @@ function CourrierTimeline({
 }: {
   task: DgCircuitTask;
 }): React.JSX.Element {
+  const documentUploaded = !!(
+    task.annotatedReturnDocumentId ||
+    task.returnedFromDgAt ||
+    task.returnedAt ||
+    task.processedAt
+  );
   const steps = [
     { label: "Reçu", date: task.submittedAt, done: !!task.submittedAt },
     {
@@ -228,10 +260,14 @@ function CourrierTimeline({
     },
     {
       label: "Signé ou annoté",
-      date: task.returnedAt,
-      done: !!task.returnedAt,
+      date: task.returnedFromDgAt ?? task.returnedAt,
+      done: !!(task.returnedFromDgAt || task.returnedAt),
     },
-    { label: "Téléversé", date: task.processedAt, done: !!task.processedAt },
+    {
+      label: "Téléversé",
+      date: task.processedAt ?? task.returnedFromDgAt ?? task.returnedAt,
+      done: documentUploaded,
+    },
   ];
 
   return (
@@ -686,6 +722,26 @@ export function DgCircuitPage(): React.JSX.Element {
         </div>
       ) : null}
 
+      {data ? (
+        <div className="flex flex-wrap gap-3">
+          {[
+            { label: "Total", value: data.items.length },
+            { label: "À imprimer", value: data.counts.toTransmit },
+            { label: "En circuit", value: data.counts.awaitingReturn },
+            { label: "Retours DG", value: data.counts.returnedScanned },
+            { label: "Décisions saisies", value: data.counts.decisionRecorded },
+          ].map((kpi) => (
+            <div
+              key={kpi.label}
+              className="rounded-md border bg-background px-3 py-2 text-center min-w-[80px]"
+            >
+              <p className="text-xl font-semibold tabular-nums">{kpi.value}</p>
+              <p className="text-xs text-muted-foreground">{kpi.label}</p>
+            </div>
+          ))}
+        </div>
+      ) : null}
+
       <SplitView
         left={
           <div className="space-y-3">
@@ -732,7 +788,7 @@ export function DgCircuitPage(): React.JSX.Element {
               ))}
             </div>
           ) : (
-            <EmptyState message="Aucun courrier pour ces filtres." />
+            <EmptyState message="Aucun courrier dans cette vue. Les courriers traités restent disponibles via les filtres Retours enregistrés ou Décision enregistrée." />
           )}
         </div>
         }
@@ -818,14 +874,51 @@ export function DgCircuitPage(): React.JSX.Element {
                     </Button>
                   ) : null}
                 </>
-              ) : (
+              ) : selected.bucket === "returned_scanned" ||
+                selected.bucket === "decision_recorded" ||
+                selected.bucket === "processed" ? (
                 <>
                   <div>
-                    <p className="text-sm font-medium">Traité</p>
-                    <p className="text-xs text-muted-foreground">
-                      Ce courrier a complété le circuit officiel.
-                    </p>
+                    <p className="text-sm font-medium">Traçabilité</p>
                   </div>
+                  <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm">
+                    <dt className="text-muted-foreground">Type</dt>
+                    <dd>{sourceLabels[selected.source] ?? selected.source}</dd>
+                    {selected.organizationName ? (
+                      <>
+                        <dt className="text-muted-foreground">Organisation</dt>
+                        <dd>{selected.organizationName}</dd>
+                      </>
+                    ) : null}
+                    {selected.applicantName ? (
+                      <>
+                        <dt className="text-muted-foreground">Postulant</dt>
+                        <dd>{selected.applicantName}</dd>
+                      </>
+                    ) : null}
+                    <dt className="text-muted-foreground">Envoi DG</dt>
+                    <dd>{formatDate(selected.sentToDgAt ?? selected.transmittedAt)}</dd>
+                    <dt className="text-muted-foreground">Retour DG</dt>
+                    <dd>{formatDate(selected.returnedFromDgAt ?? selected.returnedAt)}</dd>
+                    {selected.decision ? (
+                      <>
+                        <dt className="text-muted-foreground">Décision</dt>
+                        <dd>{selected.decision}</dd>
+                      </>
+                    ) : null}
+                    {selected.orientedDirection ? (
+                      <>
+                        <dt className="text-muted-foreground">Direction</dt>
+                        <dd>{selected.orientedDirection}</dd>
+                      </>
+                    ) : null}
+                    {selected.observations ? (
+                      <>
+                        <dt className="text-muted-foreground">Observations</dt>
+                        <dd className="whitespace-pre-line">{selected.observations}</dd>
+                      </>
+                    ) : null}
+                  </dl>
                   {selected.availableActions.includes(
                     "download_annotated_return",
                   ) && selected.annotatedReturnDocumentId ? (
@@ -841,11 +934,11 @@ export function DgCircuitPage(): React.JSX.Element {
                       disabled={isSubmitting}
                     >
                       <Download className="mr-2 h-4 w-4" />
-                      Consulter le retour
+                      Consulter le retour DG
                     </Button>
                   ) : null}
                 </>
-              )}
+              ) : null}
             </div>
           </div>
         ) : (

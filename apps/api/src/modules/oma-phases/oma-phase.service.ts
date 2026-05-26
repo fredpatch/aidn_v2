@@ -2,6 +2,8 @@ import { Types } from "mongoose";
 
 import { HttpError } from "../../shared/errors/http-error.js";
 import { storageAdapter } from "../../shared/storage/storage.adapter.js";
+import { saveDocument } from "../../shared/utils/document.helpers.js";
+import { ensureObjectId, parseOptionalDate, toId, toIso } from "../../shared/utils/service.helpers.js";
 import { writeAuditLog } from "../audit/audit.service.js";
 import { CourrierModel } from "../courriers/courrier.model.js";
 import { DGReviewModel } from "../dg-reviews/dg-review.model.js";
@@ -58,31 +60,6 @@ const ADMIN_PRELIMINARY_DOWNLOAD_FIELDS = [
   "preliminaryMeetingReportDocumentId",
   "closureCourrierDocumentId",
 ] as const;
-
-const toId = (value: unknown) => value?.toString();
-
-const toIso = (value: unknown) =>
-  value instanceof Date
-    ? value.toISOString()
-    : value
-      ? new Date(String(value)).toISOString()
-      : undefined;
-
-const parseOptionalDate = (value: unknown, label: string) => {
-  if (!value) return undefined;
-  const date = new Date(String(value));
-  if (Number.isNaN(date.getTime())) {
-    throw new HttpError(400, `${label} must be a valid date`);
-  }
-  return date;
-};
-
-const ensureObjectId = (id: string, label: string) => {
-  if (!Types.ObjectId.isValid(id)) {
-    throw new HttpError(400, `${label} is invalid`);
-  }
-  return new Types.ObjectId(id);
-};
 
 const ensureInternalActor = (actor: Actor) => {
   if (actor.userType !== "internal") {
@@ -153,6 +130,11 @@ const sanitizePhase = (p: GenericRecord) => ({
   closedAt: toIso(p.closedAt),
 });
 
+const REPORT_REQUIRED_MEETING_TYPES = new Set([
+  "first_contact_meeting",
+  "preliminary_meeting",
+]);
+
 const sanitizeMeeting = (m: GenericRecord) => ({
   id: m._id.toString(),
   phaseId: toId(m.phaseId),
@@ -165,9 +147,51 @@ const sanitizeMeeting = (m: GenericRecord) => ({
   location: m.location,
   outlookEmailStatus: m.outlookEmailStatus,
   reportDocumentId: toId(m.reportDocumentId),
+  reportRequired: REPORT_REQUIRED_MEETING_TYPES.has(m.meetingType as string),
   notes: m.notes,
   createdAt: toIso(m.createdAt),
 });
+
+const sanitizeDocumentEvidence = (id: Types.ObjectId, doc: GenericRecord) => ({
+  id: id.toString(),
+  title: doc.title as string | undefined,
+  fileName: doc.fileName as string | undefined,
+  documentType: doc.documentType as string | undefined,
+  category: doc.category as string | undefined,
+  uploadedAt: toIso(doc.uploadedAt),
+  uploadedById: toId(doc.uploadedById),
+  visibility: doc.visibility as "internal_only" | "postulant_visible" | undefined,
+  status: doc.status as string | undefined,
+});
+
+const buildPreliminaryDocumentEvidence = async (phase: GenericRecord) => {
+  const fields = [
+    { key: "preEvaluationTemplateDocument", idField: "preEvaluationTemplateDocumentId" },
+    { key: "completedPreEvaluationDocument", idField: "completedPreEvaluationDocumentId" },
+    { key: "preEvaluationDgAnnotatedDocument", idField: "preEvaluationDgAnnotatedDocumentId" },
+    { key: "firstMeetingReportDocument", idField: "firstMeetingReportDocumentId" },
+    { key: "preliminaryMeetingReportDocument", idField: "preliminaryMeetingReportDocumentId" },
+    { key: "closureCourrierDocument", idField: "closureCourrierDocumentId" },
+  ] as const;
+
+  const results: Record<string, ReturnType<typeof sanitizeDocumentEvidence> | null> = {};
+
+  await Promise.all(
+    fields.map(async ({ key, idField }) => {
+      const docId = phase[idField] as Types.ObjectId | undefined;
+      if (!docId) {
+        results[key] = null;
+        return;
+      }
+      const doc = await DocumentModel.findById(docId)
+        .select("title fileName documentType category uploadedAt uploadedById visibility status")
+        .lean();
+      results[key] = doc ? sanitizeDocumentEvidence(docId, doc as unknown as GenericRecord) : null;
+    }),
+  );
+
+  return results;
+};
 
 const buildDossierCourriers = async (requestId: unknown) => {
   const requestObjectId = requestId instanceof Types.ObjectId ? requestId : undefined;
@@ -297,44 +321,6 @@ const validateFile = (
   return file;
 };
 
-const saveDocument = async (params: {
-  file: Express.Multer.File;
-  ownerPath: string;
-  ownerType: string;
-  ownerId: Types.ObjectId;
-  category: string;
-  documentType: string;
-  title: string;
-  visibility: string;
-  status: string;
-  uploadedById: Types.ObjectId;
-}) => {
-  const stored = await storageAdapter.save({
-    buffer: params.file.buffer,
-    fileName: params.file.originalname,
-    mimeType: params.file.mimetype,
-    ownerPath: params.ownerPath,
-  });
-
-  const doc = (await DocumentModel.create({
-    ownerType: params.ownerType,
-    ownerId: params.ownerId,
-    category: params.category,
-    documentType: params.documentType,
-    title: params.title,
-    fileName: stored.fileName,
-    mimeType: stored.mimeType,
-    fileSize: stored.fileSize,
-    storageKey: stored.storageKey,
-    visibility: params.visibility,
-    status: params.status,
-    uploadedById: params.uploadedById,
-    uploadedAt: new Date(),
-  })) as unknown as { _id: Types.ObjectId } & Record<string, unknown>;
-
-  return doc._id;
-};
-
 // ── Admin read ────────────────────────────────────────────────────────────
 
 export const listAdminDossiers = async (
@@ -409,7 +395,12 @@ export const getAdminDossier = async (dossierId: string, actor: Actor) => {
     }
   }
 
-  const courriers = await buildDossierCourriers(dossier.requestId);
+  const [courriers, documentEvidence] = await Promise.all([
+    buildDossierCourriers(dossier.requestId),
+    preliminaryPhase
+      ? buildPreliminaryDocumentEvidence(preliminaryPhase as unknown as GenericRecord)
+      : Promise.resolve(null),
+  ]);
 
   return {
     dossier: sanitizeDossierSummary(dossier as unknown as GenericRecord),
@@ -423,6 +414,7 @@ export const getAdminDossier = async (dossierId: string, actor: Actor) => {
           preliminaryMeeting: preliminaryMeeting
             ? sanitizeMeeting(preliminaryMeeting as unknown as GenericRecord)
             : null,
+          documentEvidence,
         }
       : null,
     courriers,
@@ -1028,12 +1020,14 @@ export const getPortalDossier = async (dossierId: string, actor: Actor) => {
 
   let firstMeeting: {
     scheduledAt: string | null;
+    heldAt: string | null;
     location: string | null;
     status: string;
     notes: string | null;
   } | null = null;
   let preliminaryMeeting: {
     scheduledAt: string | null;
+    heldAt: string | null;
     location: string | null;
     status: string;
     notes: string | null;
@@ -1048,6 +1042,7 @@ export const getPortalDossier = async (dossierId: string, actor: Actor) => {
       if (mtg) {
         firstMeeting = {
           scheduledAt: toIso(mtg.scheduledAt) ?? null,
+          heldAt: toIso(mtg.heldAt) ?? null,
           location: (mtg.location as string | undefined) ?? null,
           status: mtg.status as string,
           notes: (mtg.notes as string | undefined) ?? null,
@@ -1074,6 +1069,7 @@ export const getPortalDossier = async (dossierId: string, actor: Actor) => {
       if (mtg) {
         preliminaryMeeting = {
           scheduledAt: toIso(mtg.scheduledAt) ?? null,
+          heldAt: toIso(mtg.heldAt) ?? null,
           location: (mtg.location as string | undefined) ?? null,
           status: mtg.status as string,
           notes: (mtg.notes as string | undefined) ?? null,

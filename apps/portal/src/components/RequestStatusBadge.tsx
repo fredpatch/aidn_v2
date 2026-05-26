@@ -39,7 +39,7 @@ const statusTones: Record<
 };
 
 export function getRequestStatusLabel(status: PortalRequestStatus): string {
-  return statusLabels[status] ?? status;
+  return statusLabels[status] ?? "Statut en cours de mise à jour";
 }
 
 export function RequestStatusBadge({

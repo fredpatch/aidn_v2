@@ -9,6 +9,7 @@ import {
   type AdminMeetingSummary,
 } from "@/lib/api/dossiers.api";
 import { ApiError } from "@/lib/api/client";
+import { openBlobInNewTab } from "@/lib/utils/blob";
 import { ActionError } from "./dossier-detail.helpers";
 
 type MeetingItem = {
@@ -75,20 +76,6 @@ const dayLabel = (value: string) => {
   }).format(date);
 };
 
-function openBlobInNewTab(blob: Blob, fileName: string): void {
-  const url = URL.createObjectURL(blob);
-  const targetWindow = window.open("about:blank", "_blank");
-  if (!targetWindow) {
-    window.alert(
-      "Impossible d'ouvrir l'aperçu. Autorisez les fenêtres contextuelles pour consulter le document.",
-    );
-    URL.revokeObjectURL(url);
-    return;
-  }
-  targetWindow.document.title = fileName;
-  targetWindow.location.href = url;
-  window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
-}
 
 function MeetingStatusBadge({ status }: { status?: string }): React.JSX.Element {
   const normalized = status ?? "missing";
@@ -250,12 +237,24 @@ function MeetingCard({
         <div className="grid gap-2 text-muted-foreground sm:grid-cols-2">
           <span className="inline-flex items-center gap-2">
             <Clock className="h-4 w-4" aria-hidden="true" />
-            {formatDateTime(meeting?.scheduledAt)}
+            <span>
+              <span className="text-xs text-muted-foreground">Date prévue</span>{" "}
+              {formatDateTime(meeting?.scheduledAt)}
+            </span>
           </span>
           <span className="inline-flex items-center gap-2">
             <MapPin className="h-4 w-4" aria-hidden="true" />
             {meeting?.location ?? "Lieu non renseigné"}
           </span>
+          {meeting?.heldAt ? (
+            <span className="inline-flex items-center gap-2 sm:col-span-2">
+              <CalendarDays className="h-4 w-4" aria-hidden="true" />
+              <span>
+                <span className="text-xs text-muted-foreground">Date tenue</span>{" "}
+                {formatDateTime(meeting.heldAt)}
+              </span>
+            </span>
+          ) : null}
         </div>
 
         {meeting?.notes ? (

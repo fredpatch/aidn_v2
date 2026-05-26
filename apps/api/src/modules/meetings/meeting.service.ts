@@ -2,6 +2,7 @@ import { Types } from "mongoose";
 
 import { DossierModel } from "../dossiers/dossier.model.js";
 import { HttpError } from "../../shared/errors/http-error.js";
+import { ensureObjectId, parseDate, toIso } from "../../shared/utils/service.helpers.js";
 import { MeetingModel } from "./meeting.model.js";
 
 type Actor = { id: string; role: string; userType: "internal" | "postulant" };
@@ -9,39 +10,11 @@ type Actor = { id: string; role: string; userType: "internal" | "postulant" };
 const MEETING_STATUSES = ["planned", "invited", "held", "postponed", "cancelled"] as const;
 type MeetingStatus = (typeof MEETING_STATUSES)[number];
 
-const ensureObjectId = (id: string, label: string) => {
-  if (!Types.ObjectId.isValid(id)) {
-    throw new HttpError(400, `${label} is invalid`);
-  }
-
-  return new Types.ObjectId(id);
-};
-
 const ensurePortalActor = (actor: Actor) => {
   if (actor.userType !== "postulant") {
     throw new HttpError(403, "Portal access denied");
   }
 };
-
-const parseDate = (value: unknown, label: string) => {
-  if (!value) {
-    return undefined;
-  }
-
-  const date = new Date(String(value));
-  if (Number.isNaN(date.getTime())) {
-    throw new HttpError(400, `${label} must be a valid date`);
-  }
-
-  return date;
-};
-
-const toIso = (value: unknown) =>
-  value instanceof Date
-    ? value.toISOString()
-    : value
-      ? new Date(String(value)).toISOString()
-      : undefined;
 
 const validateStatus = (value?: string) => {
   if (!value || value === "all") {

@@ -73,6 +73,18 @@ export type AdminOmaPhase = {
   closedAt?: string;
 };
 
+export type AdminDossierDocumentEvidence = {
+  id: string;
+  title?: string;
+  fileName?: string;
+  documentType?: string;
+  category?: string;
+  uploadedAt?: string;
+  uploadedById?: string;
+  visibility?: 'internal_only' | 'postulant_visible';
+  status?: string;
+};
+
 export type AdminMeetingSummary = {
   id: string;
   phaseId?: string;
@@ -85,6 +97,7 @@ export type AdminMeetingSummary = {
   location?: string;
   outlookEmailStatus?: string;
   reportDocumentId?: string;
+  reportRequired?: boolean;
   notes?: string;
   createdAt?: string;
 };
@@ -130,6 +143,14 @@ export type AdminDossierDetail = {
     phase: AdminOmaPhase;
     firstMeeting: AdminMeetingSummary | null;
     preliminaryMeeting: AdminMeetingSummary | null;
+    documentEvidence?: {
+      preEvaluationTemplateDocument: AdminDossierDocumentEvidence | null;
+      completedPreEvaluationDocument: AdminDossierDocumentEvidence | null;
+      preEvaluationDgAnnotatedDocument: AdminDossierDocumentEvidence | null;
+      firstMeetingReportDocument: AdminDossierDocumentEvidence | null;
+      preliminaryMeetingReportDocument: AdminDossierDocumentEvidence | null;
+      closureCourrierDocument: AdminDossierDocumentEvidence | null;
+    } | null;
   } | null;
   courriers?: AdminDossierCourriers;
 };

@@ -9,6 +9,7 @@ import {
 } from "@/lib/api/dossiers.api";
 import { downloadRequestOrientationDocument } from "@/lib/api/requests.api";
 import { ApiError } from "@/lib/api/client";
+import { openBlobInNewTab } from "@/lib/utils/blob";
 import { ActionError } from "./dossier-detail.helpers";
 
 type CourrierRow = {
@@ -32,33 +33,19 @@ type CourrierSection = {
 
 const sourceLabels: Record<string, string> = {
   portal_upload: "Portail",
-  physical_deposit: "Depot physique",
+  physical_deposit: "Dépôt physique",
   internal_scan: "Scan interne",
-  generated_from_template: "Genere",
+  generated_from_template: "Généré",
 };
 
 const decisionLabels: Record<string, string> = {
-  oriented_to_dn: "Oriente vers DN",
-  approved: "Approuve",
-  rejected: "Rejete",
-  reoriented: "Reoriente",
+  oriented_to_dn: "Orienté vers DN",
+  approved: "Approuvé",
+  rejected: "Rejeté",
+  reoriented: "Réorienté",
   pending: "En attente",
 };
 
-function openBlobInNewTab(blob: Blob, fileName: string): void {
-  const url = URL.createObjectURL(blob);
-  const targetWindow = window.open("about:blank", "_blank");
-  if (!targetWindow) {
-    window.alert(
-      "Impossible d'ouvrir l'aperçu. Autorisez les fenêtres contextuelles pour consulter le document.",
-    );
-    URL.revokeObjectURL(url);
-    return;
-  }
-  targetWindow.document.title = fileName;
-  targetWindow.location.href = url;
-  window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
-}
 
 const formatDate = (value?: string) => {
   if (!value) return undefined;
@@ -133,12 +120,12 @@ function buildSections(detail: AdminDossierDetail): CourrierSection[] {
       ],
     },
     {
-      title: "Phase preliminaire",
+      title: "Phase préliminaire",
       rows: [
         {
           key: "pre_eval_dg_return",
-          label: "Retour DG pre-evaluation",
-          typeLabel: "Pre-evaluation",
+          label: "Retour DG pré-évaluation",
+          typeLabel: "Pré-évaluation",
           documentId: preliminaryPhase?.preEvaluationDgAnnotatedDocumentId,
           source: preliminaryPhase?.preEvaluationDgAnnotatedDocumentId
             ? "dossier"
@@ -146,7 +133,7 @@ function buildSections(detail: AdminDossierDetail): CourrierSection[] {
         },
         {
           key: "closure_courrier",
-          label: "Courrier de cloture phase I - optionnel",
+          label: "Courrier de clôture phase I — optionnel",
           typeLabel: "Optionnel",
           documentId: preliminaryPhase?.closureCourrierDocumentId,
           optional: true,
@@ -190,8 +177,8 @@ function CourrierRowItem({
         <p className="text-xs text-muted-foreground">
           {[
             dateLabel,
-            row.reference ? `Reference: ${row.reference}` : undefined,
-            decision ? `Decision: ${decision}` : undefined,
+            row.reference ? `Référence : ${row.reference}` : undefined,
+            decision ? `Décision : ${decision}` : undefined,
             row.observations ? `Observations: ${row.observations}` : undefined,
           ]
             .filter(Boolean)
@@ -212,7 +199,7 @@ function CourrierRowItem({
           onClick={() => onDownload(row, dossierId)}
         >
           <Download className="mr-1.5 h-4 w-4" aria-hidden="true" />
-          {isDownloading ? "Telechargement..." : "Telecharger"}
+          {isDownloading ? "Téléchargement..." : "Télécharger"}
         </Button>
       ) : (
         <span className="text-xs text-muted-foreground">
@@ -247,7 +234,7 @@ export function DossierCourriersTab({
       setDownloadError(
         err instanceof ApiError
           ? err.message
-          : "Une erreur est survenue. Reessayez.",
+          : "Une erreur est survenue. Réessayez.",
       );
     } finally {
       setDownloadingKey("");
@@ -261,7 +248,7 @@ export function DossierCourriersTab({
           Courriers du dossier
         </h2>
         <p className="text-sm text-muted-foreground">
-          Courriers officiels, orientations DG et traces liees au dossier.
+          Courriers officiels, orientations DG et traces liées au dossier.
         </p>
       </div>
 
@@ -301,7 +288,7 @@ export function DossierCourriersTab({
           </CardTitle>
         </CardHeader>
         <CardContent className="text-sm text-muted-foreground">
-          Les courriers des phases suivantes seront affiches ici lorsqu'ils
+          Les courriers des phases suivantes seront affichés ici lorsqu'ils
           seront disponibles.
         </CardContent>
       </Card>

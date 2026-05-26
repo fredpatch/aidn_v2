@@ -10,6 +10,7 @@ import {
 } from "@/lib/api/dossiers.api";
 import { downloadRequestOrientationDocument } from "@/lib/api/requests.api";
 import { ApiError } from "@/lib/api/client";
+import { openBlobInNewTab } from "@/lib/utils/blob";
 import { ActionError } from "./dossier-detail.helpers";
 
 type DossierHistoryEvent = {
@@ -37,7 +38,7 @@ type HistoryFilter = "milestones" | "all" | "meeting" | "document" | "courrier" 
 const categoryLabels: Record<DossierHistoryEvent["category"], string> = {
   dossier: "Dossier",
   phase: "Phase",
-  meeting: "Reunion",
+  meeting: "Réunion",
   document: "Document",
   courrier: "Courrier",
   dg_orientation: "Orientation DG",
@@ -55,46 +56,32 @@ const categoryClasses: Record<DossierHistoryEvent["category"], string> = {
 const filterLabels: Record<HistoryFilter, string> = {
   milestones: "Jalons",
   all: "Tous",
-  meeting: "Reunions",
+  meeting: "Réunions",
   document: "Documents",
   courrier: "Courriers",
   dg: "DG",
 };
 
 const phaseLabels: Record<string, string> = {
-  preliminary: "Phase preliminaire",
+  preliminary: "Phase préliminaire",
   formal_request: "Demande formelle",
-  document_evaluation: "Evaluation documentaire",
+  document_evaluation: "Évaluation documentaire",
   inspection: "Inspection",
-  delivery: "Delivrance",
+  delivery: "Délivrance",
 };
 
 const dossierStatusPhaseLabels: Record<string, string> = {
   opened: "Dossier ouvert",
-  preliminary_phase: "Phase preliminaire",
+  preliminary_phase: "Phase préliminaire",
   formal_request_phase: "Demande formelle",
-  document_evaluation_phase: "Evaluation documentaire",
+  document_evaluation_phase: "Évaluation documentaire",
   inspection_phase: "Inspection",
-  delivery_phase: "Delivrance",
-  closed: "Cloture",
+  delivery_phase: "Délivrance",
+  closed: "Clôturé",
   suspended: "Suspendu",
-  cancelled: "Annule",
+  cancelled: "Annulé",
 };
 
-function openBlobInNewTab(blob: Blob, fileName: string): void {
-  const url = URL.createObjectURL(blob);
-  const targetWindow = window.open("about:blank", "_blank");
-  if (!targetWindow) {
-    window.alert(
-      "Impossible d'ouvrir l'aperçu. Autorisez les fenêtres contextuelles pour consulter le document.",
-    );
-    URL.revokeObjectURL(url);
-    return;
-  }
-  targetWindow.document.title = fileName;
-  targetWindow.location.href = url;
-  window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
-}
 
 function toTimestamp(value?: string): number {
   if (!value) return Number.POSITIVE_INFINITY;
@@ -103,9 +90,9 @@ function toTimestamp(value?: string): number {
 }
 
 function formatDateTime(value?: string): string {
-  if (!value) return "Date non renseignee";
+  if (!value) return "Date non renseignée";
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "Date non renseignee";
+  if (Number.isNaN(date.getTime())) return "Date non renseignée";
   return new Intl.DateTimeFormat("fr-FR", {
     dateStyle: "medium",
     timeStyle: "short",
@@ -225,8 +212,8 @@ function buildHistoryEvents(detail: AdminDossierDetail): DossierHistoryEvent[] {
     events.push({
       id: "preliminary_started",
       date: phase.startedAt,
-      title: "Phase preliminaire demarree",
-      description: "Demarrage de la phase preliminaire OMA.",
+      title: "Phase préliminaire démarrée",
+      description: "Démarrage de la phase préliminaire OMA.",
       category: "phase",
       importance: "milestone",
       group: "phase",
@@ -237,35 +224,35 @@ function buildHistoryEvents(detail: AdminDossierDetail): DossierHistoryEvent[] {
   addMeetingEvents(events, {
     key: "first_meeting",
     meeting: preliminary?.firstMeeting,
-    plannedTitle: "Premiere reunion de contact planifiee",
-    heldTitle: "Premiere reunion de contact tenue",
+    plannedTitle: "Première réunion de contact planifiée",
+    heldTitle: "Première réunion de contact tenue",
   });
 
   addDocumentEvent(events, {
     id: "first_meeting_report",
-    title: "Compte rendu premiere reunion joint",
-    description: "Compte rendu associe a la premiere reunion de contact.",
+    title: "Compte rendu première réunion joint",
+    description: "Compte rendu associé à la première réunion de contact.",
     documentId: phase?.firstMeetingReportDocumentId,
   });
 
   addDocumentEvent(events, {
     id: "pre_eval_template",
-    title: "Formulaire pre-evaluation mis a disposition",
-    description: "Modele de formulaire rendu disponible.",
+    title: "Formulaire pré-évaluation mis à disposition",
+    description: "Modèle de formulaire rendu disponible.",
     documentId: phase?.preEvaluationTemplateDocumentId,
   });
 
   addDocumentEvent(events, {
     id: "completed_pre_eval",
-    title: "Formulaire pre-evaluation complete recu",
-    description: "Formulaire complete rattache au dossier.",
+    title: "Formulaire pré-évaluation complété reçu",
+    description: "Formulaire complété rattaché au dossier.",
     documentId: phase?.completedPreEvaluationDocumentId,
   });
 
   addDocumentEvent(events, {
     id: "pre_eval_dg_return",
-    title: "Retour DG pre-evaluation enregistre",
-    description: "Document annote retourne par le DG.",
+    title: "Retour DG pré-évaluation enregistré",
+    description: "Document annoté retourné par le DG.",
     category: "dg_orientation",
     importance: "milestone",
     documentId: phase?.preEvaluationDgAnnotatedDocumentId,
@@ -275,14 +262,14 @@ function buildHistoryEvents(detail: AdminDossierDetail): DossierHistoryEvent[] {
   addMeetingEvents(events, {
     key: "preliminary_meeting",
     meeting: preliminary?.preliminaryMeeting,
-    plannedTitle: "Reunion preliminaire planifiee",
-    heldTitle: "Reunion preliminaire tenue",
+    plannedTitle: "Réunion préliminaire planifiée",
+    heldTitle: "Réunion préliminaire tenue",
   });
 
   addDocumentEvent(events, {
     id: "preliminary_meeting_report",
-    title: "Compte rendu reunion preliminaire joint",
-    description: "Compte rendu associe a la reunion preliminaire.",
+    title: "Compte rendu réunion préliminaire joint",
+    description: "Compte rendu associé à la réunion préliminaire.",
     documentId: phase?.preliminaryMeetingReportDocumentId,
   });
 
@@ -291,10 +278,10 @@ function buildHistoryEvents(detail: AdminDossierDetail): DossierHistoryEvent[] {
     events.push({
       id: "initial_courrier",
       date: initialCourrier.date,
-      title: "Courrier initial recu/transmis",
+      title: "Courrier initial reçu/transmis",
       description: initialCourrier.reference
-        ? `Reference: ${initialCourrier.reference}`
-        : "Trace du courrier initial rattache a la demande.",
+        ? `Référence : ${initialCourrier.reference}`
+        : "Trace du courrier initial rattaché à la demande.",
       category: "courrier",
       importance: "milestone",
       group: "courrier",
@@ -310,12 +297,12 @@ function buildHistoryEvents(detail: AdminDossierDetail): DossierHistoryEvent[] {
     events.push({
       id: "initial_dg_orientation",
       date: initialDgOrientation.returnedAt,
-      title: "Retour DG orientation initiale enregistre",
+      title: "Retour DG orientation initiale enregistré",
       description:
         initialDgOrientation.observations ??
         (initialDgOrientation.decision
-          ? `Decision: ${initialDgOrientation.decision}`
-          : "Retour DG rattache a la demande initiale."),
+          ? `Décision : ${initialDgOrientation.decision}`
+          : "Retour DG rattaché à la demande initiale."),
       category: "dg_orientation",
       importance: "milestone",
       group: "dg",
@@ -330,8 +317,8 @@ function buildHistoryEvents(detail: AdminDossierDetail): DossierHistoryEvent[] {
 
   addDocumentEvent(events, {
     id: "closure_courrier",
-    title: "Courrier de cloture phase I joint",
-    description: "Courrier de cloture optionnel rattache a la phase I.",
+    title: "Courrier de clôture phase I joint",
+    description: "Courrier de clôture optionnel rattaché à la phase I.",
     category: "courrier",
     importance: "detail",
     documentId: phase?.closureCourrierDocumentId,
@@ -341,8 +328,8 @@ function buildHistoryEvents(detail: AdminDossierDetail): DossierHistoryEvent[] {
     events.push({
       id: "preliminary_closed",
       date: phase.closedAt,
-      title: "Phase preliminaire cloturee",
-      description: "Cloture de la phase preliminaire OMA.",
+      title: "Phase préliminaire clôturée",
+      description: "Clôture de la phase préliminaire OMA.",
       category: "phase",
       importance: "milestone",
       group: "phase",
@@ -394,26 +381,26 @@ function HistoryKpiRow({
   const latestEvent = getLatestDatedEvent(events);
   const items = [
     {
-      label: "Duree depuis ouverture",
+      label: "Durée depuis ouverture",
       value: formatDurationDays(detail.dossier.openedAt, detail.dossier.closedAt),
       hint: detail.dossier.openedAt
         ? `Depuis ${formatDate(detail.dossier.openedAt)}`
-        : "Ouverture non renseignee",
+        : "Ouverture non renseignée",
     },
     {
       label: "Phase active",
       value: getActivePhaseLabel(detail),
-      hint: "Indicateurs de delai a venir",
+      hint: "Indicateurs de délai à venir",
     },
     {
-      label: "Evenements",
+      label: "Événements",
       value: String(events.length),
-      hint: "Historique consolide",
+      hint: "Historique consolidé",
     },
     {
-      label: "Derniere activite",
+      label: "Dernière activité",
       value: latestEvent ? formatDate(latestEvent.date) : "-",
-      hint: latestEvent?.title ?? "Aucune date renseignee",
+      hint: latestEvent?.title ?? "Aucune date renseignée",
     },
   ];
 
@@ -579,7 +566,7 @@ export function DossierHistoriqueTab({
       setDownloadError(
         err instanceof ApiError
           ? err.message
-          : "Une erreur est survenue. Reessayez.",
+          : "Une erreur est survenue. Réessayez.",
       );
     } finally {
       setDownloadingId("");
@@ -593,7 +580,7 @@ export function DossierHistoriqueTab({
           Historique du dossier
         </h2>
         <p className="text-sm text-muted-foreground">
-          Journal des etapes, documents, reunions et decisions liees au dossier.
+          Journal des étapes, documents, réunions et décisions liées au dossier.
         </p>
       </div>
 
@@ -616,8 +603,8 @@ export function DossierHistoriqueTab({
           </ol>
           <div className="flex flex-wrap items-center justify-between gap-3 pl-8">
             <p className="text-sm text-muted-foreground">
-              {visibleEvents.length} sur {filteredEvents.length} evenements
-              affiches
+              {visibleEvents.length} sur {filteredEvents.length} événements
+              affichés
             </p>
             {hasMoreEvents ? (
               <Button
@@ -635,7 +622,7 @@ export function DossierHistoriqueTab({
         <Card>
           <CardContent className="flex items-start gap-3 p-6 text-sm text-muted-foreground">
             <History className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-            <p>Aucun evenement historique disponible pour ce dossier.</p>
+            <p>Aucun événement historique disponible pour ce dossier.</p>
           </CardContent>
         </Card>
       )}

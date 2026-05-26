@@ -4,6 +4,8 @@ export type DgCircuitBucket =
   | 'to_transmit'
   | 'awaiting_return'
   | 'returns_to_register'
+  | 'returned_scanned'
+  | 'decision_recorded'
   | 'processed';
 
 export type DgCircuitSource = 'initial_request' | 'pre_evaluation';
@@ -33,6 +35,14 @@ export type DgCircuitTask = {
   transmittedAt?: string;
   returnedAt?: string;
   processedAt?: string;
+  // History / traceability fields
+  sentToDgAt?: string;
+  returnedFromDgAt?: string;
+  decisionRecordedAt?: string;
+  decision?: string;
+  orientedDirection?: string;
+  observations?: string;
+  handledByRole?: string;
   availableActions: DgCircuitAction[];
 };
 
@@ -41,7 +51,9 @@ export type DgCircuitTasksResponse = {
   counts: {
     toTransmit: number;
     awaitingReturn: number;
-    processed: number;
+    returnedScanned: number;
+    decisionRecorded: number;
+    processed: number; // = returnedScanned + decisionRecorded
   };
 };
 

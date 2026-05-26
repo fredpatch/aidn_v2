@@ -3,8 +3,11 @@ import { Types } from "mongoose";
 import { env } from "../../shared/config/env.js";
 import { HttpError } from "../../shared/errors/http-error.js";
 import { storageAdapter } from "../../shared/storage/storage.adapter.js";
+import { saveDocument } from "../../shared/utils/document.helpers.js";
+import { ensureObjectId, parseDate, toId, toIso } from "../../shared/utils/service.helpers.js";
 import { writeAuditLog } from "../audit/audit.service.js";
 import { CourrierModel } from "../courriers/courrier.model.js";
+import { createDgReview, recordDgDecision, recordDgReturn } from "../dg-circuit/dg-circuit.service.js";
 import { DGReviewModel } from "../dg-reviews/dg-review.model.js";
 import { DocumentModel } from "../documents/document.model.js";
 import { DossierModel } from "../dossiers/dossier.model.js";
@@ -54,43 +57,13 @@ type RequestDgReturnGuardSource = {
   initialDgReviewId?: unknown;
 };
 type Actor = { id: string; role: string; userType: "internal" | "postulant" };
-type DgReviewHandledByRole = "dg_secretariat" | "reception" | "bureau_courrier" | "dn_agent" | "admin";
 
 const trimmed = (value?: string) => {
   const next = value?.trim();
   return next ? next : undefined;
 };
 
-const dgReviewHandledByRole = (role: string): DgReviewHandledByRole => {
-  if (["dg_secretariat", "reception", "bureau_courrier", "dn_agent", "admin"].includes(role)) {
-    return role as DgReviewHandledByRole;
-  }
-
-  return "admin";
-};
-
 const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-
-const ensureObjectId = (id: string, label: string) => {
-  if (!Types.ObjectId.isValid(id)) {
-    throw new HttpError(400, `${label} is invalid`);
-  }
-
-  return new Types.ObjectId(id);
-};
-
-const parseDate = (value: unknown, label: string) => {
-  if (!value) {
-    return undefined;
-  }
-
-  const date = new Date(String(value));
-  if (Number.isNaN(date.getTime())) {
-    throw new HttpError(400, `${label} must be a valid date`);
-  }
-
-  return date;
-};
 
 const validateRequestType = (value?: string): RequestType => {
   if (!value || !REQUEST_TYPES.includes(value as RequestType)) {
@@ -147,11 +120,6 @@ const ensureIntakeMutable = (status: string) => {
     throw new HttpError(409, "Request cannot be processed at this stage");
   }
 };
-
-const toIso = (value: unknown) =>
-  value instanceof Date ? value.toISOString() : value ? new Date(String(value)).toISOString() : undefined;
-
-const toId = (value: unknown) => value?.toString();
 
 const portalStatusLabel = (status: string, request?: RequestRecord) => {
   switch (status) {
@@ -1217,29 +1185,19 @@ export const registerAdminPhysicalCourrier = async (
     throw new HttpError(400, "Unsupported courrier file type");
   }
 
-  const stored = await storageAdapter.save({
-    buffer: file.buffer,
-    fileName: file.originalname,
-    mimeType: file.mimetype,
+  const scannedDocumentId = await saveDocument({
+    file,
     ownerPath: `requests/${request._id.toString()}`,
-  });
-
-  const document = (await DocumentModel.create({
     ownerType: "request",
     ownerId: request._id,
     category: "courrier",
     documentType: "initial_courrier_scan",
     title: "Courrier initial scanne",
-    fileName: stored.fileName,
-    mimeType: stored.mimeType,
-    fileSize: stored.fileSize,
-    storageKey: stored.storageKey,
-    uploadedById: actor.id,
-    uploadedAt: now,
     visibility: "internal_only",
     status: "uploaded",
-    version: 1,
-  })) as unknown as { _id: Types.ObjectId } & Record<string, unknown>;
+    uploadedById: new Types.ObjectId(actor.id),
+  });
+  const document = await DocumentModel.findById(scannedDocumentId).lean();
 
   const courrier = await CourrierModel.findOneAndUpdate(
     { requestId: request._id, type: "initial_request_courrier" },
@@ -1251,7 +1209,7 @@ export const registerAdminPhysicalCourrier = async (
         officialReference: trimmed(input.officialReference),
         physicalDepositDate,
         scannedAt: now,
-        documentId: document._id,
+        documentId: scannedDocumentId,
         registeredById: actor.id,
         notes,
       },
@@ -1260,7 +1218,7 @@ export const registerAdminPhysicalCourrier = async (
   );
 
   request.initialCourrierId = courrier._id;
-  request.initialDocumentId = document._id;
+  request.initialDocumentId = scannedDocumentId;
   request.set("physicalDeposit.status", "received");
   request.set("physicalDeposit.physicalDepositDate", physicalDepositDate);
   request.status = "initial_sent_to_dg";
@@ -1268,24 +1226,17 @@ export const registerAdminPhysicalCourrier = async (
   request.set("intake.sentToDgById", new Types.ObjectId(actor.id));
   await request.save();
 
-  const dgReview = await DGReviewModel.findOneAndUpdate(
-    { requestId: request._id, targetType: "initial_request" },
-    {
-      $set: {
-        targetType: "initial_request",
-        targetId: request._id,
-        requestId: request._id,
-        status: "awaiting_return",
-        handledByRole: dgReviewHandledByRole(actor.role),
-        handledById: new Types.ObjectId(actor.id),
-        sentToDgAt: now,
-        outgoingDocumentId: document._id,
-      },
-    },
-    { new: true, upsert: true, setDefaultsOnInsert: true },
-  );
+  const { _id: dgReviewId } = await createDgReview({
+    targetType: "initial_request",
+    targetId: request._id,
+    requestId: request._id,
+    handledByRole: actor.role,
+    handledById: new Types.ObjectId(actor.id),
+    outgoingDocumentId: scannedDocumentId,
+    sentToDgAt: now,
+  });
 
-  request.initialDgReviewId = dgReview._id;
+  request.initialDgReviewId = dgReviewId;
   await request.save();
 
   await NotificationModel.create({
@@ -1307,7 +1258,7 @@ export const registerAdminPhysicalCourrier = async (
     after: { status: request.status },
     metadata: {
       courrierId: courrier._id.toString(),
-      documentId: document._id.toString(),
+      documentId: scannedDocumentId.toString(),
       officialReference: trimmed(input.officialReference),
       sentToDgCircuit: true,
     },
@@ -1349,25 +1300,18 @@ export const markAdminRequestPrintedForDg = async (
   request.set("intake.notes", trimmed(input.notes));
   await request.save();
 
-  const dgReview = await DGReviewModel.findOneAndUpdate(
-    { requestId: request._id, targetType: "initial_request" },
-    {
-      $set: {
-        targetType: "initial_request",
-        targetId: request._id,
-        requestId: request._id,
-        status: "awaiting_return",
-        handledByRole: dgReviewHandledByRole(actor.role),
-        handledById: new Types.ObjectId(actor.id),
-        sentToDgAt: now,
-        outgoingDocumentId: request.initialDocumentId,
-        observations: trimmed(input.notes),
-      },
-    },
-    { new: true, upsert: true, setDefaultsOnInsert: true },
-  );
+  const { _id: dgReviewId } = await createDgReview({
+    targetType: "initial_request",
+    targetId: request._id,
+    requestId: request._id,
+    handledByRole: actor.role,
+    handledById: new Types.ObjectId(actor.id),
+    outgoingDocumentId: request.initialDocumentId as Types.ObjectId | undefined,
+    sentToDgAt: now,
+    observations: trimmed(input.notes),
+  });
 
-  request.initialDgReviewId = dgReview._id;
+  request.initialDgReviewId = dgReviewId;
   await request.save();
 
   await NotificationModel.create({
@@ -1388,7 +1332,7 @@ export const markAdminRequestPrintedForDg = async (
     entityId: request._id,
     after: { status: request.status },
     metadata: {
-      dgReviewId: dgReview._id.toString(),
+      dgReviewId: dgReviewId.toString(),
       hasNotes: Boolean(trimmed(input.notes)),
     },
   });
@@ -1429,62 +1373,46 @@ export const recordAdminRequestDgReturn = async (
   const now = new Date();
   const returnedAt = parseDate(input.returnedAt, "returnedAt") ?? now;
   const observations = validateMessage(input.observations);
-  const stored = await storageAdapter.save({
-    buffer: file.buffer,
-    fileName: file.originalname,
-    mimeType: file.mimetype,
-    ownerPath: `requests/${request._id.toString()}/dg-return`,
-  });
-
-  const document = (await DocumentModel.create({
-    ownerType: "request",
-    ownerId: request._id,
-    category: "courrier",
-    documentType: "dg_annotated_courrier",
-    title: "Retour DG annoté",
-    fileName: stored.fileName,
-    mimeType: stored.mimeType,
-    fileSize: stored.fileSize,
-    storageKey: stored.storageKey,
-    uploadedById: actor.id,
-    uploadedAt: now,
-    visibility: "internal_only",
-    status: "uploaded",
-    version: 1,
-  })) as unknown as { _id: Types.ObjectId } & Record<string, unknown>;
 
   const persistedDecision = decision === "oriented_to_dn" ? "oriented_to_dn" : "rejected";
   const nextStatus = decision === "oriented_to_dn" ? "oriented_to_dn" : "rejected";
 
-  const dgReview = await DGReviewModel.findOneAndUpdate(
-    { requestId: request._id, targetType: "initial_request" },
-    {
-      $set: {
-        targetType: "initial_request",
-        targetId: request._id,
-        requestId: request._id,
-        status: "decision_recorded",
-        handledByRole: dgReviewHandledByRole(actor.role),
-        handledById: new Types.ObjectId(actor.id),
-        sentToDgAt: request.intake?.sentToDgAt ?? request.intake?.printedForDgAt,
-        returnedFromDgAt: returnedAt,
-        decision: persistedDecision,
-        orientedDirection: decision === "oriented_to_dn" ? "Direction de la Navigabilité" : undefined,
-        observations,
-        returnedScannedDocumentId: document._id,
-        decisionRecordedById: new Types.ObjectId(actor.id),
-        decisionRecordedAt: now,
-      },
-    },
-    { new: true, upsert: true, setDefaultsOnInsert: true },
-  );
+  const existingReview = await getInitialDgReviewForRequest(request);
+  if (!existingReview) throw new HttpError(409, "DG review introuvable pour cette demande");
+
+  const { documentId: dgReturnDocumentId } = await recordDgReturn({
+    reviewId: existingReview._id as Types.ObjectId,
+    file: file!,
+    returnedFromDgAt: returnedAt,
+    uploadedById: new Types.ObjectId(actor.id),
+    title: "Retour DG annoté",
+    documentType: "dg_annotated_courrier",
+    ownerType: "request",
+    ownerId: request._id,
+    ownerPath: `requests/${request._id.toString()}/dg-return`,
+  });
+
+  await recordDgDecision({
+    reviewId: existingReview._id as Types.ObjectId,
+    decision: persistedDecision,
+    orientedDirection: decision === "oriented_to_dn" ? "Direction de la Navigabilité" : undefined,
+    observations,
+    actorId: new Types.ObjectId(actor.id),
+    handledByRole: actor.role,
+    decidedAt: now,
+  });
 
   request.status = nextStatus;
-  request.initialDgReviewId = dgReview._id;
+  request.initialDgReviewId = existingReview._id as Types.ObjectId;
   if (decision === "cancelled_by_dg") {
     request.closedAt = returnedAt;
   }
   await request.save();
+
+  const [dgReview, document] = await Promise.all([
+    DGReviewModel.findById(existingReview._id).lean(),
+    DocumentModel.findById(dgReturnDocumentId).lean(),
+  ]);
 
   await writeAuditLog({
     actorId: actor.id,
@@ -1496,8 +1424,8 @@ export const recordAdminRequestDgReturn = async (
     metadata: {
       decision,
       returnedAt: returnedAt.toISOString(),
-      dgReviewId: dgReview._id.toString(),
-      dgReturnDocumentId: document._id.toString(),
+      dgReviewId: existingReview._id.toString(),
+      dgReturnDocumentId: dgReturnDocumentId.toString(),
     },
   });
 

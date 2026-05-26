@@ -1,7 +1,7 @@
 {
   "name": "aidn-exploration-cache",
   "version": "1.0.0",
-  "lastUpdated": "2026-05-25",
+  "lastUpdated": "2026-05-26",
   "entrypoints": [
     "00-control/SOURCE_OF_TRUTH.md",
     "00-control/CURRENT_STATE.md",
@@ -42,6 +42,26 @@
     "99-session-notes": "Session-level trace"
   },
   "recentExplorationCacheUpdates": [
+    {
+      "date": "2026-05-26",
+      "phase": "OMA-OPS-9C-FRONTEND-PRIMITIVE-REFACTOR",
+      "created": [
+        "apps/admin/src/lib/utils/blob.ts",
+        "apps/admin/src/lib/utils/error.ts",
+        "apps/admin/src/pages/dossiers/components/UploadDocumentDialog.tsx",
+        "exploration-cache/tasks/summaries/2026-05-26-oma-ops-9c-frontend-primitive-refactor.md"
+      ],
+      "updated": [
+        "apps/admin/src/pages/dossiers/DossierCourriersTab.tsx",
+        "apps/admin/src/pages/dossiers/DossierHistoriqueTab.tsx",
+        "apps/admin/src/pages/dossiers/DossierDocumentsTab.tsx",
+        "apps/admin/src/pages/dossiers/DossierMeetingsTab.tsx",
+        "apps/admin/src/pages/dossiers/preliminary-dialogs.tsx",
+        "apps/admin/src/pages/dossiers/preliminary-evidence.helpers.ts",
+        "exploration-cache/tasks/current-task.md",
+        "exploration-cache/manifest.json"
+      ]
+    },
     {
       "date": "2026-05-25",
       "phase": "OMA-OPS-8A-PHASE1-TRANSITION-DATE-HARDENING",

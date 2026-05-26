@@ -12,7 +12,7 @@ import {
 } from "@/lib/api/dg-circuit.api";
 
 const sourceLabels: Record<string, string> = {
-  initial_request: "Courrier initial",
+  initial_request: "Demande initiale",
   pre_evaluation: "Formulaire de pré-évaluation",
 };
 
@@ -40,6 +40,20 @@ function getInitials(name?: string): string {
   return (parts[0][0] + parts[1][0]).toUpperCase();
 }
 
+function completedStatusLabel(task: DgCircuitTask): string {
+  return task.bucket === "decision_recorded" ? "Décision DG saisie" : "Retour DG enregistré";
+}
+
+function completedStatusStyle(task: DgCircuitTask): string {
+  return task.bucket === "decision_recorded"
+    ? "border-emerald-200 bg-emerald-50 text-emerald-700 text-xs"
+    : "border-teal-200 bg-teal-50 text-teal-700 text-xs";
+}
+
+function completedDate(task: DgCircuitTask): string | undefined {
+  return task.decisionRecordedAt ?? task.returnedFromDgAt ?? task.processedAt ?? task.returnedAt;
+}
+
 function RecentCourrierRow({
   task,
   onOpen,
@@ -63,11 +77,8 @@ function RecentCourrierRow({
           <Badge variant="outline" className="text-xs">
             {sourceLabels[task.source] ?? task.source}
           </Badge>
-          <Badge
-            variant="outline"
-            className="border-emerald-200 bg-emerald-50 text-emerald-700 text-xs"
-          >
-            Traité
+          <Badge variant="outline" className={completedStatusStyle(task)}>
+            {completedStatusLabel(task)}
           </Badge>
         </div>
         <p className="truncate text-sm font-medium">
@@ -96,7 +107,7 @@ function RecentCourrierRow({
           <span className="font-medium text-slate-500 dark:text-slate-400">
             Traité le
           </span>{" "}
-          {formatDate(task.processedAt)}
+          {formatDate(completedDate(task))}
         </span>
         <Button
           type="button"
@@ -120,6 +131,8 @@ export function CourrierDashboard(): React.JSX.Element {
   const [counts, setCounts] = useState({
     toTransmit: 0,
     awaitingReturn: 0,
+    returnedScanned: 0,
+    decisionRecorded: 0,
     processed: 0,
   });
   const [isLoading, setIsLoading] = useState(true);
@@ -146,21 +159,29 @@ export function CourrierDashboard(): React.JSX.Element {
   }, []);
 
   const stats = useMemo(() => {
-    const processed = items.filter((t) => t.bucket === "processed");
+    const completedBuckets = ["returned_scanned", "decision_recorded"] as const;
+    const processed = items.filter((t) =>
+      (completedBuckets as readonly string[]).includes(t.bucket),
+    );
+    const processedDate = (t: DgCircuitTask) =>
+      t.decisionRecordedAt ?? t.returnedFromDgAt ?? t.processedAt ?? t.returnedAt;
     return {
-      processedToday: processed.filter((t) => isToday(t.processedAt)).length,
-      processedThisWeek: processed.filter((t) => isThisWeek(t.processedAt))
-        .length,
+      processedToday: processed.filter((t) => isToday(processedDate(t))).length,
+      processedThisWeek: processed.filter((t) => isThisWeek(processedDate(t))).length,
       initialInProgress: items.filter(
-        (t) => t.source === "initial_request" && t.bucket !== "processed",
+        (t) =>
+          t.source === "initial_request" &&
+          (t.bucket === "to_transmit" || t.bucket === "awaiting_return"),
       ).length,
       preEvalInProgress: items.filter(
-        (t) => t.source === "pre_evaluation" && t.bucket !== "processed",
+        (t) =>
+          t.source === "pre_evaluation" &&
+          (t.bucket === "to_transmit" || t.bucket === "awaiting_return"),
       ).length,
       recentProcessed: processed
         .slice()
         .sort((a, b) =>
-          (b.processedAt ?? "").localeCompare(a.processedAt ?? ""),
+          (processedDate(b) ?? "").localeCompare(processedDate(a) ?? ""),
         )
         .slice(0, 5),
     };

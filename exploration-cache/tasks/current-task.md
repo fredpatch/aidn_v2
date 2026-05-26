@@ -1,6 +1,35 @@
 # Current Task
 
-## Phase: OMA-FORMAL-4 — Formal Meeting Mutations for Phase 2 Demande formelle
+## Phase: OMA-FORMAL-5 — Supporting Document Uploads for Phase 2 Demande formelle
+
+Date: 2026-05-27
+Status: **Complete — API typecheck PASS, API lint PASS, API build PASS**
+
+## Summary file
+
+`exploration-cache/tasks/summaries/2026-05-27-oma-formal-5-supporting-document-uploads.md`
+
+## Files modified
+
+- `apps/api/src/modules/oma-phases/formal-request.service.ts` — added `uploadFormalRequestSupportingDocument` + helpers
+- `apps/api/src/modules/admin/admin.routes.ts` — added `POST /dossiers/:id/phases/formal-request/documents/:requirementId`
+- `apps/api/src/modules/portal/portal.routes.ts` — added `POST /dossiers/:id/phases/formal-request/documents/:requirementId`
+
+## Key decisions
+
+- Gate requirement excluded from this endpoint (409).
+- Non-repeatable requirements block duplicate active submissions.
+- Repeatable requirements allow multiple submissions.
+- Supporting docs never mutate workflow gates or formalRequestStatus.
+- Document.documentType = "other" conservatively (semantic link via requirementId).
+
+## Next step
+
+OMA-FORMAL-6 — Phase 2 closure: recevability + closure courrier + close phase
+
+---
+
+## Previous task: OMA-FORMAL-4 — Formal Meeting Mutations for Phase 2 Demande formelle
 
 Date: 2026-05-27
 Status: **Complete — API typecheck PASS, API lint PASS, API build PASS**

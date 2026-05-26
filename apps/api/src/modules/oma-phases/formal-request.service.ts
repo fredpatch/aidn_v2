@@ -824,3 +824,164 @@ export const uploadFormalMeetingReport = async (
 
   return getAdminFormalRequestPhase(dossierId, actor);
 };
+
+// ── OMA-FORMAL-5: Supporting document uploads ─────────────────────────────────
+
+const SUPPORTING_DOC_CATEGORY: Record<string, string> = {
+  oma_approval_form: "form",
+  management_personnel_acceptance: "form",
+  compliance_statement: "form",
+};
+
+const mapRequirementToDocumentCategory = (reqDocType: string): string =>
+  SUPPORTING_DOC_CATEGORY[reqDocType] ?? "other";
+
+const ACTIVE_SUBMISSION_STATUS_SET = new Set([
+  "submitted",
+  "under_review",
+  "validated",
+  "requires_correction",
+]);
+
+export const uploadFormalRequestSupportingDocument = async (
+  dossierId: string,
+  requirementId: string,
+  file: Express.Multer.File | undefined,
+  payload: {
+    source: "portal_upload" | "physical_deposit" | "internal_scan";
+    notes?: string;
+  },
+  actor: Actor,
+) => {
+  validateFile(file);
+
+  // ── Resolve dossier + ownership ──────────────────────────────────────────
+
+  let resolvedDossierId: Types.ObjectId;
+  let submittedByRole: string;
+  let submittedById: Types.ObjectId;
+
+  if (actor.userType === "postulant") {
+    if (payload.source !== "portal_upload") {
+      throw new HttpError(400, "Source invalide pour un postulant.");
+    }
+    const { dossier, portalUser } = await getOwnedDossier(dossierId, actor);
+    resolvedDossierId = dossier._id as Types.ObjectId;
+    submittedByRole = "postulant";
+    submittedById = portalUser.userId as Types.ObjectId;
+  } else {
+    if (payload.source === "portal_upload") {
+      throw new HttpError(400, "source=portal_upload n'est pas autorisée sur l'endpoint admin.");
+    }
+    ensureInternalActor(actor);
+    const dossier = await DossierModel.findById(ensureObjectId(dossierId, "Dossier ID")).lean();
+    if (!dossier) throw new HttpError(404, "Dossier introuvable.");
+    resolvedDossierId = dossier._id as Types.ObjectId;
+    submittedByRole = actor.role;
+    submittedById = ensureObjectId(actor.id, "Actor ID");
+  }
+
+  // ── Resolve Phase 2 ───────────────────────────────────────────────────────
+
+  const phase = await loadFormalRequestPhaseOrThrow(resolvedDossierId);
+  assertPhaseNotClosed(phase);
+
+  // ── Validate requirement ──────────────────────────────────────────────────
+
+  const reqObjId = ensureObjectId(requirementId, "Requirement ID");
+  const requirement = await DocumentRequirementModel.findById(reqObjId).lean() as unknown as GenericRecord | null;
+
+  if (!requirement) throw new HttpError(404, "Exigence documentaire introuvable.");
+  if (String(requirement.phaseKey) !== "formal_request") {
+    throw new HttpError(400, "Cette exigence n'appartient pas à la phase de demande formelle.");
+  }
+  if (!requirement.isActive) {
+    throw new HttpError(400, "Cette exigence n'est plus active.");
+  }
+  if (String(requirement.requirementLevel) === "gate") {
+    throw new HttpError(
+      409,
+      "La demande formelle doit être déposée via l'action dédiée.",
+    );
+  }
+
+  // ── Non-repeatable duplicate check ────────────────────────────────────────
+
+  if (!requirement.isRepeatable) {
+    const existingActive = await DocumentSubmissionModel.findOne({
+      phaseId: phase._id,
+      requirementId: reqObjId,
+      status: { $in: [...ACTIVE_SUBMISSION_STATUS_SET] },
+    }).lean();
+    if (existingActive) {
+      throw new HttpError(409, "Un document est déjà déposé pour cette exigence.");
+    }
+  }
+
+  // ── Store file + create Document ──────────────────────────────────────────
+
+  const reqDocType = String(requirement.documentType);
+  const reqLabel = String(requirement.label ?? "Document");
+  const category = mapRequirementToDocumentCategory(reqDocType);
+
+  const documentId = await saveDocument({
+    file: file!,
+    ownerPath: `dossiers/${resolvedDossierId.toString()}/formal-request/documents/${reqDocType}`,
+    ownerType: "phase",
+    ownerId: phase._id as Types.ObjectId,
+    category,
+    documentType: "other",
+    title: reqLabel,
+    visibility: "internal_only",
+    status: "uploaded",
+    uploadedById: submittedById,
+  });
+
+  // ── Create DocumentSubmission ─────────────────────────────────────────────
+
+  const submission = await DocumentSubmissionModel.create({
+    dossierId: resolvedDossierId,
+    phaseId: phase._id,
+    phaseKey: "formal_request",
+    requirementId: reqObjId,
+    documentId,
+    submittedById,
+    submittedByRole,
+    source: payload.source,
+    status: "submitted",
+  });
+
+  // ── Audit ─────────────────────────────────────────────────────────────────
+
+  await writeAuditLog({
+    actorId: actor.id,
+    actorRole: actor.role,
+    action: "formal_request.supporting_document_uploaded",
+    entityType: "dossier",
+    entityId: resolvedDossierId,
+    metadata: {
+      dossierId: resolvedDossierId.toString(),
+      phaseId: (phase._id as Types.ObjectId).toString(),
+      requirementId: reqObjId.toString(),
+      requirementCode: String(requirement.code),
+      documentId: documentId.toString(),
+      submissionId: (submission._id as Types.ObjectId).toString(),
+      source: payload.source,
+    },
+  });
+
+  // ── Return updated read state ─────────────────────────────────────────────
+
+  if (actor.userType === "internal") {
+    return getAdminFormalRequestPhase(resolvedDossierId.toString(), actor);
+  }
+
+  return {
+    uploaded: true,
+    documentId: documentId.toString(),
+    submissionId: (submission._id as Types.ObjectId).toString(),
+    requirementId: reqObjId.toString(),
+    requirementCode: String(requirement.code),
+    source: payload.source,
+  };
+};

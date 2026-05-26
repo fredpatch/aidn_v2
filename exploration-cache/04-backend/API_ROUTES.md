@@ -66,6 +66,8 @@ Last reviewed: 2026-05-21
 - `POST /api/v1/admin/dossiers/:id/phases/formal-request/meeting` — Create formal meeting, MEETING_MANAGE (OMA-FORMAL-4)
 - `POST /api/v1/admin/dossiers/:id/phases/formal-request/meeting/mark-held` — Mark formal meeting held, MEETING_MANAGE (OMA-FORMAL-4)
 - `POST /api/v1/admin/dossiers/:id/phases/formal-request/meeting-report` — Upload formal meeting report, DOCUMENT_UPLOAD_INTERNAL, multipart (OMA-FORMAL-4)
+- `POST /api/v1/admin/dossiers/:id/phases/formal-request/documents/:requirementId` — Upload supporting document (non-gate), DOCUMENT_UPLOAD_INTERNAL, source=physical_deposit|internal_scan (OMA-FORMAL-5)
+- `POST /api/v1/portal/dossiers/:id/phases/formal-request/documents/:requirementId` — Upload supporting document, portal postulant, ownership-scoped, source=portal_upload (OMA-FORMAL-5)
 
 ## Route notes
 
@@ -150,7 +152,12 @@ Last reviewed: 2026-05-21
 - `meeting/mark-held` sets `formalRequestStatus=formal_meeting_held`, `status=in_progress`, `formalMeetingHeldAt`.
 - `meeting-report` uploads `documentType=meeting_report` under `ownerType=meeting`; sets `Meeting.reportDocumentId` and `OmaPhase.formalMeetingReportDocumentId`; does not auto-close.
 - `getAdminFormalRequestPhase` now includes optional `meeting` block in response.
-- Phase 2 closure (recevability + closure courrier) deferred to OMA-FORMAL-5.
+- Phase 2 closure (recevability + closure courrier) deferred to OMA-FORMAL-6.
+- Supporting document endpoints reject gate requirement (`requirementLevel=gate`) with 409.
+- Non-repeatable requirements block duplicate active submissions (409).
+- Repeatable requirements allow multiple submissions.
+- Supporting doc uploads do NOT mutate formalRequestStatus, canSendToDg, canInviteFormalMeeting, canClosePhase.
+- `Document.documentType` is conservatively set to "other" for supporting docs; semantic link is via `DocumentSubmission.requirementId`.
 
 ## Frontend-expected route patterns (generic/items only)
 

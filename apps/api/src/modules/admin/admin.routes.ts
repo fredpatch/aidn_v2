@@ -54,6 +54,7 @@ import {
   registerFormalRequestCourrier,
   sendFormalRequestToDg,
   uploadFormalMeetingReport,
+  uploadFormalRequestSupportingDocument,
 } from "../oma-phases/formal-request.service.js";
 import {
   createDocumentTemplate,
@@ -615,6 +616,30 @@ adminRouter.post(
         {
           notes: typeof req.body.notes === "string" ? req.body.notes : undefined,
         },
+      ),
+    );
+  }),
+);
+
+adminRouter.post(
+  "/dossiers/:id/phases/formal-request/documents/:requirementId",
+  requirePermission(Permissions.DOCUMENT_UPLOAD_INTERNAL),
+  handleOmaDocumentUpload,
+  asyncHandler(async (req, res) => {
+    const source = typeof req.body.source === "string" ? req.body.source : undefined;
+    if (source !== "physical_deposit" && source !== "internal_scan") {
+      throw new HttpError(400, "source doit être physical_deposit ou internal_scan.");
+    }
+    res.status(201).json(
+      await uploadFormalRequestSupportingDocument(
+        String(req.params.id),
+        String(req.params.requirementId),
+        req.file,
+        {
+          source,
+          notes: typeof req.body.notes === "string" ? req.body.notes : undefined,
+        },
+        req.user!,
       ),
     );
   }),

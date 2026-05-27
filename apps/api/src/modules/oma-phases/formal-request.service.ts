@@ -40,6 +40,22 @@ const ACTIVE_SUBMISSION_STATUSES = new Set([
   "requires_correction",
 ]);
 
+/**
+ * Phase 2 statuses that confirm DG evidence is recorded.
+ * Used by both canClosePhase and the closeFormalRequestPhase guard
+ * so they always apply the same rule.
+ */
+const FORMAL_DG_EVIDENCE_STATUSES = new Set([
+  "formal_dg_returned",
+  "formal_dg_decision_recorded",
+  "formal_meeting_invited",
+  "formal_meeting_held",
+  "formal_recevability_recorded",
+  "formal_ready_to_close",
+  "formal_requires_correction",
+  "formal_closed",
+]);
+
 const computeRequirementStatus = (submissions: GenericRecord[]): string => {
   const active = submissions
     .filter((s) => ACTIVE_SUBMISSION_STATUSES.has(String(s.status)))
@@ -124,17 +140,7 @@ export const getAdminFormalRequestPhase = async (dossierId: string, actor: Actor
     phase.formalRequestStatus === "formal_dg_returned";
 
   // MVP collapsed DG flow: DG evidence = scanned return (no separate "approved" decision)
-  const DG_EVIDENCE_STATUSES = new Set([
-    "formal_dg_returned",
-    "formal_dg_decision_recorded",
-    "formal_meeting_invited",
-    "formal_meeting_held",
-    "formal_recevability_recorded",
-    "formal_ready_to_close",
-    "formal_requires_correction",
-    "formal_closed",
-  ]);
-  const dgEvidenceReady = DG_EVIDENCE_STATUSES.has(
+  const dgEvidenceReady = FORMAL_DG_EVIDENCE_STATUSES.has(
     (phase.formalRequestStatus as string | undefined) ?? "",
   );
   const meetingHeld = formalMeeting ? String(formalMeeting.status) === "held" : false;
@@ -1234,12 +1240,10 @@ export const closeFormalRequestPhase = async (
 
   assertFormalRequestGateExists(phase);
 
-  if (!phase.formalRequestDgReviewId) {
-    throw new HttpError(409, "Le circuit DG de la demande formelle est requis avant de clôturer la phase.");
-  }
-  const dgReview = (await DGReviewModel.findById(phase.formalRequestDgReviewId).lean()) as unknown as GenericRecord | null;
-  if (!dgReview) throw new HttpError(404, "Circuit DG introuvable.");
-  if (String(dgReview.status) !== "decision_recorded") {
+  // Use the same DG evidence rule as canClosePhase — trust formalRequestStatus,
+  // not the DGReview document's status field (which stays "returned_scanned"
+  // in the collapsed DG flow and never reaches "decision_recorded").
+  if (!FORMAL_DG_EVIDENCE_STATUSES.has((phase.formalRequestStatus as string | undefined) ?? "")) {
     throw new HttpError(409, "Le retour DG doit être enregistré avant de clôturer la phase.");
   }
 

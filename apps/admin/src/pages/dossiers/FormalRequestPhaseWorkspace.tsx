@@ -1,3 +1,4 @@
+import { useContext, useState } from "react";
 import {
   CheckCircle2,
   Circle,
@@ -7,15 +8,16 @@ import {
   Send,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { AuthContext } from "@/contexts/AuthContext";
 import type {
   AdminFormalRequestPhaseState,
-  AdminFormalRequestRequirement,
-  AdminFormalRequestSubmission,
   AdminOmaPhase,
   FormalRequirementLevel,
   FormalSubmissionStatus,
 } from "@/lib/api/dossiers.api";
+import { hasPermission } from "@/lib/auth/permissions";
 import {
   ActionError,
   DefinitionGrid,
@@ -27,6 +29,18 @@ import {
 } from "./dossier-detail.helpers";
 import { FormalRequestPhaseChecklist } from "./FormalRequestPhaseChecklist";
 import { hasFormalDgDecision } from "./formal-request-progress.helpers";
+import {
+  CloseFormalRequestPhaseDialog,
+  InviteFormalMeetingDialog,
+  MarkFormalMeetingHeldDialog,
+  UploadFormalMeetingReportDialog,
+} from "./formal-request-dialogs";
+
+type DialogKey =
+  | "invite_formal_meeting"
+  | "mark_meeting_held"
+  | "upload_meeting_report"
+  | "close_phase";
 
 const formalStatusLabels: Record<string, string> = {
   formal_not_started: "Non démarrée",
@@ -140,18 +154,6 @@ function LevelBadge({
   return <Badge variant="outline">{requirementLevelLabels[level] ?? level}</Badge>;
 }
 
-function latestActiveSubmission(
-  requirement: AdminFormalRequestRequirement,
-): AdminFormalRequestSubmission | null {
-  const byNewest = [...requirement.submissions].sort((a, b) => {
-    const aTime = a.uploadedAt ? new Date(a.uploadedAt).getTime() : 0;
-    const bTime = b.uploadedAt ? new Date(b.uploadedAt).getTime() : 0;
-    return bTime - aTime;
-  });
-  const active = byNewest.filter((submission) => submission.status !== "replaced");
-  return active[0] ?? byNewest[0] ?? null;
-}
-
 function isSentToDgStatus(status: string | null | undefined): boolean {
   if (!status) return false;
   return [
@@ -181,24 +183,6 @@ function isDgReturnedStatus(status: string | null | undefined): boolean {
   ].includes(status);
 }
 
-function nextActionLabel(state: AdminFormalRequestPhaseState): string {
-  if (!state.gate.exists) {
-    return "En attente du dépôt de la demande formelle par le postulant.";
-  }
-  const sentToDg = isSentToDgStatus(state.phase.formalRequestStatus);
-  if (!sentToDg) {
-    return "Demande formelle reçue. Le traitement du circuit DG doit être effectué depuis Courriers officiels.";
-  }
-  const dgReturned = isDgReturnedStatus(state.phase.formalRequestStatus);
-  if (!dgReturned) {
-    return "Demande formelle en circuit DG/parapheur. En attente du retour scanné.";
-  }
-  if (hasFormalDgDecision(state)) {
-    return "Retour DG enregistré. DN peut maintenant programmer la réunion formelle.";
-  }
-  return "Consultez l'état de la phase pour déterminer la prochaine action.";
-}
-
 function StepLine({
   done,
   label,
@@ -216,62 +200,6 @@ function StepLine({
       <span className={done ? "text-foreground" : "text-muted-foreground"}>
         {label}
       </span>
-    </li>
-  );
-}
-
-function RequirementRow({
-  requirement,
-}: {
-  requirement: AdminFormalRequestRequirement;
-}): React.JSX.Element {
-  const activeSubmission = latestActiveSubmission(requirement);
-  const history = requirement.submissions.filter(
-    (submission) => submission.status === "replaced",
-  );
-  const source = activeSubmission?.source
-    ? sourceLabels[activeSubmission.source] ?? activeSubmission.source
-    : "Non renseignée";
-
-  return (
-    <li className="border-b py-3 last:border-b-0">
-      <div className="grid gap-3 text-sm lg:grid-cols-[minmax(0,2fr)_auto_auto_minmax(8rem,1fr)] lg:items-center">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="font-medium text-slate-900 dark:text-slate-100">
-              {requirement.label}
-            </span>
-            {requirement.isRepeatable ? <Badge variant="outline">Multiple</Badge> : null}
-          </div>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {requirement.formCode ?? requirement.code}
-          </p>
-        </div>
-        <LevelBadge level={requirement.requirementLevel} />
-        <StatusBadge status={requirement.status} />
-        <div className="text-xs text-muted-foreground">
-          <div>Dernier dépôt : {formatOptionalDate(activeSubmission?.uploadedAt)}</div>
-          <div>Source : {source}</div>
-        </div>
-      </div>
-
-      {history.length > 0 ? (
-        <details className="mt-2 rounded-md bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-          <summary className="cursor-pointer font-medium text-foreground">
-            Dépôts remplacés ({history.length})
-          </summary>
-          <ul className="mt-2 space-y-1">
-            {history.map((submission) => (
-              <li key={submission.submissionId}>
-                Remplacé - {formatOptionalDate(submission.uploadedAt)} -{" "}
-                {submission.source
-                  ? sourceLabels[submission.source] ?? submission.source
-                  : "Source non renseignée"}
-              </li>
-            ))}
-          </ul>
-        </details>
-      ) : null}
     </li>
   );
 }
@@ -299,10 +227,11 @@ function WorkflowSection({
 }
 
 export function FormalRequestPhaseWorkspace({
+  dossierId,
   error,
   isLoading,
   onRefreshPhase: _onRefreshPhase,
-  onStateChange: _onStateChange,
+  onStateChange,
   phaseRecord,
   state,
 }: {
@@ -315,6 +244,9 @@ export function FormalRequestPhaseWorkspace({
   phaseRecord?: AdminOmaPhase;
   state: AdminFormalRequestPhaseState | null;
 }): React.JSX.Element {
+  const auth = useContext(AuthContext);
+  const [openDialog, setOpenDialog] = useState<DialogKey | null>(null);
+
   if (isLoading) {
     return (
       <Card>
@@ -339,6 +271,11 @@ export function FormalRequestPhaseWorkspace({
     );
   }
 
+  const user = auth?.user ?? null;
+  const canManageMeetings = hasPermission(user, "MEETING_MANAGE");
+  const canPublishDocuments = hasPermission(user, "DOCUMENT_UPLOAD_INTERNAL");
+  const canPhaseClose = hasPermission(user, "PHASE_CLOSE");
+
   const formalStatus = state.phase.formalRequestStatus
     ? formalStatusLabels[state.phase.formalRequestStatus] ??
       state.phase.formalRequestStatus
@@ -351,6 +288,99 @@ export function FormalRequestPhaseWorkspace({
   const dgDecisionRecorded = hasFormalDgDecision(state);
   const meetingProgrammed = Boolean(state.meeting);
   const meetingHeld = state.meeting?.status === "held";
+  const isClosed = state.phase.formalRequestStatus === "formal_closed";
+
+  const correctionsCount = state.requirements.filter(
+    (r) => r.status === "requires_correction",
+  ).length;
+  const gateRequirement = state.requirements.find((r) => r.requirementLevel === "gate");
+  const correctionRequirements = state.requirements.filter(
+    (r) => r.status === "requires_correction" && r.requirementLevel !== "gate",
+  );
+
+  // ── Build the guided "Prochaine action" content ─────────────────────────────
+  const fs = state.phase.formalRequestStatus;
+  let nextActionContent: React.ReactNode;
+
+  if (isClosed) {
+    nextActionContent = (
+      <div className="flex items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm font-medium text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-200">
+        <CheckCircle2 className="h-4 w-4 shrink-0" aria-hidden="true" />
+        Phase 2 — Demande formelle clôturée.
+      </div>
+    );
+  } else if (!state.gate.exists) {
+    nextActionContent = (
+      <WaitingState>
+        En attente du dépôt de la demande formelle par le postulant.
+      </WaitingState>
+    );
+  } else if (!sentToDg) {
+    nextActionContent = (
+      <WaitingState>
+        Demande formelle reçue. Circuit DG à traiter depuis l'espace Courriers officiels.
+      </WaitingState>
+    );
+  } else if (!dgReturned) {
+    nextActionContent = (
+      <WaitingState>
+        Demande formelle en circuit officiel. En attente du retour DG.
+      </WaitingState>
+    );
+  } else if (!dgDecisionRecorded) {
+    nextActionContent = (
+      <WaitingState>
+        Retour DG reçu. En attente de l'enregistrement de la décision DG depuis Courriers officiels.
+      </WaitingState>
+    );
+  } else if (fs === "formal_dg_decision_recorded" || state.phase.canInviteFormalMeeting) {
+    nextActionContent = canManageMeetings ? (
+      <Button onClick={() => setOpenDialog("invite_formal_meeting")}>
+        Planifier la réunion formelle
+      </Button>
+    ) : (
+      <WaitingState>
+        Décision DG enregistrée. Réunion formelle à programmer par le responsable.
+      </WaitingState>
+    );
+  } else if (fs === "formal_meeting_invited") {
+    nextActionContent = canManageMeetings ? (
+      <Button onClick={() => setOpenDialog("mark_meeting_held")}>
+        Marquer la réunion formelle comme tenue
+      </Button>
+    ) : (
+      <WaitingState>En attente de la tenue de la réunion formelle.</WaitingState>
+    );
+  } else if (fs === "formal_meeting_held" && !state.meeting?.reportDocumentId) {
+    nextActionContent = canPublishDocuments ? (
+      <Button onClick={() => setOpenDialog("upload_meeting_report")}>
+        Joindre le compte rendu de réunion formelle
+      </Button>
+    ) : (
+      <WaitingState>Réunion tenue. En attente du compte rendu de réunion.</WaitingState>
+    );
+  } else if (state.phase.canClosePhase || state.closure.canClosePhase) {
+    nextActionContent = canPhaseClose ? (
+      <Button
+        variant="destructive"
+        onClick={() => setOpenDialog("close_phase")}
+      >
+        Clôturer la Phase 2
+      </Button>
+    ) : (
+      <WaitingState>
+        Phase 2 prête à clôturer — en attente de la clôture par le responsable.
+      </WaitingState>
+    );
+  } else {
+    // intermediate: meeting report uploaded, awaiting recevability/closure courrier
+    nextActionContent = (
+      <WaitingState>
+        Réunion tenue et compte rendu joint. Chargez le courrier de recevabilité ou
+        de clôture depuis la section Recevabilité et clôture ci-dessus.
+      </WaitingState>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -361,7 +391,7 @@ export function FormalRequestPhaseWorkspace({
         </Field>
         <Field label="Démarrée le">{formatOptionalDate(phaseRecord?.startedAt)}</Field>
         <Field label="Clôturée le">{formatOptionalDate(phaseRecord?.closedAt)}</Field>
-        <Field label="Circuit DG">
+        <Field label="Circuit officiel">
           {sentToDg ? "Mis en circuit" : "Non mis en circuit"}
         </Field>
         <Field label="Retour DG">
@@ -431,20 +461,20 @@ export function FormalRequestPhaseWorkspace({
         </div>
       </WorkflowSection>
 
-      {/* ── 2. Circuit DG (lecture seule) ───────────────────────────────────── */}
+      {/* ── 2. Circuit officiel (lecture seule) ─────────────────────────────── */}
       <WorkflowSection
-        title="Circuit DG"
+        title="Circuit officiel"
         icon={<Send className="h-4 w-4" aria-hidden="true" />}
       >
         <div className="space-y-4">
           <ol className="grid gap-2 sm:grid-cols-2">
             <StepLine done={!sentToDg} label="Non mis en circuit" />
-            <StepLine done={sentToDg} label="Mis en circuit DG" />
+            <StepLine done={sentToDg} label="Mis en circuit DG/parapheur" />
             <StepLine done={dgReturned} label="Retour DG scanné" />
             <StepLine done={dgDecisionRecorded} label="Décision DG enregistrée" />
           </ol>
           <Note>
-            Le circuit DG est traité depuis l'espace Courriers officiels.
+            Le circuit officiel est traité depuis l'espace Courriers officiels.
           </Note>
         </div>
       </WorkflowSection>
@@ -481,34 +511,80 @@ export function FormalRequestPhaseWorkspace({
         </div>
       </WorkflowSection>
 
-      {/* ── 4. Documents de demande formelle ────────────────────────────────── */}
+      {/* ── 4. Documents de demande formelle (résumé) ───────────────────────── */}
       <WorkflowSection
         title="Documents de demande formelle"
         icon={<FileCheck2 className="h-4 w-4" aria-hidden="true" />}
       >
-        <div className="space-y-3">
-          <div className="rounded-md bg-muted/30 p-3 text-sm text-muted-foreground">
-            <span className="font-medium text-foreground">
-              {state.progress.completionRate}% documentaire
-            </span>{" "}
-            - {state.progress.submitted}/{state.progress.totalTracked} pièces
-            déposées, {state.progress.validated} validées. Suivi uniquement,
-            sans blocage automatique du circuit DG.
-          </div>
-          {state.requirements.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              Aucune exigence documentaire disponible.
+        <div className="space-y-3 text-sm">
+          {/* Summary */}
+          <div className="rounded-md bg-muted/30 p-3">
+            <p className="text-sm text-foreground">
+              <span className="font-medium">
+                {state.progress.totalTracked} pièces suivies
+              </span>
+              {" · "}
+              {state.progress.submitted} déposée
+              {state.progress.submitted !== 1 ? "s" : ""}
+              {" · "}
+              {state.progress.validated} validée
+              {state.progress.validated !== 1 ? "s" : ""}
+              {correctionsCount > 0 ? (
+                <span className="ml-1 font-medium text-destructive">
+                  {" · "}
+                  {correctionsCount} correction
+                  {correctionsCount !== 1 ? "s" : ""} demandée
+                  {correctionsCount !== 1 ? "s" : ""}
+                </span>
+              ) : null}
             </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Suivi documentaire uniquement, sans blocage automatique du circuit officiel.
+            </p>
+          </div>
+
+          {/* Gate requirement */}
+          {gateRequirement ? (
+            <div className="border-b pb-3">
+              <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                Demande formelle
+              </p>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-medium">{gateRequirement.label}</span>
+                <LevelBadge level={gateRequirement.requirementLevel} />
+                <StatusBadge status={gateRequirement.status} />
+              </div>
+            </div>
+          ) : null}
+
+          {/* Corrections */}
+          {correctionRequirements.length > 0 ? (
+            <div>
+              <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                Corrections demandées
+              </p>
+              <ul className="space-y-2">
+                {correctionRequirements.map((req) => (
+                  <li
+                    key={req.requirementId}
+                    className="flex flex-wrap items-center gap-2"
+                  >
+                    <span>{req.label}</span>
+                    <StatusBadge status={req.status} />
+                  </li>
+                ))}
+              </ul>
+            </div>
           ) : (
-            <ul>
-              {state.requirements.map((requirement) => (
-                <RequirementRow
-                  key={requirement.requirementId}
-                  requirement={requirement}
-                />
-              ))}
-            </ul>
+            <p className="text-muted-foreground">
+              Aucune correction demandée pour le moment.
+            </p>
           )}
+
+          {/* Hint link to Documents tab */}
+          <p className="text-xs text-muted-foreground">
+            Consulter le détail dans l'onglet Documents.
+          </p>
         </div>
       </WorkflowSection>
 
@@ -539,19 +615,53 @@ export function FormalRequestPhaseWorkspace({
         </div>
       </WorkflowSection>
 
-      {/* ── Statut / prochaine action ────────────────────────────────────────── */}
+      {/* ── Prochaine action ────────────────────────────────────────────────── */}
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-medium text-muted-foreground">
-            Statut
+            Prochaine action
           </CardTitle>
         </CardHeader>
-        <CardContent>
-          <p className="text-sm text-slate-900 dark:text-slate-100">
-            {nextActionLabel(state)}
-          </p>
-        </CardContent>
+        <CardContent>{nextActionContent}</CardContent>
       </Card>
+
+      {/* ── Dialogs ─────────────────────────────────────────────────────────── */}
+      <InviteFormalMeetingDialog
+        open={openDialog === "invite_formal_meeting"}
+        onOpenChange={(value) => { if (!value) setOpenDialog(null); }}
+        dossierId={dossierId}
+        onSuccess={(nextState) => {
+          setOpenDialog(null);
+          onStateChange(nextState);
+        }}
+      />
+      <MarkFormalMeetingHeldDialog
+        open={openDialog === "mark_meeting_held"}
+        onOpenChange={(value) => { if (!value) setOpenDialog(null); }}
+        dossierId={dossierId}
+        onSuccess={(nextState) => {
+          setOpenDialog(null);
+          onStateChange(nextState);
+        }}
+      />
+      <UploadFormalMeetingReportDialog
+        open={openDialog === "upload_meeting_report"}
+        onOpenChange={(value) => { if (!value) setOpenDialog(null); }}
+        dossierId={dossierId}
+        onSuccess={(nextState) => {
+          setOpenDialog(null);
+          onStateChange(nextState);
+        }}
+      />
+      <CloseFormalRequestPhaseDialog
+        open={openDialog === "close_phase"}
+        onOpenChange={(value) => { if (!value) setOpenDialog(null); }}
+        dossierId={dossierId}
+        onSuccess={(nextState) => {
+          setOpenDialog(null);
+          onStateChange(nextState);
+        }}
+      />
     </div>
   );
 }

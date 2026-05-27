@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { CalendarScheduler } from "@/components/ui/calendar-scheduler";
 import {
   Dialog,
   DialogContent,
@@ -20,9 +21,13 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  closeFormalRequestPhase,
+  inviteFormalMeeting,
+  markFormalMeetingHeld,
   recordFormalRequestDgDecision,
   recordFormalRequestDgReturn,
   sendFormalRequestToDg,
+  uploadFormalMeetingReport,
   uploadFormalRequestCourrier,
   type AdminFormalRequestCourrierSource,
   type AdminFormalRequestDgDecision,
@@ -30,6 +35,19 @@ import {
 } from "@/lib/api/dossiers.api";
 import { extractError } from "@/lib/utils/error";
 import { ActionError } from "./dossier-detail.helpers";
+
+function buildScheduledAt(date: Date, timeStr: string): string {
+  const match = /^(\d{2}):(\d{2}) (AM|PM)$/.exec(timeStr);
+  if (!match) return date.toISOString();
+  let hours = parseInt(match[1], 10);
+  const minutes = parseInt(match[2], 10);
+  const meridiem = match[3];
+  if (meridiem === "PM" && hours !== 12) hours += 12;
+  if (meridiem === "AM" && hours === 12) hours = 0;
+  const d = new Date(date);
+  d.setHours(hours, minutes, 0, 0);
+  return d.toISOString();
+}
 
 type BaseProps = {
   open: boolean;
@@ -583,6 +601,437 @@ export function RecordFormalDgDecisionDialog({
             </Button>
           </DialogFooter>
         </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+export function InviteFormalMeetingDialog({
+  open,
+  onOpenChange,
+  dossierId,
+  onSuccess,
+}: BaseProps): React.JSX.Element {
+  const [schedule, setSchedule] = useState<{ date?: Date; time?: string }>({});
+  const [location, setLocation] = useState("");
+  const [notes, setNotes] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState("");
+
+  const reset = () => {
+    setSchedule({});
+    setLocation("");
+    setNotes("");
+    setError("");
+  };
+
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setIsSubmitting(true);
+    setError("");
+    try {
+      const scheduledAt =
+        schedule.date && schedule.time
+          ? buildScheduledAt(schedule.date, schedule.time)
+          : schedule.date?.toISOString();
+      const nextState = await inviteFormalMeeting(dossierId, {
+        scheduledAt,
+        location: location.trim() || undefined,
+        notes: notes.trim() || undefined,
+      });
+      reset();
+      onOpenChange(false);
+      onSuccess(nextState);
+    } catch (err) {
+      setError(extractError(err, "Impossible de planifier la réunion formelle."));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(value) => {
+        if (!value) reset();
+        onOpenChange(value);
+      }}
+    >
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Planifier la réunion formelle</DialogTitle>
+          <DialogDescription>
+            Choisissez une date, une heure et un lieu pour la réunion formelle.
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={(event) => void handleSubmit(event)} className="space-y-4">
+          <CalendarScheduler
+            title=""
+            showFooter={false}
+            onChange={(val) => setSchedule(val)}
+          />
+          <div className="space-y-1">
+            <Label htmlFor="formal-meeting-location" className="text-xs">
+              Lieu
+            </Label>
+            <Input
+              id="formal-meeting-location"
+              value={location}
+              onChange={(event) => setLocation(event.target.value)}
+              placeholder="Salle de réunion, adresse..."
+              className="h-8 text-sm"
+            />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="formal-meeting-notes" className="text-xs">
+              Notes
+            </Label>
+            <Textarea
+              id="formal-meeting-notes"
+              value={notes}
+              onChange={(event) => setNotes(event.target.value)}
+              rows={2}
+              className="text-sm"
+            />
+          </div>
+          {error ? <ActionError message={error} /> : null}
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                reset();
+                onOpenChange(false);
+              }}
+              disabled={isSubmitting}
+            >
+              Annuler
+            </Button>
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? (
+                <>
+                  <Clock className="mr-2 h-4 w-4 animate-spin" />
+                  En cours...
+                </>
+              ) : (
+                "Planifier la réunion"
+              )}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+export function MarkFormalMeetingHeldDialog({
+  open,
+  onOpenChange,
+  dossierId,
+  onSuccess,
+}: BaseProps): React.JSX.Element {
+  const [heldAt, setHeldAt] = useState("");
+  const [notes, setNotes] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState("");
+
+  const reset = () => {
+    setHeldAt("");
+    setNotes("");
+    setError("");
+  };
+
+  const handleConfirm = async () => {
+    setIsSubmitting(true);
+    setError("");
+    try {
+      const nextState = await markFormalMeetingHeld(dossierId, {
+        heldAt: heldAt || undefined,
+        notes: notes.trim() || undefined,
+      });
+      reset();
+      onOpenChange(false);
+      onSuccess(nextState);
+    } catch (err) {
+      setError(extractError(err, "Impossible de marquer la réunion comme tenue."));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(value) => {
+        if (!value) reset();
+        onOpenChange(value);
+      }}
+    >
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Marquer la réunion formelle comme tenue</DialogTitle>
+          <DialogDescription>
+            Confirmez que la réunion formelle a été tenue. Vous pourrez ensuite
+            joindre le compte rendu.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div className="space-y-1">
+            <Label htmlFor="formal-meeting-held-at" className="text-xs">
+              Date de tenue
+            </Label>
+            <Input
+              id="formal-meeting-held-at"
+              type="date"
+              value={heldAt}
+              onChange={(event) => setHeldAt(event.target.value)}
+              className="h-8 text-sm"
+            />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="formal-meeting-held-notes" className="text-xs">
+              Notes
+            </Label>
+            <Textarea
+              id="formal-meeting-held-notes"
+              value={notes}
+              onChange={(event) => setNotes(event.target.value)}
+              rows={2}
+              className="text-sm"
+            />
+          </div>
+        </div>
+        {error ? <ActionError message={error} /> : null}
+        <DialogFooter>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => {
+              reset();
+              onOpenChange(false);
+            }}
+            disabled={isSubmitting}
+          >
+            Annuler
+          </Button>
+          <Button
+            type="button"
+            disabled={isSubmitting}
+            onClick={() => void handleConfirm()}
+          >
+            {isSubmitting ? (
+              <>
+                <Clock className="mr-2 h-4 w-4 animate-spin" />
+                En cours...
+              </>
+            ) : (
+              "Confirmer la tenue"
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+export function UploadFormalMeetingReportDialog({
+  open,
+  onOpenChange,
+  dossierId,
+  onSuccess,
+}: BaseProps): React.JSX.Element {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [notes, setNotes] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState("");
+
+  const reset = () => {
+    setNotes("");
+    setError("");
+    if (fileRef.current) fileRef.current.value = "";
+  };
+
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    const file = fileRef.current?.files?.[0];
+    if (!file) {
+      setError("Veuillez sélectionner le compte rendu de réunion.");
+      return;
+    }
+    setIsSubmitting(true);
+    setError("");
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      if (notes.trim()) formData.append("notes", notes.trim());
+      const nextState = await uploadFormalMeetingReport(dossierId, formData);
+      reset();
+      onOpenChange(false);
+      onSuccess(nextState);
+    } catch (err) {
+      setError(extractError(err, "Impossible de joindre le compte rendu."));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(value) => {
+        if (!value) reset();
+        onOpenChange(value);
+      }}
+    >
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Joindre le compte rendu de réunion formelle</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={(event) => void handleSubmit(event)} className="space-y-4">
+          <div className="space-y-1">
+            <Label htmlFor="formal-meeting-report-file" className="text-xs">
+              Compte rendu <span className="text-red-500">*</span>
+            </Label>
+            <Input
+              id="formal-meeting-report-file"
+              ref={fileRef}
+              type="file"
+              accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+              required
+              className="h-8 text-sm"
+            />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="formal-meeting-report-notes" className="text-xs">
+              Notes
+            </Label>
+            <Textarea
+              id="formal-meeting-report-notes"
+              value={notes}
+              onChange={(event) => setNotes(event.target.value)}
+              rows={2}
+              className="text-sm"
+            />
+          </div>
+          {error ? <ActionError message={error} /> : null}
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                reset();
+                onOpenChange(false);
+              }}
+              disabled={isSubmitting}
+            >
+              Annuler
+            </Button>
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? (
+                <>
+                  <Clock className="mr-2 h-4 w-4 animate-spin" />
+                  En cours...
+                </>
+              ) : (
+                "Joindre le compte rendu"
+              )}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+export function CloseFormalRequestPhaseDialog({
+  open,
+  onOpenChange,
+  dossierId,
+  onSuccess,
+}: BaseProps): React.JSX.Element {
+  const [notes, setNotes] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState("");
+
+  const reset = () => {
+    setNotes("");
+    setError("");
+  };
+
+  const handleConfirm = async () => {
+    setIsSubmitting(true);
+    setError("");
+    try {
+      const nextState = await closeFormalRequestPhase(dossierId, {
+        notes: notes.trim() || undefined,
+      });
+      reset();
+      onOpenChange(false);
+      onSuccess(nextState);
+    } catch (err) {
+      setError(extractError(err, "Impossible de clôturer la phase 2."));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(value) => {
+        if (!value) reset();
+        onOpenChange(value);
+      }}
+    >
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Clôturer la Phase 2 — Demande formelle</DialogTitle>
+          <DialogDescription>
+            Cette action est irréversible. La phase 2 sera marquée clôturée et
+            la phase 3 (Évaluation documentaire) sera déverrouillée.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-1">
+          <Label htmlFor="formal-close-notes" className="text-xs">
+            Notes de clôture
+          </Label>
+          <Textarea
+            id="formal-close-notes"
+            value={notes}
+            onChange={(event) => setNotes(event.target.value)}
+            rows={2}
+            className="text-sm"
+          />
+        </div>
+        {error ? <ActionError message={error} /> : null}
+        <DialogFooter>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => {
+              reset();
+              onOpenChange(false);
+            }}
+            disabled={isSubmitting}
+          >
+            Annuler
+          </Button>
+          <Button
+            type="button"
+            variant="destructive"
+            disabled={isSubmitting}
+            onClick={() => void handleConfirm()}
+          >
+            {isSubmitting ? (
+              <>
+                <Clock className="mr-2 h-4 w-4 animate-spin" />
+                En cours...
+              </>
+            ) : (
+              "Clôturer la Phase 2"
+            )}
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

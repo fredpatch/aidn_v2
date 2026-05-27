@@ -414,3 +414,43 @@ export function uploadClosureCourrier(
 export function closePreliminaryPhase(id: string): Promise<{ ok: boolean }> {
   return apiPost(`/api/v1/admin/dossiers/${id}/preliminary/close`, {});
 }
+
+export function inviteFormalMeeting(
+  id: string,
+  payload: { scheduledAt?: string; location?: string; notes?: string },
+): Promise<AdminFormalRequestPhaseState> {
+  return apiPost<AdminFormalRequestPhaseState>(
+    `/api/v1/admin/dossiers/${id}/phases/formal-request/meeting`,
+    payload,
+  );
+}
+
+export function markFormalMeetingHeld(
+  id: string,
+  payload: { heldAt?: string; notes?: string },
+): Promise<AdminFormalRequestPhaseState> {
+  return apiPost<AdminFormalRequestPhaseState>(
+    `/api/v1/admin/dossiers/${id}/phases/formal-request/meeting/mark-held`,
+    payload,
+  );
+}
+
+export function uploadFormalMeetingReport(
+  id: string,
+  formData: FormData,
+): Promise<AdminFormalRequestPhaseState> {
+  return apiPostForm<AdminFormalRequestPhaseState>(
+    `/api/v1/admin/dossiers/${id}/phases/formal-request/meeting-report`,
+    formData,
+  );
+}
+
+export function closeFormalRequestPhase(
+  id: string,
+  payload: { notes?: string },
+): Promise<AdminFormalRequestPhaseState> {
+  return apiPost<AdminFormalRequestPhaseState>(
+    `/api/v1/admin/dossiers/${id}/phases/formal-request/close`,
+    payload,
+  );
+}

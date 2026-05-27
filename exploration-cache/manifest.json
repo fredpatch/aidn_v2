@@ -44,6 +44,20 @@
   "recentExplorationCacheUpdates": [
     {
       "date": "2026-05-27",
+      "phase": "OMA-FORMAL-9B2-PHASE-2-WORKFLOW-CLEANUP",
+      "created": [
+        "exploration-cache/tasks/summaries/2026-05-27-oma-formal-9b2-phase-2-workflow-cleanup.md"
+      ],
+      "updated": [
+        "apps/api/src/modules/oma-phases/formal-request.service.ts",
+        "apps/api/src/modules/dg-circuit/dg-circuit.service.ts",
+        "apps/admin/src/pages/dossiers/FormalRequestPhaseWorkspace.tsx",
+        "exploration-cache/tasks/current-task.md",
+        "exploration-cache/manifest.json"
+      ]
+    },
+    {
+      "date": "2026-05-27",
       "phase": "OMA-FORMAL-9B1-COURRIERS-OFFICIELS-DEMANDE-FORMELLE",
       "created": [
         "exploration-cache/tasks/summaries/2026-05-27-oma-formal-9b1-courriers-officiels-demande-formelle.md"

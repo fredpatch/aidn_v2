@@ -1,70 +1,78 @@
 # Current Task
 
-## Phase: OMA-FORMAL-9B1 — Add Phase 2 Demande Formelle to Courriers Officiels
+## Phase: OMA-FORMAL-9C — Guided Action Card for Phase 2
 
 Date: 2026-05-27
-Status: **Complete — Admin typecheck PASS, Admin build PASS**
+Status: **Complete — Admin typecheck PASS, Admin build PASS, API typecheck PASS**
 
 ## Summary files
 
-- Implementation: `exploration-cache/tasks/summaries/2026-05-27-oma-formal-9b1-courriers-officiels-demande-formelle.md`
+- Implementation: `exploration-cache/tasks/summaries/2026-05-27-oma-formal-9c-guided-action-card-phase2.md`
 
 ## Files modified
 
-- `apps/api/src/modules/dg-circuit/dg-circuit.service.ts`
-  - Added `'formal_request'` to `TaskSource` union type
-  - Added `Permissions.DG_DECISION_RECORD` to `DG_TASK_PERMISSIONS`
-  - Added full `formal_request` section in `listDgCircuitTasks`: queries `OmaPhaseModel` where `phaseKey="formal_request"` and `formalRequestCourrierId` exists; parallel lookup of `DossierModel` and `DGReviewModel`; bucket/action mapping
-- `apps/admin/src/lib/api/dg-circuit.api.ts`
-  - Added `'formal_request'` to `DgCircuitSource` type
-  - Added `'record_dg_decision'` to `DgCircuitAction` type
-- `apps/admin/src/pages/DgCircuitPage.tsx`
-  - Added imports: `recordFormalRequestDgReturn`, `sendFormalRequestToDg`, `sendPreEvalToDg`, `recordPreEvalDgReturn` from dossiers.api; `RecordFormalDgDecisionDialog` from formal-request-dialogs
-  - Added `{ kind: "formal-dg-decision"; task: DgCircuitTask }` to `ModalState`
-  - Added `formal_request: "Demande formelle"` to `sourceLabels`
-  - Added `formal_request` branch in `markTransmitted`: `await sendFormalRequestToDg(task.dossierId)`
-  - Added `formal_request` branch in `submitReturn`: `await recordFormalRequestDgReturn(task.dossierId, formData)`
-  - Added `submitDecision` handler: `setModal({ kind: "formal-dg-decision", task })`
-  - Added "Enregistrer la décision DG" button in `returned_scanned` detail panel (gated by `source === "formal_request"` and `availableActions.includes("record_dg_decision")`)
-  - Added `RecordFormalDgDecisionDialog` render at bottom for `modal?.kind === "formal-dg-decision"`
+- `apps/admin/src/lib/api/dossiers.api.ts`
+  - Added `inviteFormalMeeting(id, payload)` → POST `/phases/formal-request/meeting`
+  - Added `markFormalMeetingHeld(id, payload)` → POST `/phases/formal-request/meeting/mark-held`
+  - Added `uploadFormalMeetingReport(id, formData)` → POST `/phases/formal-request/meeting-report`
+  - Added `closeFormalRequestPhase(id, payload)` → POST `/phases/formal-request/close`
+  - All return `AdminFormalRequestPhaseState`
 
-## Files NOT modified
+- `apps/admin/src/pages/dossiers/formal-request-dialogs.tsx`
+  - Added `import { CalendarScheduler }` and `import { closeFormalRequestPhase, inviteFormalMeeting, markFormalMeetingHeld, uploadFormalMeetingReport }`
+  - Added local `buildScheduledAt` helper (mirrors preliminary-dialogs.tsx)
+  - Added `InviteFormalMeetingDialog` — CalendarScheduler + location + notes
+  - Added `MarkFormalMeetingHeldDialog` — date input + notes, confirm
+  - Added `UploadFormalMeetingReportDialog` — file upload + notes
+  - Added `CloseFormalRequestPhaseDialog` — confirmation + notes, destructive button
 
-- `apps/admin/src/pages/dossiers/FormalRequestPhaseWorkspace.tsx` — remains read-only
-- `apps/admin/src/pages/dossiers/formal-request-dialogs.tsx` — reused as-is (RecordFormalDgDecisionDialog)
-- Portal: no changes
-- Backend business rules: no changes
+- `apps/admin/src/pages/dossiers/FormalRequestPhaseWorkspace.tsx`
+  - Added `useContext`, `useState`, `AuthContext`, `hasPermission`, `Button` imports
+  - Added `DialogKey` type union
+  - Imported 4 new dialogs from `formal-request-dialogs`
+  - Added `dossierId` to destructured props (was in type but unused)
+  - Renamed `onStateChange: _onStateChange` → `onStateChange` (now actually used)
+  - Added permission checks: `canManageMeetings`, `canPublishDocuments`, `canPhaseClose`
+  - Replaced static "Statut" card with "Prochaine action" interactive card
+  - Built guided `nextActionContent` block covering all 10 workflow states
+  - Rendered 4 dialogs at component bottom
 
-## Implementation details
+## Guided action card flow
 
-- Formal request items source: OmaPhaseModel (phaseKey="formal_request" + formalRequestCourrierId exists) — task ID: `formal_request:<phaseId>`
-- Status/bucket mapping:
-  - No formalRequestDgReviewId → `to_transmit` (mark_transmitted for DG_CIRCUIT_HANDLE)
-  - DGReview awaiting_return → `awaiting_return` (record_annotated_return for DG_CIRCUIT_HANDLE)
-  - DGReview returned_scanned → `returned_scanned` (download_annotated_return + record_dg_decision for DG_DECISION_RECORD)
-  - DGReview decision_recorded → `decision_recorded` (download_annotated_return for DG_CIRCUIT_HANDLE)
-- DG_DECISION_RECORD added to DG_TASK_PERMISSIONS so DN roles can access Courriers officiels for decision recording
-- `download_outgoing` for formal_request deferred (would require backend extension)
-- DgReturnDialog already handles `formal_request` source (uses `file` field, not `returnedScannedDocument`)
+| formalRequestStatus | Actor | Content |
+|---------------------|-------|---------|
+| (no gate) | — | WaitingState: En attente du dépôt postulant |
+| gate, not sent to DG | — | WaitingState: Circuit DG à traiter depuis Courriers officiels |
+| sent_to_dg | — | WaitingState: En attente du retour DG |
+| dg_returned | — | WaitingState: En attente décision DG (Courriers officiels) |
+| dg_decision_recorded | MEETING_MANAGE | Button: Planifier la réunion formelle |
+| meeting_invited | MEETING_MANAGE | Button: Marquer la réunion comme tenue |
+| meeting_held, no report | DOCUMENT_UPLOAD_INTERNAL | Button: Joindre le compte rendu |
+| meeting_held + report / recevability/closure steps | — | WaitingState: Charger courriers de recevabilité/clôture |
+| canClosePhase | PHASE_CLOSE | Button: Clôturer la Phase 2 (destructive) |
+| formal_closed | — | Green done banner |
 
 ## Verification completed
 
 ```bash
 cd apps/admin
-npx tsc --noEmit  # PASS
-npm run build     # PASS (chunk size warning pre-existing)
+npx tsc --noEmit   # PASS (no errors)
+npm run build      # PASS (3949+ modules, chunk size warning pre-existing)
+
+cd apps/api
+npm run typecheck  # PASS
 ```
 
 ## Manual checks
 
-Not run; no live admin/API browser session in this pass.
+Not run; no live browser session in this pass.
 
 ## Known risks / TODOs
 
-- `download_outgoing` for formal_request not wired — backend `downloadDgCircuitTaskDocument` doesn't resolve formal_request source documents yet
-- DG_DECISION_RECORD added to DG_TASK_PERMISSIONS allows DN users to see Courriers officiels list; confirm with product owner
-- Runtime validation needs a live Phase 2 dossier with portal-uploaded courrier
+- `buildScheduledAt` is duplicated between `preliminary-dialogs.tsx` and `formal-request-dialogs.tsx` — could be extracted to a shared utility later
+- Recevability and closure courrier uploads (uploadFormalRecevabilityCourrier, uploadFormalClosureCourrier) are not yet exposed as action buttons — they are handled via FormalRequestPhaseChecklist
+- No re-invite / reschedule handling for meeting (not in scope)
 
 ## Next step
 
-OMA-FORMAL-9C or next product slice as defined in roadmap.
+OMA-FORMAL-9D or next product roadmap slice.

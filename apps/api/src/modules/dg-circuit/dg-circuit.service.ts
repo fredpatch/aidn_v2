@@ -5,6 +5,7 @@ import { Permissions } from "../../shared/permissions/permissions.js";
 import { storageAdapter } from "../../shared/storage/storage.adapter.js";
 import { saveDocument } from "../../shared/utils/document.helpers.js";
 import { ensureObjectId, toId, toIso } from "../../shared/utils/service.helpers.js";
+import { CourrierModel } from "../courriers/courrier.model.js";
 import { DocumentModel } from "../documents/document.model.js";
 import { DossierModel } from "../dossiers/dossier.model.js";
 import { DGReviewModel } from "../dg-reviews/dg-review.model.js";
@@ -442,7 +443,11 @@ export const listDgCircuitTasks = async (
     .map((p) => p.formalRequestDgReviewId)
     .filter(Boolean) as Types.ObjectId[];
 
-  const [formalDossiers, formalDgReviews] = await Promise.all([
+  const formalCourrierIds = formalRequestPhases
+    .map((p) => p.formalRequestCourrierId)
+    .filter(Boolean) as Types.ObjectId[];
+
+  const [formalDossiers, formalDgReviews, formalCourriers] = await Promise.all([
     formalDossierIds.length
       ? DossierModel.find({ _id: { $in: formalDossierIds } })
           .populate("organizationId", "canonicalName")
@@ -451,6 +456,9 @@ export const listDgCircuitTasks = async (
       : Promise.resolve([]),
     formalDgReviewIds.length
       ? DGReviewModel.find({ _id: { $in: formalDgReviewIds } }).lean()
+      : Promise.resolve([]),
+    formalCourrierIds.length
+      ? CourrierModel.find({ _id: { $in: formalCourrierIds } }).select("_id documentId").lean()
       : Promise.resolve([]),
   ]);
 
@@ -462,6 +470,11 @@ export const listDgCircuitTasks = async (
   const formalDgReviewById = new Map<string, GenericRecord>();
   for (const r of formalDgReviews as unknown as GenericRecord[]) {
     formalDgReviewById.set(r._id.toString(), r);
+  }
+
+  const formalCourrierById = new Map<string, GenericRecord>();
+  for (const c of formalCourriers as unknown as GenericRecord[]) {
+    formalCourrierById.set(c._id.toString(), c);
   }
 
   for (const phase of formalRequestPhases) {
@@ -477,6 +490,9 @@ export const listDgCircuitTasks = async (
       // Gate courrier exists but not yet sent to DG circuit
       bucket = "to_transmit";
       if (can(actor, Permissions.DG_CIRCUIT_HANDLE)) {
+        const courrierId = toId(phase.formalRequestCourrierId);
+        const courrier = courrierId ? formalCourrierById.get(courrierId) : undefined;
+        if (courrier?.documentId) actions.push("download_outgoing");
         actions.push("mark_transmitted");
       }
     } else if (reviewStatus === "awaiting_return") {
@@ -512,7 +528,11 @@ export const listDgCircuitTasks = async (
       dossierId: toId(phase.dossierId),
       phaseId: phase._id.toString(),
       status: String(phase.formalRequestStatus ?? ""),
-      documentToTransmitId: undefined, // document download for formal_request deferred
+      documentToTransmitId: (() => {
+        const courrierId = toId(phase.formalRequestCourrierId);
+        const courrier = courrierId ? formalCourrierById.get(courrierId) : undefined;
+        return courrier ? toId(courrier.documentId) : undefined;
+      })(),
       annotatedReturnDocumentId: toId(review?.returnedScannedDocumentId),
       submittedAt: toIso(phase.formalRequestReceivedAt ?? phase.updatedAt),
       transmittedAt: toIso(phase.formalSentToDgAt),
@@ -594,6 +614,36 @@ export const downloadDgCircuitTaskDocument = async (
       throw new HttpError(403, "Document non accessible");
     }
     if (isAnnotated && !can(actor, Permissions.PRE_EVAL_DG_RETURN_CONSULT)) {
+      throw new HttpError(403, "Document non accessible");
+    }
+    if (!isOutgoing && !isAnnotated) {
+      throw new HttpError(403, "Document non accessible");
+    }
+  } else if (source === "formal_request") {
+    const phase = await OmaPhaseModel.findById(ownerId).lean();
+    if (!phase) throw new HttpError(404, "Tache introuvable");
+
+    let isOutgoing = false;
+    let isAnnotated = false;
+
+    if (phase.formalRequestCourrierId) {
+      const courrier = await CourrierModel.findById(phase.formalRequestCourrierId)
+        .select("documentId")
+        .lean() as unknown as { documentId?: Types.ObjectId } | null;
+      isOutgoing = courrier?.documentId?.toString() === docObjectId.toString();
+    }
+
+    if (phase.formalRequestDgReviewId) {
+      const review = await DGReviewModel.findById(phase.formalRequestDgReviewId)
+        .lean() as unknown as GenericRecord | null;
+      isAnnotated =
+        review?.returnedScannedDocumentId?.toString() === docObjectId.toString();
+    }
+
+    if (isOutgoing && !can(actor, Permissions.DG_CIRCUIT_HANDLE)) {
+      throw new HttpError(403, "Document non accessible");
+    }
+    if (isAnnotated && !can(actor, Permissions.DG_CIRCUIT_HANDLE)) {
       throw new HttpError(403, "Document non accessible");
     }
     if (!isOutgoing && !isAnnotated) {

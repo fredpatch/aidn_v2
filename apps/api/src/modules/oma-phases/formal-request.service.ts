@@ -532,6 +532,7 @@ export const recordFormalRequestDgReturn = async (
   });
 
   phase.formalRequestStatus = "formal_dg_returned" as never;
+  phase.status = "in_progress" as never;
   phase.formalDgReturnedAt = returnedAt;
   await phase.save();
 

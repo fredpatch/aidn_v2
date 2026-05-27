@@ -6,6 +6,7 @@ import {
   RefreshCw,
   Save,
   Send,
+  Upload,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent } from "react";
@@ -23,6 +24,7 @@ import {
   getRequest,
   submitRequestWithCourrier,
   updateRequest,
+  uploadFormalRequestCourrier,
   uploadPreEvaluationForm,
   type PortalCourrier,
   type PortalDocument,
@@ -208,8 +210,14 @@ export function RequestDetailPage(): React.JSX.Element {
   const [downloadError, setDownloadError] = useState("");
 
   const preEvalFileRef = useRef<HTMLInputElement>(null);
+  const formalRequestFileRef = useRef<HTMLInputElement>(null);
   const [uploadError, setUploadError] = useState("");
   const [isUploading, setIsUploading] = useState(false);
+  const [formalRequestNotes, setFormalRequestNotes] = useState("");
+  const [formalRequestError, setFormalRequestError] = useState("");
+  const [isFormalRequestUploading, setIsFormalRequestUploading] =
+    useState(false);
+  const [showFormalRequestUpload, setShowFormalRequestUpload] = useState(false);
 
   const request = detail?.request;
   const isSubmitted = request
@@ -220,7 +228,8 @@ export function RequestDetailPage(): React.JSX.Element {
 
   const hasActionRequired =
     request?.status === "intake_requires_correction" ||
-    dossierDetail?.preliminary.canSubmitForm === true;
+    dossierDetail?.preliminary.canSubmitForm === true ||
+    dossierDetail?.formalRequest?.canUploadFormalRequestCourrier === true;
 
   const loadDossier = useCallback(async (dossierId: string) => {
     setDossierLoading(true);
@@ -364,6 +373,35 @@ export function RequestDetailPage(): React.JSX.Element {
       setUploadError(getErrorMessage(caught));
     } finally {
       setIsUploading(false);
+    }
+  };
+
+  const handleFormalRequestUpload = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const file = formalRequestFileRef.current?.files?.[0];
+    if (!file || !request?.dossierId) {
+      setFormalRequestError("Veuillez sélectionner le courrier formel à téléverser.");
+      return;
+    }
+
+    setFormalRequestError("");
+    setIsFormalRequestUploading(true);
+    try {
+      const form = new FormData();
+      form.set("file", file);
+      if (formalRequestNotes.trim()) {
+        form.set("notes", formalRequestNotes.trim());
+      }
+      await uploadFormalRequestCourrier(request.dossierId, form);
+      if (formalRequestFileRef.current) formalRequestFileRef.current.value = "";
+      setFormalRequestNotes("");
+      setShowFormalRequestUpload(false);
+      await loadDossier(request.dossierId);
+      toast.success("Demande formelle déposée.");
+    } catch (caught) {
+      setFormalRequestError(getErrorMessage(caught));
+    } finally {
+      setIsFormalRequestUploading(false);
     }
   };
 
@@ -745,6 +783,105 @@ export function RequestDetailPage(): React.JSX.Element {
             </div>
           ) : null}
 
+          {dossierDetail?.formalRequest?.canUploadFormalRequestCourrier &&
+          request.dossierId ? (
+            <div className="surface rounded-lg p-5">
+              <p className="text-xs font-bold uppercase text-amber-600">
+                Action requise
+              </p>
+              <h2 className="mt-1 text-base font-bold text-slate-950">
+                Déposer la demande formelle
+              </h2>
+              <p className="mt-2 text-sm text-slate-600">
+                Veuillez téléverser le courrier de demande formelle afin que
+                l'ANAC puisse l'introduire dans le circuit officiel DG.
+              </p>
+
+              {!showFormalRequestUpload ? (
+                <button
+                  type="button"
+                  className="btn btn-primary mt-4 w-fit"
+                  onClick={() => setShowFormalRequestUpload(true)}
+                >
+                  <Upload size={16} aria-hidden="true" />
+                  Téléverser le courrier formel
+                </button>
+              ) : (
+                <form
+                  className="mt-4 grid gap-4 rounded-md border border-slate-200 p-4"
+                  onSubmit={(event) => void handleFormalRequestUpload(event)}
+                >
+                  {formalRequestError ? (
+                    <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">
+                      {formalRequestError}
+                    </div>
+                  ) : null}
+
+                  <div className="field">
+                    <label htmlFor="formalRequestFile">
+                      Fichier PDF <span aria-hidden="true">*</span>
+                    </label>
+                    <input
+                      id="formalRequestFile"
+                      ref={formalRequestFileRef}
+                      className="control"
+                      type="file"
+                      accept=".pdf,application/pdf"
+                      required
+                      disabled={isFormalRequestUploading}
+                    />
+                  </div>
+
+                  <div className="field">
+                    <label htmlFor="formalRequestNotes">Notes optionnelles</label>
+                    <textarea
+                      id="formalRequestNotes"
+                      className="control min-h-20"
+                      value={formalRequestNotes}
+                      onChange={(event) =>
+                        setFormalRequestNotes(event.target.value)
+                      }
+                      maxLength={3000}
+                      disabled={isFormalRequestUploading}
+                    />
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      className="btn btn-primary w-fit"
+                      type="submit"
+                      disabled={isFormalRequestUploading}
+                    >
+                      <Upload size={16} aria-hidden="true" />
+                      {isFormalRequestUploading
+                        ? "Envoi en cours..."
+                        : "Téléverser le courrier formel"}
+                    </button>
+                    <button
+                      className="btn btn-secondary w-fit"
+                      type="button"
+                      disabled={isFormalRequestUploading}
+                      onClick={() => {
+                        setShowFormalRequestUpload(false);
+                        setFormalRequestError("");
+                      }}
+                    >
+                      Annuler
+                    </button>
+                  </div>
+                </form>
+              )}
+            </div>
+          ) : null}
+
+          {dossierDetail?.formalRequest?.hasFormalRequestCourrier &&
+          !dossierDetail.formalRequest.canUploadFormalRequestCourrier ? (
+            <div className="flex items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
+              <CheckCircle2 size={16} aria-hidden="true" />
+              Demande formelle déposée - en traitement par l'ANAC.
+            </div>
+          ) : null}
+
           {dossierDetail?.preliminary.canSubmitForm && request.dossierId ? (
             <div className="surface rounded-lg p-5">
               <h2 className="mb-3 text-base font-bold text-slate-950">
@@ -902,6 +1039,14 @@ export function RequestDetailPage(): React.JSX.Element {
                   </p>
                 </div>
               )}
+
+              {dossierDetail.formalRequest ? (
+                <div className="rounded-md border border-sky-200 bg-sky-50 px-4 py-3 text-sm">
+                  <p className="font-semibold text-sky-800">
+                    {dossierDetail.formalRequest.portalLabel}
+                  </p>
+                </div>
+              ) : null}
 
               {dossierDetail.preliminary.firstMeeting ? (
                 <MeetingBlock

@@ -19,7 +19,7 @@ type Actor = {
 };
 
 type TaskBucket = "to_transmit" | "awaiting_return" | "returned_scanned" | "decision_recorded";
-type TaskSource = "initial_request" | "pre_evaluation";
+type TaskSource = "initial_request" | "pre_evaluation" | "formal_request";
 type GenericRecord = Record<string, unknown> & { _id: Types.ObjectId };
 type DgReviewHandledByRole = "dg_secretariat" | "reception" | "bureau_courrier" | "dn_agent" | "admin";
 
@@ -27,6 +27,7 @@ const DG_TASK_PERMISSIONS = [
   Permissions.DG_CIRCUIT_HANDLE,
   Permissions.COURRIER_REGISTER_PHYSICAL,
   Permissions.PRE_EVAL_DG_CIRCUIT_HANDLE,
+  Permissions.DG_DECISION_RECORD,
 ] as const;
 
 const ensureInternalActor = (actor: Actor) => {
@@ -420,6 +421,113 @@ export const listDgCircuitTasks = async (
       orientedDirection: undefined,
       observations: undefined,
       handledByRole: undefined,
+      availableActions: actions,
+    });
+  }
+
+  // ── Formal request items ──────────────────────────────────────────────────────
+  // Include all OmaPhase records with phaseKey='formal_request' that have the gate courrier.
+  const formalRequestPhases = await OmaPhaseModel.find({
+    phaseKey: "formal_request",
+    formalRequestCourrierId: { $exists: true, $ne: null },
+  })
+    .sort({ updatedAt: -1 })
+    .lean() as unknown as GenericRecord[];
+
+  const formalDossierIds = formalRequestPhases
+    .map((p) => p.dossierId)
+    .filter(Boolean) as Types.ObjectId[];
+
+  const formalDgReviewIds = formalRequestPhases
+    .map((p) => p.formalRequestDgReviewId)
+    .filter(Boolean) as Types.ObjectId[];
+
+  const [formalDossiers, formalDgReviews] = await Promise.all([
+    formalDossierIds.length
+      ? DossierModel.find({ _id: { $in: formalDossierIds } })
+          .populate("organizationId", "canonicalName")
+          .populate("postulantUserId", "fullName")
+          .lean()
+      : Promise.resolve([]),
+    formalDgReviewIds.length
+      ? DGReviewModel.find({ _id: { $in: formalDgReviewIds } }).lean()
+      : Promise.resolve([]),
+  ]);
+
+  const formalDossierById = new Map<string, GenericRecord>();
+  for (const d of formalDossiers as unknown as GenericRecord[]) {
+    formalDossierById.set(d._id.toString(), d);
+  }
+
+  const formalDgReviewById = new Map<string, GenericRecord>();
+  for (const r of formalDgReviews as unknown as GenericRecord[]) {
+    formalDgReviewById.set(r._id.toString(), r);
+  }
+
+  for (const phase of formalRequestPhases) {
+    const dossier = formalDossierById.get(toId(phase.dossierId) ?? "");
+    const review = phase.formalRequestDgReviewId
+      ? formalDgReviewById.get(phase.formalRequestDgReviewId.toString())
+      : undefined;
+    const reviewStatus = review ? String(review.status ?? "") : null;
+    let bucket: TaskBucket | null = null;
+    const actions: string[] = [];
+
+    if (!phase.formalRequestDgReviewId) {
+      // Gate courrier exists but not yet sent to DG circuit
+      bucket = "to_transmit";
+      if (can(actor, Permissions.DG_CIRCUIT_HANDLE)) {
+        actions.push("mark_transmitted");
+      }
+    } else if (reviewStatus === "awaiting_return") {
+      bucket = "awaiting_return";
+      if (can(actor, Permissions.DG_CIRCUIT_HANDLE)) {
+        actions.push("record_annotated_return");
+      }
+    } else if (reviewStatus === "returned_scanned") {
+      bucket = "returned_scanned";
+      if (can(actor, Permissions.DG_CIRCUIT_HANDLE) && review?.returnedScannedDocumentId) {
+        actions.push("download_annotated_return");
+      }
+      if (can(actor, Permissions.DG_DECISION_RECORD)) {
+        actions.push("record_dg_decision");
+      }
+    } else if (reviewStatus === "decision_recorded") {
+      bucket = "decision_recorded";
+      if (can(actor, Permissions.DG_CIRCUIT_HANDLE) && review?.returnedScannedDocumentId) {
+        actions.push("download_annotated_return");
+      }
+    }
+
+    if (!bucket) continue;
+
+    tasks.push({
+      id: `formal_request:${phase._id.toString()}`,
+      source: "formal_request",
+      bucket,
+      subject: "Demande formelle",
+      organizationName: organizationName(dossier?.organizationId),
+      applicantName: userName(dossier?.postulantUserId),
+      reference: String(dossier?.dossierNumber ?? ""),
+      dossierId: toId(phase.dossierId),
+      phaseId: phase._id.toString(),
+      status: String(phase.formalRequestStatus ?? ""),
+      documentToTransmitId: undefined, // document download for formal_request deferred
+      annotatedReturnDocumentId: toId(review?.returnedScannedDocumentId),
+      submittedAt: toIso(phase.formalRequestReceivedAt ?? phase.updatedAt),
+      transmittedAt: toIso(phase.formalSentToDgAt),
+      returnedAt: toIso(phase.formalDgReturnedAt),
+      processedAt:
+        reviewStatus === "decision_recorded"
+          ? toIso(review?.decisionRecordedAt ?? phase.formalDgReturnedAt ?? phase.updatedAt)
+          : undefined,
+      sentToDgAt: toIso(phase.formalSentToDgAt),
+      returnedFromDgAt: toIso(phase.formalDgReturnedAt),
+      decisionRecordedAt: toIso(review?.decisionRecordedAt),
+      decision: review?.decision != null ? String(review.decision) : undefined,
+      orientedDirection: review?.orientedDirection ? String(review.orientedDirection) : undefined,
+      observations: review?.observations ? String(review.observations) : undefined,
+      handledByRole: review?.handledByRole ? String(review.handledByRole) : undefined,
       availableActions: actions,
     });
   }

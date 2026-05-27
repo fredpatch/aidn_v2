@@ -121,6 +121,116 @@ export type AdminDossierCourriers = {
   };
 };
 
+export type FormalRequestStatus =
+  | 'formal_not_started'
+  | 'formal_waiting_request'
+  | 'formal_request_received'
+  | 'formal_documents_tracking'
+  | 'formal_sent_to_dg'
+  | 'formal_dg_returned'
+  | 'formal_dg_decision_recorded'
+  | 'formal_meeting_invited'
+  | 'formal_meeting_held'
+  | 'formal_recevability_recorded'
+  | 'formal_ready_to_close'
+  | 'formal_requires_correction'
+  | 'formal_closed';
+
+export type FormalRequirementLevel =
+  | 'gate'
+  | 'expected'
+  | 'optional'
+  | 'conditional';
+
+export type FormalSubmissionStatus =
+  | 'missing'
+  | 'submitted'
+  | 'under_review'
+  | 'validated'
+  | 'requires_correction'
+  | 'rejected'
+  | 'replaced'
+  | 'not_applicable'
+  | string;
+
+export type FormalDocumentSource =
+  | 'portal_upload'
+  | 'physical_deposit'
+  | 'internal_scan'
+  | string;
+
+export type AdminFormalRequestCourrierSource =
+  | 'physical_deposit'
+  | 'internal_scan';
+
+export type AdminFormalRequestDgDecision =
+  | 'approved'
+  | 'rejected'
+  | 'reoriented'
+  | 'pending';
+
+export type AdminFormalRequestSubmission = {
+  submissionId: string;
+  documentId: string;
+  uploadedAt?: string;
+  status: FormalSubmissionStatus;
+  uploadedById?: string | null;
+  source?: FormalDocumentSource;
+};
+
+export type AdminFormalRequestRequirement = {
+  requirementId: string;
+  code: string;
+  label: string;
+  formCode?: string;
+  requirementLevel: FormalRequirementLevel;
+  documentType: string;
+  isRepeatable: boolean;
+  status: FormalSubmissionStatus;
+  submissions: AdminFormalRequestSubmission[];
+};
+
+export type AdminFormalRequestPhaseState = {
+  phase: {
+    id: string;
+    phaseKey: 'formal_request';
+    status: string;
+    formalRequestStatus: FormalRequestStatus | null;
+    canSendToDg: boolean;
+    canInviteFormalMeeting: boolean;
+    canClosePhase: boolean;
+  };
+  gate: {
+    exists: boolean;
+    formalRequestCourrierId?: string | null;
+    source?: FormalDocumentSource;
+    receivedAt?: string;
+  };
+  requirements: AdminFormalRequestRequirement[];
+  meeting: {
+    id: string;
+    status: string;
+    scheduledAt?: string;
+    location?: string;
+    outlookEmailStatus?: string;
+    outlookEmailSentAt?: string;
+    reportDocumentId?: string | null;
+  } | null;
+  progress: {
+    totalTracked: number;
+    submitted: number;
+    validated: number;
+    missing: number;
+    completionRate: number;
+    blockingMissing: boolean;
+  };
+  closure: {
+    recevabilityCourrierDocumentId?: string | null;
+    phaseClosureCourrierDocumentId?: string | null;
+    canClosePhase: boolean;
+  };
+};
+
 export type AdminDossierDetail = {
   dossier: Omit<AdminDossierSummary, 'organization' | 'postulant'> & {
     organization?: {
@@ -172,6 +282,58 @@ export function listDossiers(filters: {
 
 export function getDossier(id: string): Promise<AdminDossierDetail> {
   return apiGet<AdminDossierDetail>(`/api/v1/admin/dossiers/${id}`);
+}
+
+export function getAdminFormalRequestPhase(
+  id: string,
+): Promise<AdminFormalRequestPhaseState> {
+  return apiGet<AdminFormalRequestPhaseState>(
+    `/api/v1/admin/dossiers/${id}/phases/formal-request`,
+  );
+}
+
+export function uploadFormalRequestCourrier(
+  id: string,
+  formData: FormData,
+): Promise<AdminFormalRequestPhaseState> {
+  return apiPostForm<AdminFormalRequestPhaseState>(
+    `/api/v1/admin/dossiers/${id}/phases/formal-request/courrier`,
+    formData,
+  );
+}
+
+export function sendFormalRequestToDg(
+  id: string,
+): Promise<AdminFormalRequestPhaseState> {
+  return apiPost<AdminFormalRequestPhaseState>(
+    `/api/v1/admin/dossiers/${id}/phases/formal-request/send-to-dg`,
+    {},
+  );
+}
+
+export function recordFormalRequestDgReturn(
+  id: string,
+  formData: FormData,
+): Promise<AdminFormalRequestPhaseState> {
+  return apiPostForm<AdminFormalRequestPhaseState>(
+    `/api/v1/admin/dossiers/${id}/phases/formal-request/dg-return`,
+    formData,
+  );
+}
+
+export function recordFormalRequestDgDecision(
+  id: string,
+  payload: {
+    decision: AdminFormalRequestDgDecision;
+    orientedDirection?: string;
+    observations?: string;
+    decisionRecordedAt?: string;
+  },
+): Promise<AdminFormalRequestPhaseState> {
+  return apiPost<AdminFormalRequestPhaseState>(
+    `/api/v1/admin/dossiers/${id}/phases/formal-request/dg-decision`,
+    payload,
+  );
 }
 
 export function inviteFirstMeeting(

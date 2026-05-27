@@ -57,6 +57,11 @@ Source files inspected: `apps/portal/src/App.tsx`, `apps/portal/src/layouts/*`, 
 - `PortalCalendar` is a local read-only component using native `Date` / `Intl.DateTimeFormat`; no `date-fns` or shadcn dependency was added.
 - PORTAL-H1D-1 adds a printable convocation modal from rendez-vous meeting cards and selected calendar-day items. It uses existing `PortalMeeting` data only, browser print, and print-specific CSS; no backend or document registry work was added.
 - `PortalDashboardPage` uses `listPortalMeetings({ status: "all" })` for the next meeting card without fetching dossier details.
+- OMA-FORMAL-9B1A wires Phase 2 formal request courrier upload in `/demandes/:id`:
+  - `getPortalDossier` now exposes a portal-safe `formalRequest` block with no internal DG review IDs or admin-only details.
+  - `RequestDetailPage` shows the action in `Actions requises` when Phase 1 is closed and the formal courrier gate is missing.
+  - The upload posts multipart field `file` plus optional `notes` to `POST /api/v1/portal/dossiers/:id/phases/formal-request/courrier`.
+  - The portal does not expose source selection, physical-deposit/internal-scan choices, DG decision controls, or scanned-return controls.
 
 ## Boundaries
 - No admin account request validation UI was added in the portal app.
@@ -69,6 +74,7 @@ Source files inspected: `apps/portal/src/App.tsx`, `apps/portal/src/layouts/*`, 
 - Backend no longer accepts bearer tokens as of AUTH-2D; portal auth is cookie-only.
 - CSRF is implemented for authenticated unsafe portal requests as of AUTH-2E.
 - Public account request submission has basic abuse prevention as of AUTH-2F: rate limiting, honeypot, minimum delay, and duplicate guards.
+- OMA-FORMAL-9B1A runtime checks are pending: live portal upload, refresh, action disappearance, and admin gate-present confirmation.
 - Refresh-token rotation is not implemented yet.
 - CAPTCHA/email verification are not implemented yet.
 - Next recommended slice: runtime-validate AUTH-2F public request hardening, then plan CAPTCHA/email verification or refresh/session rotation.

@@ -52,6 +52,21 @@ const PRE_EVAL_VISIBLE_STATUSES = new Set([
   "preliminary_closed",
 ]);
 
+const FORMAL_REQUEST_PORTAL_LABELS: Record<string, string> = {
+  formal_waiting_request: "En attente de dépôt de la demande formelle",
+  formal_request_received: "Demande formelle déposée",
+  formal_documents_tracking: "Demande formelle déposée",
+  formal_sent_to_dg: "En attente d'orientation administrative",
+  formal_dg_returned: "En traitement par l'ANAC",
+  formal_dg_decision_recorded: "En traitement par l'ANAC",
+  formal_meeting_invited: "En traitement par l'ANAC",
+  formal_meeting_held: "En traitement par l'ANAC",
+  formal_recevability_recorded: "En traitement par l'ANAC",
+  formal_ready_to_close: "En traitement par l'ANAC",
+  formal_requires_correction: "En traitement par l'ANAC",
+  formal_closed: "En traitement par l'ANAC",
+};
+
 const ADMIN_PRELIMINARY_DOWNLOAD_FIELDS = [
   "firstMeetingReportDocumentId",
   "preEvaluationTemplateDocumentId",
@@ -379,6 +394,7 @@ export const getAdminDossier = async (dossierId: string, actor: Actor) => {
 
   const phases = await OmaPhaseModel.find({ dossierId: dossier._id }).lean();
   const preliminaryPhase = phases.find((p) => p.phaseKey === "preliminary");
+  const formalRequestPhase = phases.find((p) => p.phaseKey === "formal_request");
 
   let firstMeeting = null;
   let preliminaryMeeting = null;
@@ -1005,6 +1021,7 @@ export const getPortalDossier = async (dossierId: string, actor: Actor) => {
 
   const phases = await OmaPhaseModel.find({ dossierId: dossier._id }).lean();
   const preliminaryPhase = phases.find((p) => p.phaseKey === "preliminary");
+  const formalRequestPhase = phases.find((p) => p.phaseKey === "formal_request");
 
   const preliminaryStatus = preliminaryPhase?.preliminaryStatus ?? null;
   const portalLabel = preliminaryStatus
@@ -1017,6 +1034,26 @@ export const getPortalDossier = async (dossierId: string, actor: Actor) => {
     PRE_EVAL_VISIBLE_STATUSES.has(preliminaryStatus ?? "")
       ? preliminaryPhase.preEvaluationTemplateDocumentId.toString()
       : null;
+  const formalRequestStatus =
+    (formalRequestPhase?.formalRequestStatus as string | null | undefined) ??
+    (formalRequestPhase ? "formal_waiting_request" : null);
+  const hasFormalRequestCourrier = Boolean(
+    formalRequestPhase?.formalRequestCourrierId,
+  );
+  const canUploadFormalRequestCourrier = Boolean(
+    preliminaryStatus === "preliminary_closed" &&
+      formalRequestPhase &&
+      formalRequestPhase.status !== "closed" &&
+      !hasFormalRequestCourrier,
+  );
+  const formalRequestPortalLabel = canUploadFormalRequestCourrier
+    ? "En attente de dépôt de la demande formelle"
+    : hasFormalRequestCourrier
+      ? "Demande formelle déposée"
+      : formalRequestStatus
+        ? (FORMAL_REQUEST_PORTAL_LABELS[formalRequestStatus] ??
+          "En traitement par l'ANAC")
+        : "En traitement par l'ANAC";
 
   let firstMeeting: {
     scheduledAt: string | null;
@@ -1097,6 +1134,12 @@ export const getPortalDossier = async (dossierId: string, actor: Actor) => {
       canSubmitForm: preliminaryStatus === "pre_eval_form_available",
       firstMeeting,
       preliminaryMeeting,
+    },
+    formalRequest: {
+      status: formalRequestStatus,
+      portalLabel: formalRequestPortalLabel,
+      hasFormalRequestCourrier,
+      canUploadFormalRequestCourrier,
     },
   };
 };

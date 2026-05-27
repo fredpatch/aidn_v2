@@ -8,14 +8,15 @@ export type DgCircuitBucket =
   | 'decision_recorded'
   | 'processed';
 
-export type DgCircuitSource = 'initial_request' | 'pre_evaluation';
+export type DgCircuitSource = 'initial_request' | 'pre_evaluation' | 'formal_request';
 
 export type DgCircuitAction =
   | 'download_outgoing'
   | 'mark_transmitted'
   | 'record_physical_receipt'
   | 'record_annotated_return'
-  | 'download_annotated_return';
+  | 'download_annotated_return'
+  | 'record_dg_decision';
 
 export type DgCircuitTask = {
   id: string;

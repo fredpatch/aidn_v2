@@ -21,6 +21,14 @@ Source files inspected: `apps/admin/src/App.tsx`, `apps/admin/src/contexts/AuthC
   - DN users without the physical-circuit capability see waiting states during `pre_eval_form_submitted` and `pre_eval_sent_to_dg`.
 - `/circuit-dg` is the focused DG circuit actor workspace. It is visible/protected by any of `DG_CIRCUIT_HANDLE`, `COURRIER_REGISTER_PHYSICAL`, or `PRE_EVAL_DG_CIRCUIT_HANDLE`.
 - `/dossiers` and `/dossiers/:id` are now route-protected by `DOSSIER_VIEW_ALL`; `Dossiers DN` nav also requires `DOSSIER_VIEW_ALL`.
+- Dossier Phase 2 (`formal_request`) admin workspace is API-backed:
+  - Reads `GET /api/v1/admin/dossiers/:id/phases/formal-request`.
+  - Registers the formal request courrier through multipart `POST /api/v1/admin/dossiers/:id/phases/formal-request/courrier` with field `file` and admin source `physical_deposit|internal_scan`.
+  - Marks the physical DG/parapheur circuit through `POST /api/v1/admin/dossiers/:id/phases/formal-request/send-to-dg`.
+  - Records DG return scan through multipart `POST /api/v1/admin/dossiers/:id/phases/formal-request/dg-return` with field `file`.
+  - Records DG decision through `POST /api/v1/admin/dossiers/:id/phases/formal-request/dg-decision`.
+  - Presents admin formal courrier upload only as the fallback `Scanner / enregistrer un courrier reçu hors portail`; portal-uploaded courriers display as `Téléversé par le postulant`.
+  - Keeps supporting documents tracking-only; only the formal request courrier gates DG circuit placement.
 
 ## Admin Auth Routes
 - `/login`: French login page with `Administrateur initial` and `Agent ANAC` modes.
@@ -87,6 +95,8 @@ Source files inspected: `apps/admin/src/App.tsx`, `apps/admin/src/contexts/AuthC
 
 ## Known gaps
 - Runtime manual checks require a live API and configured Mongo/MariaDB.
+- OMA-FORMAL-9B1 browser/runtime checks are pending: register formal courrier, mark DG circuit placement, and record DG return/decision against a live dossier.
+- OMA-FORMAL-9B1B browser/runtime checks are pending: missing-gate fallback wording, portal-upload source label, physical DG placement, separate DG return scan, and separate DG decision against a live dossier.
 - OMA-1F browser/runtime role-matrix checks are still pending; static build/type checks pass.
 - Temporary password delivery is still shown in the activation modal for local/dev; production needs a secure channel.
 - Backend no longer accepts bearer tokens as of AUTH-2D; admin auth is cookie-only.

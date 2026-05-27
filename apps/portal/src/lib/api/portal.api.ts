@@ -140,6 +140,13 @@ export type PortalDossierPreliminary = {
   preliminaryMeeting: PortalDossierMeeting | null;
 };
 
+export type PortalDossierFormalRequest = {
+  status: string | null;
+  portalLabel: string;
+  hasFormalRequestCourrier: boolean;
+  canUploadFormalRequestCourrier: boolean;
+};
+
 export type PortalDossierDetail = {
   dossier: {
     id: string;
@@ -149,6 +156,7 @@ export type PortalDossierDetail = {
     openedAt: string;
   };
   preliminary: PortalDossierPreliminary;
+  formalRequest?: PortalDossierFormalRequest;
 };
 
 export type PortalCourrier = {
@@ -269,6 +277,34 @@ export function uploadPreEvaluationForm(
   return portalPostForm(
     `/api/v1/portal/dossiers/${dossierId}/preliminary/upload-pre-evaluation-form`,
     form,
+  );
+}
+
+export function uploadFormalRequestCourrier(
+  dossierId: string,
+  formData: FormData,
+): Promise<{
+  phase: {
+    id: string;
+    phaseKey: "formal_request";
+    status: string;
+    formalRequestStatus: string;
+    canSendToDg: boolean;
+  };
+  gate: {
+    exists: boolean;
+    formalRequestCourrierId?: string;
+    source: "portal_upload";
+    receivedAt?: string;
+  };
+  progress: {
+    blockingMissing: boolean;
+    completionRate: number | null;
+  };
+}> {
+  return portalPostForm(
+    `/api/v1/portal/dossiers/${dossierId}/phases/formal-request/courrier`,
+    formData,
   );
 }
 

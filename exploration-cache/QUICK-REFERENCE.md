@@ -25,6 +25,44 @@ Last updated: 2026-05-22
 
 ## Current Objective Notes
 
+- OMA-FORMAL-9B0 implemented:
+  - Summary: `exploration-cache/tasks/summaries/2026-05-27-oma-formal-9b0-phase-2-actor-responsibility-fix.md`.
+  - Phase 2 admin workspace is now read/progression-only. All 4 action buttons removed from `FormalRequestPhaseWorkspace`.
+  - Courrier formel section: missing state shows WaitingState + Note directing to portal/Courriers officiels; portal-upload source displays "Demande formelle reçue via le portail."
+  - Circuit DG section: read-only StepLines + Note "Le circuit DG est traité depuis l'espace Courriers officiels." No action buttons.
+  - `nextActionLabel` updated: 5 conditions keyed on gate.exists / sentToDg / dgReturned / dgDecisionRecorded.
+  - `formal-request-dialogs.tsx` preserved (unused) for future Courriers officiels integration.
+  - Actor split: Portal → postulant upload; Courriers officiels → DG circuit actions; DN workspace → read state + réunion formelle.
+- OMA-FORMAL-9A implemented:
+  - Summary: `exploration-cache/tasks/summaries/2026-05-27-oma-formal-9a-admin-phase-2-read-workspace-implementation.md`.
+  - Admin `DossierPhasesTab` now renders `FormalRequestPhaseWorkspace` when Phase 2 (`formal_request`) is selected.
+  - `apps/admin/src/lib/api/dossiers.api.ts` includes `getAdminFormalRequestPhase(dossierId)` for `GET /api/v1/admin/dossiers/:id/phases/formal-request`.
+  - Workspace is read-oriented: formal request gate, document tracking, DG circuit state, formal meeting, closure evidence, and backend close readiness.
+  - Supporting documents are displayed as tracking only; wording keeps formal request courrier as the only blocking gate.
+  - No backend changes, portal changes, Phase 2 document downloads, or mutation wiring were added.
+- OMA-FORMAL-9A Phase 1 alignment adjustment implemented:
+  - Summary: `exploration-cache/tasks/summaries/2026-05-27-oma-formal-9a-phase-1-alignment-implementation.md`.
+  - `DossierPhasesTab` now loads Phase 2 read state for both the left active progression card and the right workspace.
+  - Added `FormalRequestPhaseChecklist` and `formal-request-progress.helpers.ts` with seven Phase 2 workflow steps.
+  - `FormalRequestPhaseWorkspace` now uses chronological Phase-1-like sections instead of dashboard-style blocks.
+  - Still read-only: no backend, portal, mutation dialog, fake data, or download changes.
+- OMA-FORMAL-9B1 implemented:
+  - Summary: `exploration-cache/tasks/summaries/2026-05-27-oma-formal-9b1-admin-gate-dg-actions-implementation.md`.
+  - Phase 2 admin workspace now wires formal courrier registration, physical DG/parapheur circuit marking, and DG return plus decision recording.
+  - API client additions use confirmed formal routes: `/courrier`, `/send-to-dg`, `/dg-return`, and `/dg-decision`.
+  - `DossierPhasesTab` remains the Phase 2 state owner; mutation success updates local read state and refreshes dossier detail.
+  - Supporting documents remain tracking-only and do not gate DG circuit placement.
+- OMA-FORMAL-9B1A implemented:
+  - Summary: `exploration-cache/tasks/summaries/2026-05-27-oma-formal-9b1a-portal-formal-request-upload-implementation.md`.
+  - Portal `RequestDetailPage` now shows Phase 2 formal request upload in `Actions requises` when preliminary is closed and the formal request gate is missing.
+  - Portal upload posts multipart `file` plus optional `notes` to `POST /api/v1/portal/dossiers/:id/phases/formal-request/courrier`; backend sets `source=portal_upload`.
+  - `getPortalDossier` exposes a portal-safe `formalRequest` block with simple labels and no internal DG return/decision controls.
+- OMA-FORMAL-9B1B implemented:
+  - Summary: `exploration-cache/tasks/summaries/2026-05-27-oma-formal-9b1b-admin-physical-dg-circuit-actions-implementation.md`.
+  - Admin Phase 2 now presents formal courrier admin upload only as the fallback `Scanner / enregistrer un courrier reçu hors portail`.
+  - Portal-uploaded formal request courriers display as `Téléversé par le postulant`.
+  - `Mettre en circuit DG` wording now describes the physical DG/parapheur circuit and remains gated by backend `canSendToDg`.
+  - DG return scan and DG decision are separate admin actions/dialogs using `/dg-return` and `/dg-decision` respectively.
 - OMA-OPS-8A Phase I hardening implemented:
   - Summary: `exploration-cache/tasks/summaries/2026-05-25-oma-ops-8a-phase1-transition-date-hardening.md`.
   - Phase I close now keeps dossier status `formal_request_phase` but leaves/creates formal request phase as `not_started`; no Phase 2 actions were added.

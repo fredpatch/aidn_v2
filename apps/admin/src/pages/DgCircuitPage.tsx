@@ -36,7 +36,13 @@ import {
   recordDgReturn,
   registerPhysicalCourrier,
 } from "@/lib/api/requests.api";
-import { recordPreEvalDgReturn, sendPreEvalToDg } from "@/lib/api/dossiers.api";
+import {
+  recordFormalRequestDgReturn,
+  recordPreEvalDgReturn,
+  sendFormalRequestToDg,
+  sendPreEvalToDg,
+} from "@/lib/api/dossiers.api";
+import { RecordFormalDgDecisionDialog } from "@/pages/dossiers/formal-request-dialogs";
 
 type DgCircuitTaskCounts = {
   toTransmit: number;
@@ -50,6 +56,7 @@ type ModalState =
   | { kind: "print-confirm"; task: DgCircuitTask }
   | { kind: "dg-return"; task: DgCircuitTask }
   | { kind: "physical-receipt"; task: DgCircuitTask }
+  | { kind: "formal-dg-decision"; task: DgCircuitTask }
   | null;
 
 const bucketTabs: Array<{
@@ -67,6 +74,7 @@ const bucketTabs: Array<{
 const sourceLabels: Record<string, string> = {
   initial_request: "Demande initiale",
   pre_evaluation: "Formulaire de pré-évaluation",
+  formal_request: "Demande formelle",
 };
 
 const bucketStyle: Record<
@@ -665,6 +673,8 @@ export function DgCircuitPage(): React.JSX.Element {
         await markPrintedForDg(task.requestId, {});
       } else if (task.source === "pre_evaluation" && task.dossierId) {
         await sendPreEvalToDg(task.dossierId, {});
+      } else if (task.source === "formal_request" && task.dossierId) {
+        await sendFormalRequestToDg(task.dossierId);
       }
     });
   };
@@ -687,8 +697,14 @@ export function DgCircuitPage(): React.JSX.Element {
         await recordDgReturn(task.requestId, formData);
       } else if (task.source === "pre_evaluation" && task.dossierId) {
         await recordPreEvalDgReturn(task.dossierId, formData);
+      } else if (task.source === "formal_request" && task.dossierId) {
+        await recordFormalRequestDgReturn(task.dossierId, formData);
       }
     });
+  };
+
+  const submitDecision = (task: DgCircuitTask) => {
+    setModal({ kind: "formal-dg-decision", task });
   };
 
   const submitPhysicalReceipt = (task: DgCircuitTask, formData: FormData) => {
@@ -937,6 +953,17 @@ export function DgCircuitPage(): React.JSX.Element {
                       Consulter le retour DG
                     </Button>
                   ) : null}
+                  {selected.source === "formal_request" &&
+                  selected.availableActions.includes("record_dg_decision") ? (
+                    <Button
+                      type="button"
+                      onClick={() => submitDecision(selected)}
+                      disabled={isSubmitting}
+                    >
+                      <FileCheck2 className="mr-2 h-4 w-4" />
+                      Enregistrer la décision DG
+                    </Button>
+                  ) : null}
                 </>
               ) : null}
             </div>
@@ -973,6 +1000,15 @@ export function DgCircuitPage(): React.JSX.Element {
           isSubmitting={isSubmitting}
           onClose={() => setModal(null)}
           onSubmit={(formData) => submitPhysicalReceipt(modal.task, formData)}
+        />
+      ) : null}
+
+      {modal?.kind === "formal-dg-decision" ? (
+        <RecordFormalDgDecisionDialog
+          open
+          onOpenChange={(open) => !open && setModal(null)}
+          dossierId={modal.task.dossierId!}
+          onSuccess={() => void load()}
         />
       ) : null}
     </div>

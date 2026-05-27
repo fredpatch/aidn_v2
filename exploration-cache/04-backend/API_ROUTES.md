@@ -127,6 +127,7 @@ Last reviewed: 2026-05-21
 - Phase closure requires both `closureCourrierDocumentId` and `preliminaryMeetingReportDocumentId` to be set; missing either returns 400.
 - Closing the preliminary phase advances `dossier.status` to `formal_request_phase` and activates the `formal_request` OmaPhase.
 - `portal/dossiers/:id` is ownership-scoped (postulantUserId must match) and exposes portal labels + pre-evaluation form availability.
+- `portal/dossiers/:id` also exposes a portal-safe Phase 2 `formalRequest` block as of OMA-FORMAL-9B1A: status, portal label, `hasFormalRequestCourrier`, and `canUploadFormalRequestCourrier`; it does not expose DG review IDs or internal DG return/decision details.
 - `portal/dossiers/:id/preliminary/upload-pre-evaluation-form` accepts multipart `file`, only allowed at `pre_eval_form_available` state.
 - `portal/meetings` is scoped through owned dossiers only: `Meeting.dossierId -> Dossier.postulantUserId === actor.id`. It returns read-only portal-safe meeting fields plus dossier number/type; no create/update/cancel/postpone portal routes exist.
 - `portal/meetings` supports optional `from`, `to`, and `status`; `status=all` applies no status filter. With no date range, it uses a default window from 30 days in the past through 180 days in the future and includes unscheduled meetings last.

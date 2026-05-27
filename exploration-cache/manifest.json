@@ -1,7 +1,7 @@
 {
   "name": "aidn-exploration-cache",
   "version": "1.0.0",
-  "lastUpdated": "2026-05-26",
+  "lastUpdated": "2026-05-27",
   "entrypoints": [
     "00-control/SOURCE_OF_TRUTH.md",
     "00-control/CURRENT_STATE.md",
@@ -42,6 +42,92 @@
     "99-session-notes": "Session-level trace"
   },
   "recentExplorationCacheUpdates": [
+    {
+      "date": "2026-05-27",
+      "phase": "OMA-FORMAL-9B1-COURRIERS-OFFICIELS-DEMANDE-FORMELLE",
+      "created": [
+        "exploration-cache/tasks/summaries/2026-05-27-oma-formal-9b1-courriers-officiels-demande-formelle.md"
+      ],
+      "updated": [
+        "apps/api/src/modules/dg-circuit/dg-circuit.service.ts",
+        "apps/admin/src/lib/api/dg-circuit.api.ts",
+        "apps/admin/src/pages/DgCircuitPage.tsx",
+        "exploration-cache/tasks/current-task.md",
+        "exploration-cache/manifest.json"
+      ]
+    },
+    {
+      "date": "2026-05-27",
+      "phase": "OMA-FORMAL-9B0-PHASE-2-ACTOR-RESPONSIBILITY-FIX",
+      "created": [
+        "exploration-cache/tasks/summaries/2026-05-27-oma-formal-9b0-phase-2-actor-responsibility-fix.md"
+      ],
+      "updated": [
+        "apps/admin/src/pages/dossiers/FormalRequestPhaseWorkspace.tsx",
+        "exploration-cache/tasks/current-task.md",
+        "exploration-cache/QUICK-REFERENCE.md",
+        "exploration-cache/manifest.json"
+      ]
+    },
+    {
+      "date": "2026-05-27",
+      "phase": "OMA-FORMAL-9B1B-ADMIN-PHYSICAL-DG-CIRCUIT-ACTIONS",
+      "created": [
+        "exploration-cache/tasks/summaries/2026-05-27-oma-formal-9b1b-admin-physical-dg-circuit-actions-planning.md",
+        "exploration-cache/tasks/summaries/2026-05-27-oma-formal-9b1b-admin-physical-dg-circuit-actions-implementation.md",
+        "exploration-cache/tasks/history/2026-05-27-oma-formal-9b1b-admin-physical-dg-circuit-actions.md"
+      ],
+      "updated": [
+        "apps/admin/src/pages/dossiers/FormalRequestPhaseWorkspace.tsx",
+        "apps/admin/src/pages/dossiers/formal-request-dialogs.tsx",
+        "exploration-cache/03-frontend/ADMIN_APP_MAP.md",
+        "exploration-cache/09-qa/BUILD_AND_TEST_COMMANDS.md",
+        "exploration-cache/QUICK-REFERENCE.md",
+        "exploration-cache/tasks/current-task.md",
+        "exploration-cache/manifest.json"
+      ]
+    },
+    {
+      "date": "2026-05-27",
+      "phase": "OMA-FORMAL-9B1A-PORTAL-FORMAL-REQUEST-UPLOAD",
+      "created": [
+        "exploration-cache/tasks/summaries/2026-05-27-oma-formal-9b1a-portal-formal-request-upload-planning.md",
+        "exploration-cache/tasks/summaries/2026-05-27-oma-formal-9b1a-portal-formal-request-upload-implementation.md",
+        "exploration-cache/tasks/history/2026-05-27-oma-formal-9b1a-portal-formal-request-upload.md"
+      ],
+      "updated": [
+        "apps/api/src/modules/oma-phases/oma-phase.service.ts",
+        "apps/portal/src/lib/api/portal.api.ts",
+        "apps/portal/src/pages/RequestDetailPage.tsx",
+        "exploration-cache/03-frontend/PORTAL_APP_MAP.md",
+        "exploration-cache/04-backend/API_ROUTES.md",
+        "exploration-cache/09-qa/BUILD_AND_TEST_COMMANDS.md",
+        "exploration-cache/QUICK-REFERENCE.md",
+        "exploration-cache/tasks/current-task.md",
+        "exploration-cache/manifest.json"
+      ]
+    },
+    {
+      "date": "2026-05-27",
+      "phase": "OMA-FORMAL-9B1-ADMIN-GATE-DG-ACTIONS",
+      "created": [
+        "apps/admin/src/pages/dossiers/formal-request-dialogs.tsx",
+        "exploration-cache/tasks/summaries/2026-05-27-oma-formal-9b1-admin-gate-dg-actions-planning.md",
+        "exploration-cache/tasks/summaries/2026-05-27-oma-formal-9b1-admin-gate-dg-actions-implementation.md",
+        "exploration-cache/tasks/history/2026-05-27-oma-formal-9b1-admin-gate-dg-actions.md"
+      ],
+      "updated": [
+        "apps/admin/src/lib/api/dossiers.api.ts",
+        "apps/admin/src/pages/dossiers/DossierPhasesTab.tsx",
+        "apps/admin/src/pages/dossiers/FormalRequestPhaseWorkspace.tsx",
+        "apps/admin/src/pages/dossiers/formal-request-progress.helpers.ts",
+        "exploration-cache/03-frontend/ADMIN_APP_MAP.md",
+        "exploration-cache/09-qa/BUILD_AND_TEST_COMMANDS.md",
+        "exploration-cache/QUICK-REFERENCE.md",
+        "exploration-cache/tasks/current-task.md",
+        "exploration-cache/manifest.json"
+      ]
+    },
     {
       "date": "2026-05-26",
       "phase": "OMA-FORMAL-1-API-FOUNDATION-PHASE2",

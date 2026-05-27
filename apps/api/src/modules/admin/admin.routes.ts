@@ -55,6 +55,10 @@ import {
   sendFormalRequestToDg,
   uploadFormalMeetingReport,
   uploadFormalRequestSupportingDocument,
+  reviewFormalRequestDocumentSubmission,
+  uploadFormalRecevabilityCourrier,
+  uploadFormalClosureCourrier,
+  closeFormalRequestPhase,
 } from "../oma-phases/formal-request.service.js";
 import {
   createDocumentTemplate,
@@ -640,6 +644,83 @@ adminRouter.post(
           notes: typeof req.body.notes === "string" ? req.body.notes : undefined,
         },
         req.user!,
+      ),
+    );
+  }),
+);
+
+adminRouter.post(
+  "/dossiers/:id/phases/formal-request/recevability-courrier",
+  requirePermission(Permissions.DOCUMENT_UPLOAD_INTERNAL),
+  handleOmaDocumentUpload,
+  asyncHandler(async (req, res) => {
+    res.status(201).json(
+      await uploadFormalRecevabilityCourrier(
+        String(req.params.id),
+        req.file,
+        {
+          officialReference:
+            typeof req.body.officialReference === "string" ? req.body.officialReference : undefined,
+          notes: typeof req.body.notes === "string" ? req.body.notes : undefined,
+        },
+        req.user!,
+      ),
+    );
+  }),
+);
+
+adminRouter.post(
+  "/dossiers/:id/phases/formal-request/closure-courrier",
+  requirePermission(Permissions.DOCUMENT_UPLOAD_INTERNAL),
+  handleOmaDocumentUpload,
+  asyncHandler(async (req, res) => {
+    res.status(201).json(
+      await uploadFormalClosureCourrier(
+        String(req.params.id),
+        req.file,
+        {
+          officialReference:
+            typeof req.body.officialReference === "string" ? req.body.officialReference : undefined,
+          notes: typeof req.body.notes === "string" ? req.body.notes : undefined,
+        },
+        req.user!,
+      ),
+    );
+  }),
+);
+
+adminRouter.post(
+  "/dossiers/:id/phases/formal-request/close",
+  requirePermission(Permissions.PHASE_CLOSE),
+  asyncHandler(async (req, res) => {
+    res.status(201).json(
+      await closeFormalRequestPhase(
+        String(req.params.id),
+        req.user!,
+        {
+          notes: typeof req.body.notes === "string" ? req.body.notes : undefined,
+        },
+      ),
+    );
+  }),
+);
+
+adminRouter.post(
+  "/document-submissions/:id/review",
+  requirePermission(Permissions.DOCUMENT_REVIEW),
+  asyncHandler(async (req, res) => {
+    const status = req.body.status as string;
+    if (!["validated", "rejected", "requires_correction"].includes(status)) {
+      throw new HttpError(400, "status doit être validated, rejected ou requires_correction.");
+    }
+    res.json(
+      await reviewFormalRequestDocumentSubmission(
+        String(req.params.id),
+        req.user!,
+        {
+          status: status as "validated" | "rejected" | "requires_correction",
+          comment: typeof req.body.comment === "string" ? req.body.comment : undefined,
+        },
       ),
     );
   }),

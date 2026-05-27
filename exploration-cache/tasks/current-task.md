@@ -1,6 +1,66 @@
 # Current Task
 
-## Phase: OMA-FORMAL-5 — Supporting Document Uploads for Phase 2 Demande formelle
+## Phase: OMA-FORMAL-8 — Corrected Supporting Document Re-upload for Phase 2
+
+Date: 2026-05-27
+Status: **Complete — API typecheck PASS, API lint PASS, API build PASS**
+
+## Summary file
+
+`exploration-cache/tasks/summaries/2026-05-27-oma-formal-8-corrected-document-reupload.md`
+
+## Files modified
+
+- `apps/api/src/modules/oma-phases/formal-request.service.ts` — updated `uploadFormalRequestSupportingDocument`: replacement detection, archive/replace mutations, branched audit, extended portal response
+
+## Key decisions
+
+- `requires_correction` → allows corrected re-upload; all other active statuses still block
+- Old document → `archived` (sets `replacedByDocumentId`)
+- Old submission → `replaced`
+- New upload → `submitted`; requirement status returns to `submitted`
+- Audit: `supporting_document_reuploaded` for replacement path, `supporting_document_uploaded` for first upload
+- Portal response extended with `replaced: boolean, previousSubmissionId?: string`
+- No new routes, no schema changes, no phase gate changes
+
+## Next step
+
+Frontend Phase 2 cockpit or OMA-FORMAL-9 — TBD
+
+---
+
+## Previous task: OMA-FORMAL-7 — Recevability / Closure Courrier + Close Phase 2
+
+Date: 2026-05-27
+Status: **Complete — API typecheck PASS, API lint PASS, API build PASS**
+
+## Summary file
+
+`exploration-cache/tasks/summaries/2026-05-27-oma-formal-7-phase-closure.md`
+
+## Files modified
+
+- `apps/api/src/modules/oma-phases/formal-request.service.ts` — strengthened `canClosePhase` (loads DGReview), added `closure` block to read response; added `uploadFormalRecevabilityCourrier`, `uploadFormalClosureCourrier`, `closeFormalRequestPhase`
+- `apps/api/src/modules/admin/admin.routes.ts` — added 3 imports + 3 routes
+
+## Key decisions
+
+- Recevability: `documentType = "other"`, `category = "decision"`; advances status to `formal_recevability_recorded`
+- Closure courrier: `documentType = "phase_closure_letter"`, `category = "closure_letter"`; advances to `formal_ready_to_close` if IDs exist
+- Close: full guard (DGReview.decision approved + meeting held + closure evidence); starts Phase 3 record; notifies postulant
+- Phase 3 bootstrapped with `status = "in_progress"` (no Phase 3 business workflow)
+
+## Next step
+
+OMA-FORMAL-8 or frontend Phase 2 cockpit — TBD
+
+---
+
+## Previous task: OMA-FORMAL-6 — DN Document Review for Phase 2 Demande formelle
+
+---
+
+## Previous task: OMA-FORMAL-5 — Supporting Document Uploads for Phase 2 Demande formelle
 
 Date: 2026-05-27
 Status: **Complete — API typecheck PASS, API lint PASS, API build PASS**
@@ -22,10 +82,6 @@ Status: **Complete — API typecheck PASS, API lint PASS, API build PASS**
 - Repeatable requirements allow multiple submissions.
 - Supporting docs never mutate workflow gates or formalRequestStatus.
 - Document.documentType = "other" conservatively (semantic link via requirementId).
-
-## Next step
-
-OMA-FORMAL-6 — Phase 2 closure: recevability + closure courrier + close phase
 
 ---
 

@@ -11,6 +11,7 @@ import {
 } from "../dg-circuit/dg-circuit.service.js";
 import { CourrierModel } from "../courriers/courrier.model.js";
 import { DGReviewModel } from "../dg-reviews/dg-review.model.js";
+import { DocumentModel } from "../documents/document.model.js";
 import { DocumentRequirementModel } from "../documents/document-requirement.model.js";
 import { DocumentSubmissionModel } from "../documents/document-submission.model.js";
 import { DossierModel } from "../dossiers/dossier.model.js";
@@ -106,6 +107,13 @@ export const getAdminFormalRequestPhase = async (dossierId: string, actor: Actor
     formalMeeting = (await MeetingModel.findById(phase.formalMeetingId).lean()) as unknown as GenericRecord;
   }
 
+  // ── DG Review ─────────────────────────────────────────────────────────────
+
+  let formalDgReview: GenericRecord | null = null;
+  if (phase.formalRequestDgReviewId) {
+    formalDgReview = (await DGReviewModel.findById(phase.formalRequestDgReviewId).lean()) as unknown as GenericRecord;
+  }
+
   // ── Action gates ──────────────────────────────────────────────────────────
 
   const canSendToDg = gateExists && !phase.formalRequestDgReviewId;
@@ -113,9 +121,15 @@ export const getAdminFormalRequestPhase = async (dossierId: string, actor: Actor
   const canInviteFormalMeeting =
     phase.formalRequestStatus === "formal_dg_decision_recorded";
 
+  const dgDecisionApproved = formalDgReview
+    ? String(formalDgReview.decision) === "approved"
+    : false;
+  const meetingHeld = formalMeeting ? String(formalMeeting.status) === "held" : false;
+
   const canClosePhase = !!(
     phase.formalRequestCourrierId &&
-    phase.formalMeetingId &&
+    dgDecisionApproved &&
+    meetingHeld &&
     (phase.recevabilityCourrierDocumentId || phase.phaseClosureCourrierDocumentId)
   );
 
@@ -206,6 +220,11 @@ export const getAdminFormalRequestPhase = async (dossierId: string, actor: Actor
       missing,
       completionRate,
       blockingMissing,
+    },
+    closure: {
+      recevabilityCourrierDocumentId: toId(phase.recevabilityCourrierDocumentId),
+      phaseClosureCourrierDocumentId: toId(phase.phaseClosureCourrierDocumentId),
+      canClosePhase,
     },
   };
 };
@@ -905,16 +924,25 @@ export const uploadFormalRequestSupportingDocument = async (
     );
   }
 
-  // ── Non-repeatable duplicate check ────────────────────────────────────────
+  // ── Non-repeatable duplicate check / replacement detection ──────────────
+
+  let submissionToReplace: GenericRecord | null = null;
 
   if (!requirement.isRepeatable) {
-    const existingActive = await DocumentSubmissionModel.findOne({
+    const existingActive = (await DocumentSubmissionModel.findOne({
       phaseId: phase._id,
       requirementId: reqObjId,
       status: { $in: [...ACTIVE_SUBMISSION_STATUS_SET] },
-    }).lean();
+    })
+      .sort({ createdAt: -1 })
+      .lean()) as unknown as GenericRecord | null;
+
     if (existingActive) {
-      throw new HttpError(409, "Un document est déjà déposé pour cette exigence.");
+      if (String(existingActive.status) === "requires_correction") {
+        submissionToReplace = existingActive;
+      } else {
+        throw new HttpError(409, "Un document est déjà déposé pour cette exigence.");
+      }
     }
   }
 
@@ -951,24 +979,58 @@ export const uploadFormalRequestSupportingDocument = async (
     status: "submitted",
   });
 
+  // ── Handle corrected re-upload (replacement) ─────────────────────────────
+
+  const isReplacement = submissionToReplace !== null;
+  if (isReplacement) {
+    await DocumentModel.findByIdAndUpdate(submissionToReplace!.documentId, {
+      status: "archived",
+      replacedByDocumentId: documentId,
+    });
+    await DocumentSubmissionModel.findByIdAndUpdate(submissionToReplace!._id, {
+      status: "replaced",
+    });
+  }
+
   // ── Audit ─────────────────────────────────────────────────────────────────
 
-  await writeAuditLog({
-    actorId: actor.id,
-    actorRole: actor.role,
-    action: "formal_request.supporting_document_uploaded",
-    entityType: "dossier",
-    entityId: resolvedDossierId,
-    metadata: {
-      dossierId: resolvedDossierId.toString(),
-      phaseId: (phase._id as Types.ObjectId).toString(),
-      requirementId: reqObjId.toString(),
-      requirementCode: String(requirement.code),
-      documentId: documentId.toString(),
-      submissionId: (submission._id as Types.ObjectId).toString(),
-      source: payload.source,
-    },
-  });
+  if (isReplacement) {
+    await writeAuditLog({
+      actorId: actor.id,
+      actorRole: actor.role,
+      action: "formal_request.supporting_document_reuploaded",
+      entityType: "dossier",
+      entityId: resolvedDossierId,
+      metadata: {
+        dossierId: resolvedDossierId.toString(),
+        phaseId: (phase._id as Types.ObjectId).toString(),
+        requirementId: reqObjId.toString(),
+        requirementCode: String(requirement.code),
+        oldSubmissionId: (submissionToReplace!._id as Types.ObjectId).toString(),
+        oldDocumentId: (submissionToReplace!.documentId as Types.ObjectId).toString(),
+        newSubmissionId: (submission._id as Types.ObjectId).toString(),
+        newDocumentId: documentId.toString(),
+        source: payload.source,
+      },
+    });
+  } else {
+    await writeAuditLog({
+      actorId: actor.id,
+      actorRole: actor.role,
+      action: "formal_request.supporting_document_uploaded",
+      entityType: "dossier",
+      entityId: resolvedDossierId,
+      metadata: {
+        dossierId: resolvedDossierId.toString(),
+        phaseId: (phase._id as Types.ObjectId).toString(),
+        requirementId: reqObjId.toString(),
+        requirementCode: String(requirement.code),
+        documentId: documentId.toString(),
+        submissionId: (submission._id as Types.ObjectId).toString(),
+        source: payload.source,
+      },
+    });
+  }
 
   // ── Return updated read state ─────────────────────────────────────────────
 
@@ -978,10 +1040,395 @@ export const uploadFormalRequestSupportingDocument = async (
 
   return {
     uploaded: true,
+    replaced: isReplacement,
+    previousSubmissionId: isReplacement
+      ? (submissionToReplace!._id as Types.ObjectId).toString()
+      : undefined,
     documentId: documentId.toString(),
     submissionId: (submission._id as Types.ObjectId).toString(),
     requirementId: reqObjId.toString(),
     requirementCode: String(requirement.code),
     source: payload.source,
+  };
+};
+
+// ── OMA-FORMAL-7: Upload recevability courrier ────────────────────────────────
+
+export const uploadFormalRecevabilityCourrier = async (
+  dossierId: string,
+  file: Express.Multer.File | undefined,
+  payload: { officialReference?: string; notes?: string },
+  actor: Actor,
+) => {
+  ensureInternalActor(actor);
+  validateFile(file);
+
+  const dossierObjId = ensureObjectId(dossierId, "Dossier ID");
+  const dossier = await DossierModel.findById(dossierObjId).lean();
+  if (!dossier) throw new HttpError(404, "Dossier introuvable.");
+
+  const phase = await loadFormalRequestPhaseOrThrow(dossierObjId);
+  assertPhaseNotClosed(phase);
+
+  const actorObjId = ensureObjectId(actor.id, "Actor ID");
+
+  const documentId = await saveDocument({
+    file: file!,
+    ownerPath: `dossiers/${dossierObjId.toString()}/formal-request/recevability`,
+    ownerType: "phase",
+    ownerId: phase._id as Types.ObjectId,
+    category: "decision",
+    documentType: "other",
+    title: "Courrier de recevabilité — Phase II",
+    visibility: "internal_only",
+    status: "uploaded",
+    uploadedById: actorObjId,
+  });
+
+  phase.recevabilityCourrierDocumentId = documentId as Types.ObjectId;
+
+  const STATUSES_BEFORE_RECEVABILITY = new Set([
+    "formal_not_started",
+    "formal_waiting_request",
+    "formal_request_received",
+    "formal_documents_tracking",
+    "formal_sent_to_dg",
+    "formal_dg_returned",
+    "formal_dg_decision_recorded",
+    "formal_meeting_invited",
+    "formal_meeting_held",
+    "formal_requires_correction",
+  ]);
+  if (STATUSES_BEFORE_RECEVABILITY.has(String(phase.formalRequestStatus))) {
+    phase.formalRequestStatus = "formal_recevability_recorded" as never;
+  }
+  await phase.save();
+
+  await writeAuditLog({
+    actorId: actor.id,
+    actorRole: actor.role,
+    action: "formal_request.recevability_uploaded",
+    entityType: "dossier",
+    entityId: dossierObjId,
+    metadata: {
+      dossierId: dossierObjId.toString(),
+      phaseId: (phase._id as Types.ObjectId).toString(),
+      documentId: documentId.toString(),
+      actorId: actor.id,
+    },
+  });
+
+  return getAdminFormalRequestPhase(dossierId, actor);
+};
+
+// ── OMA-FORMAL-7: Upload Phase II closure courrier ────────────────────────────
+
+export const uploadFormalClosureCourrier = async (
+  dossierId: string,
+  file: Express.Multer.File | undefined,
+  payload: { officialReference?: string; notes?: string },
+  actor: Actor,
+) => {
+  ensureInternalActor(actor);
+  validateFile(file);
+
+  const dossierObjId = ensureObjectId(dossierId, "Dossier ID");
+  const dossier = await DossierModel.findById(dossierObjId).lean();
+  if (!dossier) throw new HttpError(404, "Dossier introuvable.");
+
+  const phase = await loadFormalRequestPhaseOrThrow(dossierObjId);
+  assertPhaseNotClosed(phase);
+
+  const actorObjId = ensureObjectId(actor.id, "Actor ID");
+
+  const documentId = await saveDocument({
+    file: file!,
+    ownerPath: `dossiers/${dossierObjId.toString()}/formal-request/closure`,
+    ownerType: "phase",
+    ownerId: phase._id as Types.ObjectId,
+    category: "closure_letter",
+    documentType: "phase_closure_letter",
+    title: "Courrier de clôture — Phase II",
+    visibility: "internal_only",
+    status: "uploaded",
+    uploadedById: actorObjId,
+  });
+
+  phase.phaseClosureCourrierDocumentId = documentId as Types.ObjectId;
+
+  // Advance to ready_to_close if id-level gates are satisfied (full guard enforced in close endpoint)
+  if (phase.formalRequestCourrierId && phase.formalRequestDgReviewId && phase.formalMeetingId) {
+    phase.formalRequestStatus = "formal_ready_to_close" as never;
+  }
+  await phase.save();
+
+  await writeAuditLog({
+    actorId: actor.id,
+    actorRole: actor.role,
+    action: "formal_request.closure_uploaded",
+    entityType: "dossier",
+    entityId: dossierObjId,
+    metadata: {
+      dossierId: dossierObjId.toString(),
+      phaseId: (phase._id as Types.ObjectId).toString(),
+      documentId: documentId.toString(),
+      actorId: actor.id,
+    },
+  });
+
+  return getAdminFormalRequestPhase(dossierId, actor);
+};
+
+// ── OMA-FORMAL-7: Close Phase 2 ───────────────────────────────────────────────
+
+export const closeFormalRequestPhase = async (
+  dossierId: string,
+  actor: Actor,
+  payload: { notes?: string },
+) => {
+  ensureInternalActor(actor);
+
+  const dossierObjId = ensureObjectId(dossierId, "Dossier ID");
+  const dossier = await DossierModel.findById(dossierObjId);
+  if (!dossier) throw new HttpError(404, "Dossier introuvable.");
+
+  const phase = await loadFormalRequestPhaseOrThrow(dossierObjId);
+  assertPhaseNotClosed(phase);
+
+  // ── Full closure guards ───────────────────────────────────────────────────
+
+  assertFormalRequestGateExists(phase);
+
+  if (!phase.formalRequestDgReviewId) {
+    throw new HttpError(409, "Le circuit DG de la demande formelle est requis avant de clôturer la phase.");
+  }
+  const dgReview = (await DGReviewModel.findById(phase.formalRequestDgReviewId).lean()) as unknown as GenericRecord | null;
+  if (!dgReview) throw new HttpError(404, "Circuit DG introuvable.");
+  if (String(dgReview.status) !== "decision_recorded") {
+    throw new HttpError(409, "La décision DG doit être enregistrée avant de clôturer la phase.");
+  }
+  if (String(dgReview.decision) !== "approved") {
+    throw new HttpError(409, "La décision DG doit être approuvée avant de clôturer la phase.");
+  }
+
+  if (!phase.formalMeetingId) {
+    throw new HttpError(409, "La réunion formelle est requise avant de clôturer la phase.");
+  }
+  const meeting = (await MeetingModel.findById(phase.formalMeetingId).lean()) as unknown as GenericRecord | null;
+  if (!meeting) throw new HttpError(404, "Réunion formelle introuvable.");
+  if (String(meeting.status) !== "held") {
+    throw new HttpError(409, "La réunion formelle doit être tenue avant de clôturer la phase.");
+  }
+
+  if (!phase.recevabilityCourrierDocumentId && !phase.phaseClosureCourrierDocumentId) {
+    throw new HttpError(
+      409,
+      "Le courrier de recevabilité ou de clôture Phase II est requis avant de clôturer la phase.",
+    );
+  }
+
+  // ── Close Phase 2 ─────────────────────────────────────────────────────────
+
+  const now = new Date();
+  const actorObjId = ensureObjectId(actor.id, "Actor ID");
+
+  phase.formalRequestStatus = "formal_closed" as never;
+  phase.status = "closed" as never;
+  phase.closedAt = now;
+  phase.closedById = actorObjId;
+  phase.formalClosedAt = now;
+  await phase.save();
+
+  // ── Update dossier status ─────────────────────────────────────────────────
+
+  dossier.status = "document_evaluation_phase" as never;
+  await dossier.save();
+
+  // ── Start/unlock Phase 3 (document_evaluation) ────────────────────────────
+
+  let docEvalPhase = await OmaPhaseModel.findOne({
+    dossierId: dossierObjId,
+    phaseKey: "document_evaluation",
+  });
+  if (!docEvalPhase) {
+    docEvalPhase = await OmaPhaseModel.create({
+      dossierId: dossierObjId,
+      phaseKey: "document_evaluation",
+      status: "in_progress",
+      startedAt: now,
+      startedById: actorObjId,
+    });
+  } else if (docEvalPhase.status === "not_started") {
+    docEvalPhase.status = "in_progress" as never;
+    if (!docEvalPhase.startedAt) docEvalPhase.startedAt = now;
+    if (!docEvalPhase.startedById) docEvalPhase.startedById = actorObjId;
+    await docEvalPhase.save();
+  }
+
+  // ── Notify postulant ─────────────────────────────────────────────────────
+
+  if (dossier.postulantUserId) {
+    await NotificationModel.create({
+      recipientUserId: dossier.postulantUserId,
+      channel: "in_app",
+      title: "Phase II clôturée",
+      message:
+        "La phase de demande formelle est clôturée. Votre dossier passe à l'évaluation approfondie des documents.",
+      relatedType: "phase",
+      relatedId: phase._id,
+      status: "unread",
+    });
+  }
+
+  // ── Audit ─────────────────────────────────────────────────────────────────
+
+  await writeAuditLog({
+    actorId: actor.id,
+    actorRole: actor.role,
+    action: "formal_request.phase_closed",
+    entityType: "dossier",
+    entityId: dossierObjId,
+    metadata: {
+      dossierId: dossierObjId.toString(),
+      phaseId: (phase._id as Types.ObjectId).toString(),
+      nextPhaseId: (docEvalPhase._id as Types.ObjectId).toString(),
+      actorId: actor.id,
+    },
+  });
+
+  return getAdminFormalRequestPhase(dossierId, actor);
+};
+
+// ── OMA-FORMAL-6: DN document review ─────────────────────────────────────────
+
+const REVIEW_STATUSES = new Set(["validated", "rejected", "requires_correction"]);
+
+export const reviewFormalRequestDocumentSubmission = async (
+  submissionId: string,
+  actor: Actor,
+  payload: {
+    status: "validated" | "rejected" | "requires_correction";
+    comment?: string;
+  },
+) => {
+  ensureInternalActor(actor);
+
+  if (!REVIEW_STATUSES.has(payload.status)) {
+    throw new HttpError(400, "status doit être validated, rejected ou requires_correction.");
+  }
+  if (payload.status === "requires_correction" && !payload.comment?.trim()) {
+    throw new HttpError(400, "Un commentaire est requis lorsque la correction est demandée.");
+  }
+
+  // ── Load submission ───────────────────────────────────────────────────────
+
+  const submissionObjId = ensureObjectId(submissionId, "Submission ID");
+  const submission = await DocumentSubmissionModel.findById(submissionObjId);
+  if (!submission) throw new HttpError(404, "Soumission introuvable.");
+
+  if (submission.phaseKey !== "formal_request") {
+    throw new HttpError(
+      400,
+      "Seules les soumissions de la phase de demande formelle peuvent être examinées via cet endpoint.",
+    );
+  }
+  if (submission.status === "archived" || submission.status === "replaced") {
+    throw new HttpError(409, "Cette soumission est archivée ou remplacée et ne peut plus être examinée.");
+  }
+
+  // ── Gate requirement guard ────────────────────────────────────────────────
+
+  if (submission.requirementId) {
+    const requirement = (await DocumentRequirementModel.findById(
+      submission.requirementId,
+    ).lean()) as unknown as GenericRecord | null;
+    if (requirement && String(requirement.requirementLevel) === "gate") {
+      throw new HttpError(409, "La demande formelle est traitée via le circuit courrier dédié.");
+    }
+  }
+
+  // ── Load linked document ──────────────────────────────────────────────────
+
+  const documentObjId = submission.documentId as Types.ObjectId;
+  const document = await DocumentModel.findById(documentObjId);
+  if (!document) throw new HttpError(404, "Document lié introuvable.");
+
+  // ── Load phase (not closed) ───────────────────────────────────────────────
+
+  const phase = await OmaPhaseModel.findById(submission.phaseId);
+  if (!phase) throw new HttpError(404, "Phase introuvable.");
+  assertPhaseNotClosed(phase);
+
+  // ── Load dossier (for notification) ──────────────────────────────────────
+
+  const dossier = (await DossierModel.findById(submission.dossierId).lean()) as unknown as GenericRecord | null;
+  if (!dossier) throw new HttpError(404, "Dossier introuvable.");
+
+  const now = new Date();
+  const actorObjId = ensureObjectId(actor.id, "Actor ID");
+
+  // ── Mutate submission ─────────────────────────────────────────────────────
+
+  submission.status = payload.status as never;
+  submission.reviewComment = (payload.comment?.trim() || undefined) as never;
+  submission.reviewedById = actorObjId as never;
+  submission.reviewedAt = now as never;
+  await submission.save();
+
+  // ── Mutate document ───────────────────────────────────────────────────────
+
+  document.status = payload.status as never;
+  await document.save();
+
+  // ── Notify postulant on correction ───────────────────────────────────────
+
+  if (payload.status === "requires_correction") {
+    const postulantUserId = dossier.postulantUserId;
+    if (postulantUserId) {
+      await NotificationModel.create({
+        recipientUserId: postulantUserId,
+        channel: "in_app",
+        title: "Correction demandée",
+        message: "Une correction est demandée sur un document de votre dossier.",
+        relatedType: "document",
+        relatedId: documentObjId,
+        status: "unread",
+      });
+    }
+  }
+
+  // ── Audit ─────────────────────────────────────────────────────────────────
+
+  await writeAuditLog({
+    actorId: actor.id,
+    actorRole: actor.role,
+    action: "formal_request.supporting_document_reviewed",
+    entityType: "dossier",
+    entityId: submission.dossierId as Types.ObjectId,
+    metadata: {
+      dossierId: (submission.dossierId as Types.ObjectId).toString(),
+      phaseId: (submission.phaseId as Types.ObjectId).toString(),
+      requirementId: submission.requirementId
+        ? (submission.requirementId as Types.ObjectId).toString()
+        : null,
+      documentId: documentObjId.toString(),
+      submissionId: submissionObjId.toString(),
+      status: payload.status,
+      reviewerId: actor.id,
+    },
+  });
+
+  return {
+    submission: {
+      id: submissionObjId.toString(),
+      status: payload.status,
+      reviewComment: payload.comment?.trim() || undefined,
+      reviewedAt: now.toISOString(),
+      reviewedById: actor.id,
+    },
+    document: {
+      id: documentObjId.toString(),
+      status: payload.status,
+    },
   };
 };

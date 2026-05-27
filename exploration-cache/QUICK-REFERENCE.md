@@ -63,6 +63,12 @@ Last updated: 2026-05-22
   - Portal-uploaded formal request courriers display as `Téléversé par le postulant`.
   - `Mettre en circuit DG` wording now describes the physical DG/parapheur circuit and remains gated by backend `canSendToDg`.
   - DG return scan and DG decision are separate admin actions/dialogs using `/dg-return` and `/dg-decision` respectively.
+- OMA-FORMAL-9C1 implemented:
+  - Summary: `exploration-cache/tasks/summaries/2026-05-27-oma-formal-9c1-phase-2-phase-1-visual-sync-implementation.md`.
+  - Phase 2 right panel now renders as one Phase-1-like workspace card with lightweight internal sections instead of stacked full cards.
+  - `Réunion formelle` and `Documents de demande formelle` sit side by side on wide screens and stack on smaller screens.
+  - `Démarrée le` falls back to the formal request reception date when the phase record start date is missing.
+  - Guided `Prochaine action` remains the final right-panel block.
 - OMA-OPS-8A Phase I hardening implemented:
   - Summary: `exploration-cache/tasks/summaries/2026-05-25-oma-ops-8a-phase1-transition-date-hardening.md`.
   - Phase I close now keeps dossier status `formal_request_phase` but leaves/creates formal request phase as `not_started`; no Phase 2 actions were added.

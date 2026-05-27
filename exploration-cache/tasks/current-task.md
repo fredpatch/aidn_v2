@@ -1,46 +1,52 @@
 # Current Task
 
-## Phase: OMA-FORMAL-9C0 — Phase 2 UI Alignment Cleanup
+## Phase: OMA-FORMAL-9C1 - Phase 2 Phase 1 Visual Sync
 
 Date: 2026-05-27
-Status: **Complete — Admin typecheck PASS, Admin build PASS**
+Status: **Complete - Admin typecheck PASS, Admin build PASS**
 
 ## Summary files
 
-- Implementation: `exploration-cache/tasks/summaries/2026-05-27-oma-formal-9c0-phase-2-ui-alignment-cleanup.md`
+- Planning: `exploration-cache/tasks/summaries/2026-05-27-oma-formal-9c1-phase-2-phase-1-visual-sync-planning.md`
+- Implementation: `exploration-cache/tasks/summaries/2026-05-27-oma-formal-9c1-phase-2-phase-1-visual-sync-implementation.md`
+- History: `exploration-cache/tasks/history/2026-05-27-oma-formal-9c1-phase-2-phase-1-visual-sync.md`
 
 ## Files modified
 
 - `apps/admin/src/pages/dossiers/FormalRequestPhaseWorkspace.tsx`
-  - Removed `Circle`, `Send` from lucide imports
-  - Removed `FormalRequestPhaseChecklist` import
-  - Removed `StepLine` component
-  - Consolidated header: `Circuit officiel` + `Retour DG` fields → single `Circuit officiel` field (4-step value)
-  - Added `circuitOfficielStatus` computed variable
-  - Removed WorkflowSection "Circuit officiel" (was block 3)
-  - Removed WorkflowSection "Recevabilité et clôture" (was block 5)
+  - Replaced stacked full-card sections with one Phase-1-like workspace card.
+  - Added lightweight internal `DetailSection` groups.
+  - Kept `Courrier formel`, `Réunion formelle`, `Documents de demande formelle`, and guided `Prochaine action`.
+  - Placed meeting and document sections side by side on wide screens.
+  - Fixed `Démarrée le` display fallback to use formal request reception date when phase start date is missing.
+- `exploration-cache/QUICK-REFERENCE.md`
+- `exploration-cache/03-frontend/ADMIN_APP_MAP.md`
+- `exploration-cache/09-qa/BUILD_AND_TEST_COMMANDS.md`
+- `exploration-cache/tasks/current-task.md`
+- `exploration-cache/manifest.json`
 
-## Final Phase 2 right-panel structure
+## Files created
 
-1. Header / metadata (DefinitionGrid — 5 fields incl. consolidated Circuit officiel)
-2. Courrier formel
-3. Réunion formelle
-4. Documents de demande formelle (compact)
-5. Prochaine action (guided card)
+- `exploration-cache/tasks/summaries/2026-05-27-oma-formal-9c1-phase-2-phase-1-visual-sync-implementation.md`
+- `exploration-cache/tasks/history/2026-05-27-oma-formal-9c1-phase-2-phase-1-visual-sync.md`
 
 ## Verification completed
 
 ```bash
 cd apps/admin
 npx tsc --noEmit  # PASS
-npm run build     # PASS (1.15s)
+npm run build     # PASS after outside-sandbox rerun for known Vite/Tailwind Windows native binary issue
 ```
+
+## Manual checks
+
+Not run; no live admin/API browser session in this pass.
 
 ## Known risks / TODOs
 
-- `FormalRequestPhaseChecklist` no longer rendered in workspace; full checklist via Documents tab only
-- Phase 1 workspace unaffected
+- Runtime validation still needs a live Phase 2 dossier.
+- This pass did not introduce a reusable phase layout component; it kept the edit narrow in the Phase 2 workspace.
 
 ## Next step
 
-OMA-FORMAL-9D or next product roadmap slice.
+Browser validation of Phase 1 vs Phase 2 visual alignment and Phase 2 `Démarrée le` display.

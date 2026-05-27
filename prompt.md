@@ -145,411 +145,197 @@ YYYY-MM-DD-<phase-name>-correction.md
 
 # CURRENT OBJECTIVE
 
-# OMA-FORMAL-9B1 — Add Phase 2 Demande Formelle to Courriers Officiels Workflow
+# OMA-FORMAL-9C0 — Phase 2 UI Alignment Cleanup
 
 You are working inside the existing `AIDN_V2` repository.
 
 ## Current validated state
 
-OMA-FORMAL-9B0 is complete.
+OMA-FORMAL-9C is complete.
 
-Phase 2 actor responsibility is now corrected:
+Phase 2 now has the guided “Prochaine action” card, similar to Phase 1:
 
-- Portal/Postulant owns normal upload of the demande formelle.
-- Courriers officiels owns print / physical DG circuit / scan return / DG decision.
-- Dossier DN Phase 2 workspace only reflects state until DN’s turn to schedule the réunion formelle.
+- waiting states for postulant / Courriers officiels / DG return / DG decision;
+- action buttons for réunion formelle;
+- report upload;
+- phase closure when allowed.
 
-The previous Phase 2 workspace action dialogs were removed from `FormalRequestPhaseWorkspace.tsx`.
-The file `formal-request-dialogs.tsx` still exists and was intentionally preserved for future Courriers officiels integration.
+Current issue:
+The Phase 2 workspace still feels different from Phase 1 and is visually too long.
 
-Now implement the correct next step:
+Redundant blocks:
 
-OMA-FORMAL-9B1 — Add Phase 2 demande formelle to Courriers officiels workflow
-Objective
+- `Circuit officiel` block duplicates the left “Progression phase active”.
+- `Recevabilité et clôture` block also duplicates the same progression checklist.
+- Header/status layout differs from Phase préliminaire.
 
-Add Phase 2 Demande formelle items to the existing Courriers officiels / DG circuit workspace.
+---
 
-The formal request should follow the same semi-digital pattern as:
+## Objective
 
-Courrier initial
-Formulaire de pré-évaluation
-Demande formelle
+Clean the Phase 2 admin workspace so it visually follows the Phase préliminaire pattern.
 
-Real workflow:
+Keep the guided action card.
+Remove duplicated checklist blocks from the right panel.
+Make the right panel shorter and more operational.
 
-Postulant téléverse la demande formelle depuis le portail
-→ Courriers officiels voit le courrier reçu
-→ Réception / secrétariat imprime le document
-→ Document papier placé dans le circuit physique DG/parapheur
-→ DG annote / vise / oriente physiquement
-→ Retour DG scanné dans AIDN
-→ Décision DG enregistrée
-→ Dossier Phase 2 se met à jour
+Frontend/admin only.
 
-AIDN does not digitally send the document to DG. It records the physical circuit.
+Do not change backend.
+Do not change portal.
+Do not change Courriers officiels.
+Do not change meeting/closure business rules.
+Do not remove the left progression checklist.
 
-Scope
+---
 
-Frontend/admin only unless a confirmed API client function is missing.
-
-Implement in Courriers officiels / DG circuit workspace.
-
-Do not change backend business rules.
-Do not change portal UI.
-Do not put these actions back into FormalRequestPhaseWorkspace.
-Do not implement Phase 2 meeting/closure actions in this slice.
-Do not implement supporting document review in this slice.
-Do not add fake data.
-
-Explore first
+## Explore first
 
 Read cache first:
 
-exploration-cache/manifest.json
-exploration-cache/QUICK-REFERENCE.md
-exploration-cache/03-frontend/ADMIN_APP_MAP.md
-exploration-cache/04-backend/API_ROUTES.md
-exploration-cache/tasks/current-task.md
-exploration-cache/tasks/summaries/2026-05-27-oma-formal-9b0-phase-2-actor-responsibility-fix.md
-exploration-cache/tasks/summaries/2026-05-27-oma-formal-9b1-admin-gate-dg-actions-planning.md
+- `exploration-cache/manifest.json`
+- `exploration-cache/QUICK-REFERENCE.md`
+- `exploration-cache/03-frontend/ADMIN_APP_MAP.md`
+- `exploration-cache/tasks/current-task.md`
+- latest OMA-FORMAL 9B2 and 9C summaries
 
 Then inspect:
 
-apps/admin/src/pages/DgCircuitPage.tsx
-apps/admin/src/lib/api/dg-circuit.api.ts
-apps/admin/src/lib/api/dossiers.api.ts
-apps/admin/src/pages/dossiers/formal-request-dialogs.tsx
-apps/admin/src/pages/dossiers/FormalRequestPhaseWorkspace.tsx
-apps/admin/src/lib/utils/error.ts
-apps/api/src/modules/dg-circuit/dg-circuit.service.ts
-apps/api/src/modules/admin/admin.routes.ts
-apps/api/src/modules/oma-phases/formal-request.service.ts
+- `apps/admin/src/pages/dossiers/FormalRequestPhaseWorkspace.tsx`
+- `apps/admin/src/pages/dossiers/PreliminaryPhaseWorkspace.tsx`
+- `apps/admin/src/pages/dossiers/formal-request-progress.helpers.ts`
+- `apps/admin/src/pages/dossiers/DossierPhasesTab.tsx`
 
-Confirm exact route names and response shapes before wiring.
+---
 
-Confirmed backend routes to use
+## Required changes
 
-Use these existing formal-specific routes if confirmed:
+### 1. Align Phase 2 header with Phase 1
 
-POST /api/v1/admin/dossiers/:id/phases/formal-request/send-to-dg
-POST /api/v1/admin/dossiers/:id/phases/formal-request/dg-return
-POST /api/v1/admin/dossiers/:id/phases/formal-request/dg-decision
+Phase 2 header should look closer to Phase préliminaire.
 
-Fallback/internal courrier registration route exists but must not be primary:
+Use the same style/order as much as possible:
 
-POST /api/v1/admin/dossiers/:id/phases/formal-request/courrier
+Phase 2 — Demande formelle
 
-Use only for physical/internal received courrier if the UI already supports fallback safely.
-
-Admin sources only:
-
-physical_deposit
-internal_scan
-
-Never send:
-
-portal_upload
-
-from admin.
-
-Required behavior
-
-1. Add item type: Demande formelle
-
-In Courriers officiels list, formal request courrier should appear as a new item type:
-
-Demande formelle
-
-It should appear when Phase 2 formal request courrier exists or when formal phase state indicates formal request is active/pending DG circuit.
-
-The card should show:
-
-Dossier number
-Organisation
-Postulant
-Type: Demande formelle
-Status badge
-Date réception / dépôt
-
-Source labels:
-
-portal_upload → Téléversé par le postulant
-physical_deposit → Dépôt physique
-internal_scan → Scan interne 2. Status mapping
-
-Use formal phase state to map status.
-
-Recommended labels:
-
-formal_request_received → À imprimer
-formal_documents_tracking → À imprimer
-formal_sent_to_dg → En circuit
-formal_dg_returned → Retour DG enregistré
-formal_dg_decision_recorded → Décision saisie
-formal_meeting_invited+ → Décision saisie
-
-If exact statuses differ, derive from available booleans:
-
-gate.exists && !sentToDg => À imprimer
-sentToDg && !dgReturned => En circuit
-dgReturned && !dgDecisionRecorded => Retour DG enregistré
-dgDecisionRecorded => Décision saisie 3. List filters / counters
-
-Update Courriers officiels counters/filters to include formal requests.
-
-Current filters likely include:
-
-Tous
-À imprimer
-En circuit
-Retours DG
-Décisions saisies
-
-Formal request items must count correctly in those filters.
-
-Do not create a separate sidebar entry for Phase 2.
-
-4. Detail panel
-
-When selecting a formal request courrier, detail panel should show:
-
-Demande formelle
-Dossier number
-Organisation
-Postulant
-Suivi
-Traceabilité
-
-Timeline labels:
-
-Reçu
-Imprimé / mis en circuit
-Retour DG scanné
-Décision saisie
-
-Traceability:
-
-Type: Demande formelle
-Organisation
-Postulant
-Réception
-Envoi DG / mise en circuit
+Statut demande formelle
+Phase statut
+Démarrée le
+Clôturée le
+Circuit officiel
 Retour DG
-Décision
 
-Use only available fields. Do not show raw IDs.
+Keep “Circuit officiel” as a metadata field if useful, but not as a full block.
 
-Actions to wire
-Action A — Mettre en circuit DG
+Expected values:
 
-Button label:
+Circuit officiel:
 
-Imprimer / mettre en circuit DG
+- Non mis en circuit
+- Mis en circuit
+- Retour scanné
+- Décision enregistrée
 
-or if existing workspace uses shorter labels:
+Do not create a separate large section for it.
 
-Mettre en circuit DG
+2. Remove/hide Circuit officiel block
 
-Helper text:
+Remove the large workflow section titled:
 
-Imprimez la demande formelle, placez-la dans le circuit physique DG/parapheur, puis marquez cette étape comme mise en circuit.
+Circuit officiel
 
-API:
+Reason:
+This state is already visible in:
 
-POST /api/v1/admin/dossiers/:id/phases/formal-request/send-to-dg
+top metadata;
+left progression card;
+guided “Prochaine action” card.
 
-Enable only when:
+Do not remove underlying status computations if they are still used by the guided card.
 
-formal request exists
-not already sent to DG
-backend canSendToDg === true if available
+3. Remove/hide Recevabilité et clôture checklist block
 
-After success:
+Remove the large block titled:
 
-refresh Courriers officiels list
-refresh selected detail
-status becomes En circuit
-Action B — Enregistrer le retour DG scanné
+Recevabilité et clôture
 
-Button label:
+Reason:
+It duplicates the left progression checklist.
 
-Enregistrer le retour DG scanné
+Keep its logic only if needed for:
 
-Dialog fields:
+canClosePhase;
+guided action card;
+status computations.
 
-Fichier retour DG annoté/signé
-Date retour DG
-Référence officielle
-Notes
+Do not delete backend/state logic.
 
-API:
+4. Keep Courrier formel section
 
-POST /api/v1/admin/dossiers/:id/phases/formal-request/dg-return
+Keep it because it gives useful source/context:
 
-Multipart field:
+Courrier formel
+Demande formelle reçue via le portail
+Source
+Date réception
 
-file
+It should remain read-only.
 
-Body fields if supported:
+5. Keep Réunion formelle section
 
-returnedFromDgAt
-officialReference
-notes
+Keep it because it gives useful operational details:
 
-Enable only when:
+Réunion formelle
+Statut
+Date prévue
+Lieu
+Compte rendu
 
-sentToDg === true
-dgReturned === false
+This mirrors the Phase 1 meeting sections.
 
-After success:
+6. Keep compact Documents de demande formelle
 
-refresh list/detail
-status becomes Retour DG enregistré
-Action C — Enregistrer la décision DG
+Keep the compact version only:
 
-Button label:
+14 pièces suivies · 1 déposée · 0 validée
+Suivi documentaire uniquement, sans blocage automatique du circuit officiel.
 
-Enregistrer la décision DG
+Do not render the full checklist here.
 
-Dialog fields:
+Keep:
 
-Décision
-Direction orientée
-Observations
-Date décision
+Consulter le détail dans l’onglet Documents. 7. Keep guided Prochaine action card
 
-Use backend-supported decisions only.
+This is now the main workflow driver.
 
-Confirmed/planned decisions:
+Keep title:
 
-approved
-rejected
-reoriented
-pending
+Prochaine action
 
-French labels:
+It should remain the final block on the right panel.
 
-approved → Approuvé
-rejected → Rejeté
-reoriented → Réorienté
-pending → En attente
+Target right panel order
 
-API:
+Final order should be:
 
-POST /api/v1/admin/dossiers/:id/phases/formal-request/dg-decision
+1. Header / metadata
+2. Courrier formel
+3. Réunion formelle
+4. Documents de demande formelle
+5. Prochaine action
 
-Enable only when:
-
-dgReturned === true
-dgDecisionRecorded === false
-
-After success:
-
-refresh list/detail
-status becomes Décision saisie
-Dossier Phase 2 workspace should reflect next step: DN can schedule formal meeting
-Optional fallback action — courrier reçu hors portail
-
-Only if already implemented safely in existing preserved dialogs.
-
-Button label:
-
-Scanner / enregistrer un courrier reçu hors portail
-
-Helper:
-
-À utiliser uniquement si la demande formelle a été reçue physiquement ou scannée en interne. Si le postulant téléverse sa demande depuis le portail, elle apparaîtra automatiquement ici.
-
-This must not be the primary action when waiting for portal upload.
-
-Acceptable to defer this fallback if it complicates the list state.
-
-Reuse preserved dialogs
-
-Inspect:
-
-apps/admin/src/pages/dossiers/formal-request-dialogs.tsx
-
-Reuse dialogs if compatible:
-
-RegisterFormalCourrierDialog
-SendFormalToDgDialog
-RecordFormalDgReturnDialog
-RecordFormalDgDecisionDialog
-
-If names differ, adapt to actual exports.
-
-If dialogs are too coupled to FormalRequestPhaseWorkspace, refactor minimally to accept:
-
-dossierId
-open
-onOpenChange
-onSuccess
-
-Do not move them back into dossier workspace.
-
-API client
-
-Add or reuse functions in:
-
-apps/admin/src/lib/api/dossiers.api.ts
-
-Expected functions:
-
-sendFormalRequestToDg(dossierId: string)
-recordFormalRequestDgReturn(dossierId: string, formData: FormData)
-recordFormalRequestDgDecision(dossierId: string, payload: ...)
-uploadFormalRequestCourrier(...) // fallback only
-
-If DgCircuitPage uses dg-circuit.api.ts, either:
-
-add thin formal-specific calls there, or
-import from dossiers.api.ts.
-
-Choose the least disruptive option.
-
-Data loading strategy
-
-If DgCircuitPage currently loads only DG circuit tasks, extend it to include Phase 2 formal request items.
-
-Preferred:
-
-Reuse existing endpoint if backend already includes formal request DG items.
-
-If not included, and no backend aggregate exists:
-
-Use existing admin dossier/phase APIs to load formal request states only if there is a reasonable existing list source.
-
-Do not invent fake formal request items.
-
-If the backend has no way to list all formal request items for Courriers officiels, stop and report the backend gap instead of hardcoding.
-
-The implementation report must explicitly state:
-
-Formal request items source: <endpoint/function>
-UI wording rules
-
-Never say:
-
-Envoyer le fichier au DG
-Envoyer électroniquement au DG
-
-Use:
-
-Mettre en circuit DG
-Circuit physique DG/parapheur
-Retour DG scanné
-Décision DG enregistrée
-Business rules to preserve
-
-- Portal owns normal formal request upload.
-- Courriers officiels owns print / physical DG circuit / scan return / decision.
-- Dossier DN workspace only reflects state until DN meeting step.
-- Supporting documents do not block DG circuit.
-- Formal request courrier remains the Phase 2 gate.
-- No portal changes in this slice.
-- No backend business rule changes.
-  Verification
+No Circuit officiel block.
+No Recevabilité et clôture checklist block.
+
+UX rules
+Use French labels.
+Keep Phase 2 visually consistent with Phase 1.
+Do not repeat the same workflow checklist twice.
+Right panel = details + next action.
+Left panel = phase list + progression.
+No raw technical IDs.
+No extra CTAs outside guided card.
+Verification
 
 Run:
 
@@ -559,19 +345,17 @@ npm run build
 
 Manual checks:
 
-1. Courriers officiels loads.
-2. Formal request item appears when formal courrier exists.
-3. Item type displays “Demande formelle”.
-4. Counters include formal request item.
-5. Filters classify it correctly.
-6. Detail panel shows formal request traceability.
-7. “Mettre en circuit DG” marks the formal request as in physical DG circuit.
-8. “Enregistrer le retour DG scanné” uploads scan and refreshes state.
-9. “Enregistrer la décision DG” records decision and refreshes state.
-10. Dossier Phase 2 workspace reflects updated progression after refresh.
-11. No action implies digital sending to DG.
-12. No portal files changed.
-    Documentation updates
+Phase 2 workspace loads.
+Right panel is shorter.
+Circuit officiel no longer appears as a large block.
+Recevabilité et clôture checklist no longer appears as a large block.
+Left progression card still shows phase steps.
+Top metadata still reflects circuit/return status.
+Guided “Prochaine action” card still works.
+Meeting buttons still appear in the correct states.
+Documents compact summary still appears.
+Phase 1 screen is unaffected.
+Documentation updates
 
 Update:
 
@@ -581,28 +365,23 @@ exploration-cache/manifest.json
 
 Create:
 
-exploration-cache/tasks/summaries/2026-05-27-oma-formal-9b1-courriers-officiels-demande-formelle.md
+exploration-cache/tasks/summaries/2026-05-27-oma-formal-9c0-phase-2-ui-alignment-cleanup.md
 
 Document:
 
-- item source endpoint/function
-- status mapping
-- filters/counters changed
-- actions wired
-- routes used
-- what was deferred
-- verification results
-  Return report
+removed duplicate blocks;
+final right-panel order;
+Phase 1 alignment decision;
+verification results;
+TODOs.
+Return report
 
 Return:
 
-1. Files inspected
-2. Files changed
-3. Formal request item source
-4. Status mapping
-5. Filters/counters updates
-6. Actions wired
-7. API client additions
-8. Business rules preserved
-9. Verification results
-10. Risks/TODOs
+Files inspected
+Files changed
+Blocks removed
+Final Phase 2 panel structure
+Guided action card status
+Verification results
+Risks/TODOs

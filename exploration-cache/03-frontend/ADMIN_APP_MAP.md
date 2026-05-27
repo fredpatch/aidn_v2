@@ -29,6 +29,8 @@ Source files inspected: `apps/admin/src/App.tsx`, `apps/admin/src/contexts/AuthC
   - Records DG decision through `POST /api/v1/admin/dossiers/:id/phases/formal-request/dg-decision`.
   - Presents admin formal courrier upload only as the fallback `Scanner / enregistrer un courrier reçu hors portail`; portal-uploaded courriers display as `Téléversé par le postulant`.
   - Keeps supporting documents tracking-only; only the formal request courrier gates DG circuit placement.
+  - The Phase 2 DN workspace follows the Phase 1 guided pattern: one right-panel workspace card, lightweight internal sections for formal courrier / formal meeting / compact documents, and the guided `Prochaine action` card last.
+  - Phase 2 `Démarrée le` displays `phaseRecord.startedAt` when available and falls back to formal request reception date when the phase has progressed but start date is absent.
 
 ## Admin Auth Routes
 - `/login`: French login page with `Administrateur initial` and `Agent ANAC` modes.

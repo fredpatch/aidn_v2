@@ -1,10 +1,5 @@
 import { useContext, useState } from "react";
-import {
-  CheckCircle2,
-  ClipboardCheck,
-  FileCheck2,
-  FileText,
-} from "lucide-react";
+import { CheckCircle2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -151,6 +146,23 @@ function LevelBadge({
   return <Badge variant="outline">{requirementLevelLabels[level] ?? level}</Badge>;
 }
 
+function DetailSection({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}): React.JSX.Element {
+  return (
+    <div className="space-y-1">
+      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        {title}
+      </p>
+      <div className="rounded-md border bg-muted/10 p-3">{children}</div>
+    </div>
+  );
+}
+
 function isSentToDgStatus(status: string | null | undefined): boolean {
   if (!status) return false;
   return [
@@ -178,28 +190,6 @@ function isDgReturnedStatus(status: string | null | undefined): boolean {
     "formal_requires_correction",
     "formal_closed",
   ].includes(status);
-}
-
-function WorkflowSection({
-  title,
-  icon,
-  children,
-}: {
-  title: string;
-  icon: React.ReactNode;
-  children: React.ReactNode;
-}): React.JSX.Element {
-  return (
-    <Card>
-      <CardHeader className="pb-3">
-        <CardTitle className="flex items-center gap-2 text-base">
-          {icon}
-          {title}
-        </CardTitle>
-      </CardHeader>
-      <CardContent>{children}</CardContent>
-    </Card>
-  );
 }
 
 export function FormalRequestPhaseWorkspace({
@@ -265,24 +255,28 @@ export function FormalRequestPhaseWorkspace({
   const meetingProgrammed = Boolean(state.meeting);
   const meetingHeld = state.meeting?.status === "held";
   const isClosed = state.phase.formalRequestStatus === "formal_closed";
+  const startedAtDisplay = phaseRecord?.startedAt ?? state.gate.receivedAt;
 
   const circuitOfficielStatus = dgDecisionRecorded
     ? "Décision enregistrée"
     : dgReturned
-    ? "Retour scanné"
-    : sentToDg
-    ? "Mis en circuit"
-    : "Non mis en circuit";
+      ? "Retour scanné"
+      : sentToDg
+        ? "Mis en circuit"
+        : "Non mis en circuit";
 
   const correctionsCount = state.requirements.filter(
-    (r) => r.status === "requires_correction",
+    (requirement) => requirement.status === "requires_correction",
   ).length;
-  const gateRequirement = state.requirements.find((r) => r.requirementLevel === "gate");
+  const gateRequirement = state.requirements.find(
+    (requirement) => requirement.requirementLevel === "gate",
+  );
   const correctionRequirements = state.requirements.filter(
-    (r) => r.status === "requires_correction" && r.requirementLevel !== "gate",
+    (requirement) =>
+      requirement.status === "requires_correction" &&
+      requirement.requirementLevel !== "gate",
   );
 
-  // ── Build the guided "Prochaine action" content ─────────────────────────────
   const fs = state.phase.formalRequestStatus;
   let nextActionContent: React.ReactNode;
 
@@ -290,7 +284,7 @@ export function FormalRequestPhaseWorkspace({
     nextActionContent = (
       <div className="flex items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm font-medium text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-200">
         <CheckCircle2 className="h-4 w-4 shrink-0" aria-hidden="true" />
-        Phase 2 — Demande formelle clôturée.
+        Phase 2 - Demande formelle clôturée.
       </div>
     );
   } else if (!state.gate.exists) {
@@ -353,227 +347,218 @@ export function FormalRequestPhaseWorkspace({
       </Button>
     ) : (
       <WaitingState>
-        Phase 2 prête à clôturer — en attente de la clôture par le responsable.
+        Phase 2 prête à clôturer - en attente de la clôture par le responsable.
       </WaitingState>
     );
   } else {
-    // intermediate: meeting report uploaded, awaiting recevability/closure courrier
     nextActionContent = (
       <WaitingState>
-        Réunion tenue et compte rendu joint. Chargez le courrier de recevabilité ou
-        de clôture depuis la section Recevabilité et clôture ci-dessus.
+        Réunion tenue et compte rendu joint. En attente du courrier de
+        recevabilité ou de clôture pour finaliser la phase.
       </WaitingState>
     );
   }
 
   return (
-    <div className="space-y-4">
-      {/* ── Header ──────────────────────────────────────────────────────────── */}
+    <>
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">Phase 2 — Demande formelle</CardTitle>
+          <CardTitle className="text-base">Phase 2 - Demande formelle</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
           <DefinitionGrid>
             <Field label="Statut demande formelle">{formalStatus}</Field>
             <Field label="Phase statut">
               <PhaseStatusBadge status={state.phase.status} />
             </Field>
-            <Field label="Démarrée le">{formatOptionalDate(phaseRecord?.startedAt)}</Field>
-            <Field label="Clôturée le">{formatOptionalDate(phaseRecord?.closedAt)}</Field>
+            <Field label="Démarrée le">
+              {formatOptionalDate(startedAtDisplay)}
+            </Field>
+            <Field label="Clôturée le">
+              {formatOptionalDate(phaseRecord?.closedAt)}
+            </Field>
             <Field label="Circuit officiel">{circuitOfficielStatus}</Field>
             <Field label="Retour DG">
               {dgReturned ? "Enregistré" : "Non enregistré"}
             </Field>
           </DefinitionGrid>
+
+          <DetailSection title="Courrier formel">
+            <div className="space-y-3 text-sm">
+              <div className="flex flex-wrap items-center gap-2">
+                <AvailabilityBadge
+                  available={state.gate.exists}
+                  availableLabel="Présent"
+                  missingLabel="Manquant"
+                />
+                {sentToDg ? (
+                  <Badge
+                    variant="outline"
+                    className="border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-200"
+                  >
+                    Mis en circuit DG
+                  </Badge>
+                ) : state.gate.exists ? (
+                  <Badge
+                    variant="outline"
+                    className="border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200"
+                  >
+                    En attente du circuit DG
+                  </Badge>
+                ) : null}
+              </div>
+
+              {!state.gate.exists ? (
+                <div className="space-y-2">
+                  <WaitingState>
+                    En attente du dépôt de la demande formelle par le postulant.
+                  </WaitingState>
+                  <Note>
+                    Le postulant doit téléverser la demande formelle depuis son
+                    portail. Si le courrier est reçu physiquement, il devra être
+                    traité depuis le circuit des courriers officiels.
+                  </Note>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {state.gate.source === "portal_upload" ? (
+                    <p className="text-sm font-medium text-emerald-700 dark:text-emerald-300">
+                      Demande formelle reçue via le portail.
+                    </p>
+                  ) : null}
+                  <DefinitionGrid>
+                    <Field label="Source">{gateSource}</Field>
+                    <Field label="Date réception">
+                      {formatOptionalDate(state.gate.receivedAt)}
+                    </Field>
+                  </DefinitionGrid>
+                  <Note>
+                    Le courrier formel conditionne la suite du circuit. Les autres
+                    pièces sont suivies sans bloquer automatiquement la progression DG.
+                  </Note>
+                </div>
+              )}
+            </div>
+          </DetailSection>
+
+          <div className="grid gap-4 xl:grid-cols-2">
+            <DetailSection title="Réunion formelle">
+              <div className="space-y-3 text-sm">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge variant={meetingProgrammed ? "secondary" : "outline"}>
+                    {state.meeting
+                      ? meetingStatusLabels[state.meeting.status] ?? state.meeting.status
+                      : "Non programmée"}
+                  </Badge>
+                  <AvailabilityBadge
+                    available={meetingHeld}
+                    availableLabel="Tenue"
+                    missingLabel="Non tenue"
+                  />
+                  <AvailabilityBadge
+                    available={Boolean(state.meeting?.reportDocumentId)}
+                    availableLabel="Compte rendu disponible"
+                    missingLabel="Compte rendu non joint"
+                  />
+                </div>
+                <DefinitionGrid>
+                  <Field label="Date prévue">
+                    {formatOptionalDate(state.meeting?.scheduledAt)}
+                  </Field>
+                  <Field label="Lieu">
+                    {state.meeting?.location ?? "Non renseigné"}
+                  </Field>
+                </DefinitionGrid>
+              </div>
+            </DetailSection>
+
+            <DetailSection title="Documents de demande formelle">
+              <div className="space-y-3 text-sm">
+                <div className="rounded-md bg-muted/30 p-3">
+                  <p className="text-sm text-foreground">
+                    <span className="font-medium">
+                      {state.progress.totalTracked} pièces suivies
+                    </span>
+                    {" · "}
+                    {state.progress.submitted} déposée
+                    {state.progress.submitted !== 1 ? "s" : ""}
+                    {" · "}
+                    {state.progress.validated} validée
+                    {state.progress.validated !== 1 ? "s" : ""}
+                    {correctionsCount > 0 ? (
+                      <span className="ml-1 font-medium text-destructive">
+                        {" · "}
+                        {correctionsCount} correction
+                        {correctionsCount !== 1 ? "s" : ""} demandée
+                        {correctionsCount !== 1 ? "s" : ""}
+                      </span>
+                    ) : null}
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Suivi documentaire uniquement, sans blocage automatique du
+                    circuit officiel.
+                  </p>
+                </div>
+
+                {gateRequirement ? (
+                  <div className="border-b pb-3">
+                    <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                      Demande formelle
+                    </p>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-medium">{gateRequirement.label}</span>
+                      <LevelBadge level={gateRequirement.requirementLevel} />
+                      <StatusBadge status={gateRequirement.status} />
+                    </div>
+                  </div>
+                ) : null}
+
+                {correctionRequirements.length > 0 ? (
+                  <div>
+                    <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                      Corrections demandées
+                    </p>
+                    <ul className="space-y-2">
+                      {correctionRequirements.map((requirement) => (
+                        <li
+                          key={requirement.requirementId}
+                          className="flex flex-wrap items-center gap-2"
+                        >
+                          <span>{requirement.label}</span>
+                          <StatusBadge status={requirement.status} />
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : (
+                  <p className="text-muted-foreground">
+                    Aucune correction demandée pour le moment.
+                  </p>
+                )}
+
+                <p className="text-xs text-muted-foreground">
+                  Consulter le détail dans l'onglet Documents.
+                </p>
+              </div>
+            </DetailSection>
+          </div>
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Prochaine action
+              </CardTitle>
+            </CardHeader>
+            <CardContent>{nextActionContent}</CardContent>
+          </Card>
         </CardContent>
       </Card>
 
-      {/* ── 1. Courrier formel ──────────────────────────────────────────────── */}
-      <WorkflowSection
-        title="Courrier formel"
-        icon={<FileText className="h-4 w-4" aria-hidden="true" />}
-      >
-        <div className="space-y-3 text-sm">
-          <div className="flex flex-wrap items-center gap-2">
-            <AvailabilityBadge
-              available={state.gate.exists}
-              availableLabel="Présent"
-              missingLabel="Manquant"
-            />
-            {sentToDg ? (
-              <Badge
-                variant="outline"
-                className="border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-200"
-              >
-                Mis en circuit DG
-              </Badge>
-            ) : state.gate.exists ? (
-              <Badge
-                variant="outline"
-                className="border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200"
-              >
-                En attente du circuit DG
-              </Badge>
-            ) : null}
-          </div>
-
-          {!state.gate.exists ? (
-            <div className="space-y-2">
-              <WaitingState>
-                En attente du dépôt de la demande formelle par le postulant.
-              </WaitingState>
-              <Note>
-                Le postulant doit téléverser la demande formelle depuis son portail.
-                Si le courrier est reçu physiquement, il devra être traité depuis le
-                circuit des courriers officiels.
-              </Note>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {state.gate.source === "portal_upload" ? (
-                <p className="text-sm font-medium text-emerald-700 dark:text-emerald-300">
-                  Demande formelle reçue via le portail.
-                </p>
-              ) : null}
-              <DefinitionGrid>
-                <Field label="Source">{gateSource}</Field>
-                <Field label="Date réception">
-                  {formatOptionalDate(state.gate.receivedAt)}
-                </Field>
-              </DefinitionGrid>
-              <Note>
-                Le courrier formel conditionne la suite du circuit. Les autres
-                pièces sont suivies sans bloquer automatiquement la progression DG.
-              </Note>
-            </div>
-          )}
-        </div>
-      </WorkflowSection>
-
-      {/* ── 2. Réunion formelle ──────────────────────────────────────────────── */}
-      <WorkflowSection
-        title="Réunion formelle"
-        icon={<ClipboardCheck className="h-4 w-4" aria-hidden="true" />}
-      >
-        <div className="space-y-3 text-sm">
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge variant={meetingProgrammed ? "secondary" : "outline"}>
-              {state.meeting
-                ? meetingStatusLabels[state.meeting.status] ?? state.meeting.status
-                : "Non programmée"}
-            </Badge>
-            <AvailabilityBadge
-              available={meetingHeld}
-              availableLabel="Tenue"
-              missingLabel="Non tenue"
-            />
-            <AvailabilityBadge
-              available={Boolean(state.meeting?.reportDocumentId)}
-              availableLabel="Compte rendu disponible"
-              missingLabel="Compte rendu non joint"
-            />
-          </div>
-          <DefinitionGrid>
-            <Field label="Date prévue">
-              {formatOptionalDate(state.meeting?.scheduledAt)}
-            </Field>
-            <Field label="Lieu">{state.meeting?.location ?? "Non renseigné"}</Field>
-          </DefinitionGrid>
-        </div>
-      </WorkflowSection>
-
-      {/* ── 3. Documents de demande formelle (résumé) ───────────────────────── */}
-      <WorkflowSection
-        title="Documents de demande formelle"
-        icon={<FileCheck2 className="h-4 w-4" aria-hidden="true" />}
-      >
-        <div className="space-y-3 text-sm">
-          {/* Summary */}
-          <div className="rounded-md bg-muted/30 p-3">
-            <p className="text-sm text-foreground">
-              <span className="font-medium">
-                {state.progress.totalTracked} pièces suivies
-              </span>
-              {" · "}
-              {state.progress.submitted} déposée
-              {state.progress.submitted !== 1 ? "s" : ""}
-              {" · "}
-              {state.progress.validated} validée
-              {state.progress.validated !== 1 ? "s" : ""}
-              {correctionsCount > 0 ? (
-                <span className="ml-1 font-medium text-destructive">
-                  {" · "}
-                  {correctionsCount} correction
-                  {correctionsCount !== 1 ? "s" : ""} demandée
-                  {correctionsCount !== 1 ? "s" : ""}
-                </span>
-              ) : null}
-            </p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Suivi documentaire uniquement, sans blocage automatique du circuit officiel.
-            </p>
-          </div>
-
-          {/* Gate requirement */}
-          {gateRequirement ? (
-            <div className="border-b pb-3">
-              <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                Demande formelle
-              </p>
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="font-medium">{gateRequirement.label}</span>
-                <LevelBadge level={gateRequirement.requirementLevel} />
-                <StatusBadge status={gateRequirement.status} />
-              </div>
-            </div>
-          ) : null}
-
-          {/* Corrections */}
-          {correctionRequirements.length > 0 ? (
-            <div>
-              <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                Corrections demandées
-              </p>
-              <ul className="space-y-2">
-                {correctionRequirements.map((req) => (
-                  <li
-                    key={req.requirementId}
-                    className="flex flex-wrap items-center gap-2"
-                  >
-                    <span>{req.label}</span>
-                    <StatusBadge status={req.status} />
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ) : (
-            <p className="text-muted-foreground">
-              Aucune correction demandée pour le moment.
-            </p>
-          )}
-
-          {/* Hint link to Documents tab */}
-          <p className="text-xs text-muted-foreground">
-            Consulter le détail dans l'onglet Documents.
-          </p>
-        </div>
-      </WorkflowSection>
-
-      {/* ── Prochaine action ────────────────────────────────────────────────── */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium text-muted-foreground">
-            Prochaine action
-          </CardTitle>
-        </CardHeader>
-        <CardContent>{nextActionContent}</CardContent>
-      </Card>
-
-      {/* ── Dialogs ─────────────────────────────────────────────────────────── */}
       <InviteFormalMeetingDialog
         open={openDialog === "invite_formal_meeting"}
-        onOpenChange={(value) => { if (!value) setOpenDialog(null); }}
+        onOpenChange={(value) => {
+          if (!value) setOpenDialog(null);
+        }}
         dossierId={dossierId}
         onSuccess={(nextState) => {
           setOpenDialog(null);
@@ -582,7 +567,9 @@ export function FormalRequestPhaseWorkspace({
       />
       <MarkFormalMeetingHeldDialog
         open={openDialog === "mark_meeting_held"}
-        onOpenChange={(value) => { if (!value) setOpenDialog(null); }}
+        onOpenChange={(value) => {
+          if (!value) setOpenDialog(null);
+        }}
         dossierId={dossierId}
         onSuccess={(nextState) => {
           setOpenDialog(null);
@@ -591,7 +578,9 @@ export function FormalRequestPhaseWorkspace({
       />
       <UploadFormalMeetingReportDialog
         open={openDialog === "upload_meeting_report"}
-        onOpenChange={(value) => { if (!value) setOpenDialog(null); }}
+        onOpenChange={(value) => {
+          if (!value) setOpenDialog(null);
+        }}
         dossierId={dossierId}
         onSuccess={(nextState) => {
           setOpenDialog(null);
@@ -600,13 +589,15 @@ export function FormalRequestPhaseWorkspace({
       />
       <CloseFormalRequestPhaseDialog
         open={openDialog === "close_phase"}
-        onOpenChange={(value) => { if (!value) setOpenDialog(null); }}
+        onOpenChange={(value) => {
+          if (!value) setOpenDialog(null);
+        }}
         dossierId={dossierId}
         onSuccess={(nextState) => {
           setOpenDialog(null);
           onStateChange(nextState);
         }}
       />
-    </div>
+    </>
   );
 }

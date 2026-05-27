@@ -703,10 +703,6 @@ export function DgCircuitPage(): React.JSX.Element {
     });
   };
 
-  const submitDecision = (task: DgCircuitTask) => {
-    setModal({ kind: "formal-dg-decision", task });
-  };
-
   const submitPhysicalReceipt = (task: DgCircuitTask, formData: FormData) => {
     if (!task.requestId) return;
     void runAction(() => registerPhysicalCourrier(task.requestId!, formData));
@@ -953,17 +949,7 @@ export function DgCircuitPage(): React.JSX.Element {
                       Consulter le retour DG
                     </Button>
                   ) : null}
-                  {selected.source === "formal_request" &&
-                  selected.availableActions.includes("record_dg_decision") ? (
-                    <Button
-                      type="button"
-                      onClick={() => submitDecision(selected)}
-                      disabled={isSubmitting}
-                    >
-                      <FileCheck2 className="mr-2 h-4 w-4" />
-                      Enregistrer la décision DG
-                    </Button>
-                  ) : null}
+                  {/* formal_request: no separate decision step — scanned return is the evidence */}
                 </>
               ) : null}
             </div>

@@ -501,12 +501,11 @@ export const listDgCircuitTasks = async (
         actions.push("record_annotated_return");
       }
     } else if (reviewStatus === "returned_scanned") {
-      bucket = "returned_scanned";
+      // MVP: for formal_request, scanned return = decision evidence — present as decision_recorded.
+      // No separate record_dg_decision step is required.
+      bucket = "decision_recorded";
       if (can(actor, Permissions.DG_CIRCUIT_HANDLE) && review?.returnedScannedDocumentId) {
         actions.push("download_annotated_return");
-      }
-      if (can(actor, Permissions.DG_DECISION_RECORD)) {
-        actions.push("record_dg_decision");
       }
     } else if (reviewStatus === "decision_recorded") {
       bucket = "decision_recorded";
@@ -538,7 +537,7 @@ export const listDgCircuitTasks = async (
       transmittedAt: toIso(phase.formalSentToDgAt),
       returnedAt: toIso(phase.formalDgReturnedAt),
       processedAt:
-        reviewStatus === "decision_recorded"
+        reviewStatus === "decision_recorded" || reviewStatus === "returned_scanned"
           ? toIso(review?.decisionRecordedAt ?? phase.formalDgReturnedAt ?? phase.updatedAt)
           : undefined,
       sentToDgAt: toIso(phase.formalSentToDgAt),

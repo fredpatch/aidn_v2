@@ -118,8 +118,10 @@ export const getAdminFormalRequestPhase = async (dossierId: string, actor: Actor
 
   const canSendToDg = gateExists && !phase.formalRequestDgReviewId;
 
+  // formal_dg_returned is treated as decision-available for MVP (scan = evidence)
   const canInviteFormalMeeting =
-    phase.formalRequestStatus === "formal_dg_decision_recorded";
+    phase.formalRequestStatus === "formal_dg_decision_recorded" ||
+    phase.formalRequestStatus === "formal_dg_returned";
 
   const dgDecisionApproved = formalDgReview
     ? String(formalDgReview.decision) === "approved"
@@ -531,7 +533,9 @@ export const recordFormalRequestDgReturn = async (
     ownerPath: `dossiers/${dossierObjId.toString()}/formal-request/dg-return`,
   });
 
-  phase.formalRequestStatus = "formal_dg_returned" as never;
+  // MVP: scanned DG return is the decision evidence — skip to decision_recorded
+  // so DN can immediately schedule the formal meeting without a second step.
+  phase.formalRequestStatus = "formal_dg_decision_recorded" as never;
   phase.status = "in_progress" as never;
   phase.formalDgReturnedAt = returnedAt;
   await phase.save();

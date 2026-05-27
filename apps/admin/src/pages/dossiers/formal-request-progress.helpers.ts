@@ -31,6 +31,8 @@ const RETURN_OR_AFTER = new Set([
 ]);
 
 const DECISION_OR_AFTER = new Set([
+  // MVP: formal_dg_returned is treated as decision-available (scan = evidence)
+  "formal_dg_returned",
   "formal_dg_decision_recorded",
   "formal_meeting_invited",
   "formal_meeting_held",

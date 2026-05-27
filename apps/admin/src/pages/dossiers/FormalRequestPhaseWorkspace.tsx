@@ -40,8 +40,8 @@ const formalStatusLabels: Record<string, string> = {
   formal_request_received: "Demande formelle reçue",
   formal_documents_tracking: "Suivi documentaire",
   formal_sent_to_dg: "Mise en circuit DG",
-  formal_dg_returned: "Retour DG enregistré",
-  formal_dg_decision_recorded: "Décision DG enregistrée",
+  formal_dg_returned: "Retour DG / Décision disponible",
+  formal_dg_decision_recorded: "Retour DG / Décision disponible",
   formal_meeting_invited: "Réunion formelle programmée",
   formal_meeting_held: "Réunion formelle tenue",
   formal_recevability_recorded: "Recevabilité enregistrée",
@@ -257,10 +257,10 @@ export function FormalRequestPhaseWorkspace({
   const isClosed = state.phase.formalRequestStatus === "formal_closed";
   const startedAtDisplay = phaseRecord?.startedAt ?? state.gate.receivedAt;
 
-  const circuitOfficielStatus = dgDecisionRecorded
-    ? "Décision enregistrée"
-    : dgReturned
-      ? "Retour scanné"
+  // dgReturned and dgDecisionRecorded are now equivalent for Phase 2 (scan = evidence)
+  const circuitOfficielStatus =
+    dgReturned || dgDecisionRecorded
+      ? "Retour DG scanné"
       : sentToDg
         ? "Mis en circuit"
         : "Non mis en circuit";
@@ -305,20 +305,15 @@ export function FormalRequestPhaseWorkspace({
         Demande formelle en circuit officiel. En attente du retour DG.
       </WaitingState>
     );
-  } else if (!dgDecisionRecorded) {
-    nextActionContent = (
-      <WaitingState>
-        Retour DG reçu. En attente de l'enregistrement de la décision DG depuis Courriers officiels.
-      </WaitingState>
-    );
-  } else if (fs === "formal_dg_decision_recorded" || state.phase.canInviteFormalMeeting) {
+  } else if (state.phase.canInviteFormalMeeting || dgDecisionRecorded) {
+    // DG return scan = decision evidence for Phase 2 MVP — show meeting action directly
     nextActionContent = canManageMeetings ? (
       <Button onClick={() => setOpenDialog("invite_formal_meeting")}>
         Planifier la réunion formelle
       </Button>
     ) : (
       <WaitingState>
-        Décision DG enregistrée. Réunion formelle à programmer par le responsable.
+        Retour DG disponible. Réunion formelle à programmer par le responsable.
       </WaitingState>
     );
   } else if (fs === "formal_meeting_invited") {

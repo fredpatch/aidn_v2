@@ -943,18 +943,31 @@ export function UploadFormalMeetingReportDialog({
   );
 }
 
+type CloseFormalRequestPhaseDialogProps = BaseProps & {
+  progress: AdminFormalRequestPhaseState["progress"];
+};
+
 export function CloseFormalRequestPhaseDialog({
   open,
   onOpenChange,
   dossierId,
   onSuccess,
-}: BaseProps): React.JSX.Element {
+  progress,
+}: CloseFormalRequestPhaseDialogProps): React.JSX.Element {
   const [notes, setNotes] = useState("");
+  const [comment, setComment] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
 
+  const isComplete =
+    progress.totalTracked > 0 &&
+    progress.validated >= progress.totalTracked &&
+    progress.missing === 0;
+  const completeness: "complete" | "partial" = isComplete ? "complete" : "partial";
+
   const reset = () => {
     setNotes("");
+    setComment("");
     setError("");
   };
 
@@ -964,6 +977,8 @@ export function CloseFormalRequestPhaseDialog({
     try {
       const nextState = await closeFormalRequestPhase(dossierId, {
         notes: notes.trim() || undefined,
+        completeness,
+        comment: comment.trim() || undefined,
       });
       reset();
       onOpenChange(false);
@@ -991,9 +1006,57 @@ export function CloseFormalRequestPhaseDialog({
             la phase 3 (Évaluation documentaire) sera déverrouillée.
           </DialogDescription>
         </DialogHeader>
+
+        {/* Document completeness summary */}
+        <div className="rounded-md border bg-muted/20 p-3 text-sm">
+          <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            Pièces justificatives
+          </p>
+          <p className="text-foreground">
+            <span className="font-medium">{progress.totalTracked}</span> pièces suivies
+            {" · "}
+            <span className="font-medium">{progress.submitted}</span> déposée{progress.submitted !== 1 ? "s" : ""}
+            {" · "}
+            <span className="font-medium">{progress.validated}</span> validée{progress.validated !== 1 ? "s" : ""}
+            {progress.missing > 0 ? (
+              <>
+                {" · "}
+                <span className="font-medium text-destructive">
+                  {progress.missing} manquante{progress.missing !== 1 ? "s" : ""}
+                </span>
+              </>
+            ) : null}
+          </p>
+        </div>
+
+        {/* Partial closure warning */}
+        {!isComplete ? (
+          <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200">
+            Certaines pièces ne sont pas encore validées. La phase sera clôturée
+            avec réserves. Indiquez un motif ci-dessous si nécessaire.
+          </div>
+        ) : null}
+
+        {/* Comment (required for partial) */}
+        {!isComplete ? (
+          <div className="space-y-1">
+            <Label htmlFor="formal-close-comment" className="text-xs">
+              Motif / observation de clôture avec réserves
+            </Label>
+            <Textarea
+              id="formal-close-comment"
+              value={comment}
+              onChange={(event) => setComment(event.target.value)}
+              rows={2}
+              className="text-sm"
+              placeholder="Ex. : Documents complémentaires attendus en phase 3…"
+            />
+          </div>
+        ) : null}
+
         <div className="space-y-1">
           <Label htmlFor="formal-close-notes" className="text-xs">
-            Notes de clôture
+            Notes de clôture (optionnel)
           </Label>
           <Textarea
             id="formal-close-notes"
@@ -1027,8 +1090,10 @@ export function CloseFormalRequestPhaseDialog({
                 <Clock className="mr-2 h-4 w-4 animate-spin" />
                 En cours...
               </>
-            ) : (
+            ) : isComplete ? (
               "Clôturer la Phase 2"
+            ) : (
+              "Clôturer avec réserves"
             )}
           </Button>
         </DialogFooter>

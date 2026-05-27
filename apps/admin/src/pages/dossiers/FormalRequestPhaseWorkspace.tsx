@@ -15,6 +15,7 @@ import {
   ActionError,
   DefinitionGrid,
   Field,
+  MeetingCard,
   Note,
   PhaseStatusBadge,
   WaitingState,
@@ -73,14 +74,6 @@ const sourceLabels: Record<string, string> = {
   portal_upload: "Téléversé par le postulant",
   physical_deposit: "Dépôt physique",
   internal_scan: "Scan interne",
-};
-
-const meetingStatusLabels: Record<string, string> = {
-  planned: "Programmée",
-  invited: "Programmée",
-  held: "Tenue",
-  postponed: "Reportée",
-  cancelled: "Annulée",
 };
 
 function formatOptionalDate(value?: string): string {
@@ -257,6 +250,14 @@ export function FormalRequestPhaseWorkspace({
   const meetingHeld = state.meeting?.status === "held";
   const isClosed = state.phase.formalRequestStatus === "formal_closed";
   const startedAtDisplay = phaseRecord?.startedAt ?? state.gate.receivedAt;
+  const formalMeetingForCard = state.meeting
+    ? {
+        ...state.meeting,
+        meetingType: "formal_meeting",
+        title: "Réunion formelle",
+        reportDocumentId: state.meeting.reportDocumentId ?? undefined,
+      }
+    : null;
 
   const visibility = getFormalRequestVisibility(state);
 
@@ -353,11 +354,10 @@ export function FormalRequestPhaseWorkspace({
       </WaitingState>
     );
   } else {
-    // Meeting report uploaded, awaiting recevability/closure courrier
+    // Compte rendu joint — phase ready for DN closure decision
     nextActionContent = (
       <WaitingState>
-        Réunion tenue et compte rendu joint. En attente du courrier de
-        recevabilité ou de clôture pour finaliser la phase.
+        Compte rendu joint. La phase peut être clôturée par la DN.
       </WaitingState>
     );
   }
@@ -448,39 +448,32 @@ export function FormalRequestPhaseWorkspace({
           {visibility.showFormalMeeting || visibility.showSupportingDocuments ? (
             <div className="grid gap-4 xl:grid-cols-2">
               {visibility.showFormalMeeting ? (
-                <DetailSection title="Réunion formelle">
-                  <div className="space-y-3 text-sm">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Badge variant={meetingProgrammed ? "secondary" : "outline"}>
-                        {state.meeting
-                          ? meetingStatusLabels[state.meeting.status] ?? state.meeting.status
-                          : "Non programmée"}
-                      </Badge>
-                      <AvailabilityBadge
-                        available={meetingHeld}
-                        availableLabel="Tenue"
-                        missingLabel="Non tenue"
-                      />
-                      {visibility.showMeetingReport ? (
-                        <AvailabilityBadge
-                          available={Boolean(state.meeting?.reportDocumentId)}
-                          availableLabel="Compte rendu disponible"
-                          missingLabel="Compte rendu non joint"
-                        />
-                      ) : null}
+                <div className="space-y-1">
+                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    Réunion formelle
+                  </p>
+                  {formalMeetingForCard ? (
+                    <MeetingCard meeting={formalMeetingForCard} />
+                  ) : (
+                    <div className="rounded-md border bg-muted/20 p-3 text-sm">
+                      <p className="font-medium">Réunion formelle</p>
+                      <dl className="mt-2 grid gap-1 text-xs text-muted-foreground sm:grid-cols-2">
+                        <div>
+                          <dt className="inline">Statut : </dt>
+                          <dd className="inline">Non programmée</dd>
+                        </div>
+                        <div>
+                          <dt className="inline">Date prévue : </dt>
+                          <dd className="inline">Non renseigné</dd>
+                        </div>
+                        <div>
+                          <dt className="inline">Lieu : </dt>
+                          <dd className="inline">Non renseigné</dd>
+                        </div>
+                      </dl>
                     </div>
-                    {state.meeting ? (
-                      <DefinitionGrid>
-                        <Field label="Date prévue">
-                          {formatOptionalDate(state.meeting.scheduledAt)}
-                        </Field>
-                        <Field label="Lieu">
-                          {state.meeting.location ?? "Non renseigné"}
-                        </Field>
-                      </DefinitionGrid>
-                    ) : null}
-                  </div>
-                </DetailSection>
+                  )}
+                </div>
               ) : null}
 
               {visibility.showSupportingDocuments ? (
@@ -614,6 +607,7 @@ export function FormalRequestPhaseWorkspace({
           if (!value) setOpenDialog(null);
         }}
         dossierId={dossierId}
+        progress={state.progress}
         onSuccess={(nextState) => {
           setOpenDialog(null);
           onStateChange(nextState);

@@ -447,7 +447,11 @@ export function uploadFormalMeetingReport(
 
 export function closeFormalRequestPhase(
   id: string,
-  payload: { notes?: string },
+  payload: {
+    notes?: string;
+    completeness?: "complete" | "partial";
+    comment?: string;
+  },
 ): Promise<AdminFormalRequestPhaseState> {
   return apiPost<AdminFormalRequestPhaseState>(
     `/api/v1/admin/dossiers/${id}/phases/formal-request/close`,

@@ -123,16 +123,28 @@ export const getAdminFormalRequestPhase = async (dossierId: string, actor: Actor
     phase.formalRequestStatus === "formal_dg_decision_recorded" ||
     phase.formalRequestStatus === "formal_dg_returned";
 
-  const dgDecisionApproved = formalDgReview
-    ? String(formalDgReview.decision) === "approved"
-    : false;
+  // MVP collapsed DG flow: DG evidence = scanned return (no separate "approved" decision)
+  const DG_EVIDENCE_STATUSES = new Set([
+    "formal_dg_returned",
+    "formal_dg_decision_recorded",
+    "formal_meeting_invited",
+    "formal_meeting_held",
+    "formal_recevability_recorded",
+    "formal_ready_to_close",
+    "formal_requires_correction",
+    "formal_closed",
+  ]);
+  const dgEvidenceReady = DG_EVIDENCE_STATUSES.has(
+    (phase.formalRequestStatus as string | undefined) ?? "",
+  );
   const meetingHeld = formalMeeting ? String(formalMeeting.status) === "held" : false;
+  const meetingReportUploaded = Boolean(phase.formalMeetingReportDocumentId);
 
   const canClosePhase = !!(
     phase.formalRequestCourrierId &&
-    dgDecisionApproved &&
+    dgEvidenceReady &&
     meetingHeld &&
-    (phase.recevabilityCourrierDocumentId || phase.phaseClosureCourrierDocumentId)
+    meetingReportUploaded
   );
 
   // ── Build requirement list ─────────────────────────────────────────────────
@@ -1203,7 +1215,11 @@ export const uploadFormalClosureCourrier = async (
 export const closeFormalRequestPhase = async (
   dossierId: string,
   actor: Actor,
-  payload: { notes?: string },
+  payload: {
+    notes?: string;
+    completeness?: "complete" | "partial";
+    comment?: string;
+  },
 ) => {
   ensureInternalActor(actor);
 
@@ -1224,10 +1240,7 @@ export const closeFormalRequestPhase = async (
   const dgReview = (await DGReviewModel.findById(phase.formalRequestDgReviewId).lean()) as unknown as GenericRecord | null;
   if (!dgReview) throw new HttpError(404, "Circuit DG introuvable.");
   if (String(dgReview.status) !== "decision_recorded") {
-    throw new HttpError(409, "La décision DG doit être enregistrée avant de clôturer la phase.");
-  }
-  if (String(dgReview.decision) !== "approved") {
-    throw new HttpError(409, "La décision DG doit être approuvée avant de clôturer la phase.");
+    throw new HttpError(409, "Le retour DG doit être enregistré avant de clôturer la phase.");
   }
 
   if (!phase.formalMeetingId) {
@@ -1239,10 +1252,10 @@ export const closeFormalRequestPhase = async (
     throw new HttpError(409, "La réunion formelle doit être tenue avant de clôturer la phase.");
   }
 
-  if (!phase.recevabilityCourrierDocumentId && !phase.phaseClosureCourrierDocumentId) {
+  if (!phase.formalMeetingReportDocumentId) {
     throw new HttpError(
       409,
-      "Le courrier de recevabilité ou de clôture Phase II est requis avant de clôturer la phase.",
+      "Le compte rendu de réunion formelle est requis avant de clôturer la phase.",
     );
   }
 
@@ -1312,6 +1325,8 @@ export const closeFormalRequestPhase = async (
       phaseId: (phase._id as Types.ObjectId).toString(),
       nextPhaseId: (docEvalPhase._id as Types.ObjectId).toString(),
       actorId: actor.id,
+      completeness: payload.completeness ?? "complete",
+      comment: payload.comment ?? null,
     },
   });
 

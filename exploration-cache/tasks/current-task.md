@@ -1,34 +1,33 @@
 # Current Task
 
-## Phase: OMA-FORMAL-11 — Align Phase 2 Formal Meeting Lifecycle with Phase 1 Pattern
+## Phase: OMA-FORMAL-12 — Replace Phase 2 Closure Courrier Requirement with DN Closure Decision
 
 Date: 2026-05-27
 Status: **Complete — API typecheck PASS, API build PASS, Admin typecheck PASS, Admin build PASS**
 
 ## Summary files
 
-- Implementation: `exploration-cache/tasks/summaries/2026-05-27-oma-formal-11-formal-meeting-report-pattern.md`
+- Implementation: `exploration-cache/tasks/summaries/2026-05-27-oma-formal-12-phase-2-closure-decision.md`
 
 ## Files modified
 
 - `apps/api/src/modules/oma-phases/formal-request.service.ts`
-  - `uploadFormalMeetingReport`: now also marks meeting as held + advances formalRequestStatus
-
+- `apps/api/src/modules/admin/admin.routes.ts`
+- `apps/admin/src/lib/api/dossiers.api.ts`
+- `apps/admin/src/pages/dossiers/formal-request-dialogs.tsx`
 - `apps/admin/src/pages/dossiers/FormalRequestPhaseWorkspace.tsx`
-  - `meetingProgrammed && !meetingHeld` branch: "Joindre le compte rendu de réunion formelle" (opens upload_meeting_report, requires canPublishDocuments)
-  - Removed `MarkFormalMeetingHeldDialog` from import, DialogKey, and render
 
-## Phase 2 meeting lifecycle (after this change)
+## Phase 2 closure flow (final)
 
-1. Meeting planned (`formal_meeting_invited`) → Button: "Joindre le compte rendu de réunion formelle"
-2. Compte rendu uploaded → meeting.status = "held", phase = formal_meeting_held, showClosureEvidence = true
-3. Closure evidence section appears → next action: awaiting recevability/closure courrier
-
-## Kept as fallback
-
-- `POST /phases/formal-request/meeting/mark-held` endpoint preserved (admin correction)
-- `meetingHeld && !reportDocumentId` branch in workspace handles edge case
+1. Meeting planned → "Joindre le compte rendu de réunion formelle"
+2. Compte rendu uploaded → meeting held, formalRequestStatus = formal_meeting_held
+3. canClosePhase becomes true (gate + DG evidence + meeting held + report uploaded)
+4. "Clôturer la Phase 2" button appears
+5. Dialog shows document completeness summary
+6. If complete → "Clôturer la Phase 2"
+7. If partial → amber warning + optional comment + "Clôturer avec réserves"
+8. On close: Phase 2 closed, dossier = document_evaluation_phase, Phase 3 started
 
 ## Next step
 
-Manual browser validation, or proceed to formal request closure evidence/download implementation.
+Manual browser validation, or proceed to Phase 3 (document evaluation) admin workspace implementation.

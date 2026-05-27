@@ -699,6 +699,11 @@ adminRouter.post(
         req.user!,
         {
           notes: typeof req.body.notes === "string" ? req.body.notes : undefined,
+          completeness:
+            req.body.completeness === "partial" || req.body.completeness === "complete"
+              ? (req.body.completeness as "complete" | "partial")
+              : undefined,
+          comment: typeof req.body.comment === "string" ? req.body.comment : undefined,
         },
       ),
     );

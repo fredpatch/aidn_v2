@@ -1,11 +1,9 @@
 import { useContext, useState } from "react";
 import {
   CheckCircle2,
-  Circle,
   ClipboardCheck,
   FileCheck2,
   FileText,
-  Send,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -27,7 +25,6 @@ import {
   WaitingState,
   formatDate,
 } from "./dossier-detail.helpers";
-import { FormalRequestPhaseChecklist } from "./FormalRequestPhaseChecklist";
 import { hasFormalDgDecision } from "./formal-request-progress.helpers";
 import {
   CloseFormalRequestPhaseDialog,
@@ -183,27 +180,6 @@ function isDgReturnedStatus(status: string | null | undefined): boolean {
   ].includes(status);
 }
 
-function StepLine({
-  done,
-  label,
-}: {
-  done: boolean;
-  label: string;
-}): React.JSX.Element {
-  return (
-    <li className="flex items-center gap-2 text-sm">
-      {done ? (
-        <CheckCircle2 className="h-4 w-4 text-emerald-600" aria-hidden="true" />
-      ) : (
-        <Circle className="h-4 w-4 text-muted-foreground/40" aria-hidden="true" />
-      )}
-      <span className={done ? "text-foreground" : "text-muted-foreground"}>
-        {label}
-      </span>
-    </li>
-  );
-}
-
 function WorkflowSection({
   title,
   icon,
@@ -289,6 +265,14 @@ export function FormalRequestPhaseWorkspace({
   const meetingProgrammed = Boolean(state.meeting);
   const meetingHeld = state.meeting?.status === "held";
   const isClosed = state.phase.formalRequestStatus === "formal_closed";
+
+  const circuitOfficielStatus = dgDecisionRecorded
+    ? "Décision enregistrée"
+    : dgReturned
+    ? "Retour scanné"
+    : sentToDg
+    ? "Mis en circuit"
+    : "Non mis en circuit";
 
   const correctionsCount = state.requirements.filter(
     (r) => r.status === "requires_correction",
@@ -384,20 +368,26 @@ export function FormalRequestPhaseWorkspace({
 
   return (
     <div className="space-y-4">
-      <DefinitionGrid>
-        <Field label="Statut demande formelle">{formalStatus}</Field>
-        <Field label="Phase statut">
-          <PhaseStatusBadge status={state.phase.status} />
-        </Field>
-        <Field label="Démarrée le">{formatOptionalDate(phaseRecord?.startedAt)}</Field>
-        <Field label="Clôturée le">{formatOptionalDate(phaseRecord?.closedAt)}</Field>
-        <Field label="Circuit officiel">
-          {sentToDg ? "Mis en circuit" : "Non mis en circuit"}
-        </Field>
-        <Field label="Retour DG">
-          {dgReturned ? "Scan enregistré" : "Non enregistré"}
-        </Field>
-      </DefinitionGrid>
+      {/* ── Header ──────────────────────────────────────────────────────────── */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Phase 2 — Demande formelle</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <DefinitionGrid>
+            <Field label="Statut demande formelle">{formalStatus}</Field>
+            <Field label="Phase statut">
+              <PhaseStatusBadge status={state.phase.status} />
+            </Field>
+            <Field label="Démarrée le">{formatOptionalDate(phaseRecord?.startedAt)}</Field>
+            <Field label="Clôturée le">{formatOptionalDate(phaseRecord?.closedAt)}</Field>
+            <Field label="Circuit officiel">{circuitOfficielStatus}</Field>
+            <Field label="Retour DG">
+              {dgReturned ? "Enregistré" : "Non enregistré"}
+            </Field>
+          </DefinitionGrid>
+        </CardContent>
+      </Card>
 
       {/* ── 1. Courrier formel ──────────────────────────────────────────────── */}
       <WorkflowSection
@@ -461,25 +451,7 @@ export function FormalRequestPhaseWorkspace({
         </div>
       </WorkflowSection>
 
-      {/* ── 2. Circuit officiel (lecture seule) ─────────────────────────────── */}
-      <WorkflowSection
-        title="Circuit officiel"
-        icon={<Send className="h-4 w-4" aria-hidden="true" />}
-      >
-        <div className="space-y-4">
-          <ol className="grid gap-2 sm:grid-cols-2">
-            <StepLine done={!sentToDg} label="Non mis en circuit" />
-            <StepLine done={sentToDg} label="Mis en circuit DG/parapheur" />
-            <StepLine done={dgReturned} label="Retour DG scanné" />
-            <StepLine done={dgDecisionRecorded} label="Décision DG enregistrée" />
-          </ol>
-          <Note>
-            Le circuit officiel est traité depuis l'espace Courriers officiels.
-          </Note>
-        </div>
-      </WorkflowSection>
-
-      {/* ── 3. Réunion formelle ─────────────────────────────────────────────── */}
+      {/* ── 2. Réunion formelle ──────────────────────────────────────────────── */}
       <WorkflowSection
         title="Réunion formelle"
         icon={<ClipboardCheck className="h-4 w-4" aria-hidden="true" />}
@@ -511,7 +483,7 @@ export function FormalRequestPhaseWorkspace({
         </div>
       </WorkflowSection>
 
-      {/* ── 4. Documents de demande formelle (résumé) ───────────────────────── */}
+      {/* ── 3. Documents de demande formelle (résumé) ───────────────────────── */}
       <WorkflowSection
         title="Documents de demande formelle"
         icon={<FileCheck2 className="h-4 w-4" aria-hidden="true" />}
@@ -585,33 +557,6 @@ export function FormalRequestPhaseWorkspace({
           <p className="text-xs text-muted-foreground">
             Consulter le détail dans l'onglet Documents.
           </p>
-        </div>
-      </WorkflowSection>
-
-      {/* ── 5. Recevabilité et clôture ──────────────────────────────────────── */}
-      <WorkflowSection
-        title="Recevabilité et clôture"
-        icon={<CheckCircle2 className="h-4 w-4" aria-hidden="true" />}
-      >
-        <div className="space-y-3 text-sm">
-          <div className="flex flex-wrap items-center gap-2">
-            <AvailabilityBadge
-              available={Boolean(state.closure.recevabilityCourrierDocumentId)}
-              availableLabel="Courrier de recevabilité joint"
-              missingLabel="Recevabilité non jointe"
-            />
-            <AvailabilityBadge
-              available={Boolean(state.closure.phaseClosureCourrierDocumentId)}
-              availableLabel="Courrier de clôture Phase II joint"
-              missingLabel="Clôture non jointe"
-            />
-            <AvailabilityBadge
-              available={state.phase.canClosePhase || state.closure.canClosePhase}
-              availableLabel="Clôture possible"
-              missingLabel="Clôture non disponible"
-            />
-          </div>
-          <FormalRequestPhaseChecklist state={state} />
         </div>
       </WorkflowSection>
 

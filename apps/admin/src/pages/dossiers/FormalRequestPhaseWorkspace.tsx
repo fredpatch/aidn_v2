@@ -20,7 +20,10 @@ import {
   WaitingState,
   formatDate,
 } from "./dossier-detail.helpers";
-import { hasFormalDgDecision } from "./formal-request-progress.helpers";
+import {
+  getFormalRequestVisibility,
+  hasFormalDgDecision,
+} from "./formal-request-progress.helpers";
 import {
   CloseFormalRequestPhaseDialog,
   InviteFormalMeetingDialog,
@@ -257,6 +260,8 @@ export function FormalRequestPhaseWorkspace({
   const isClosed = state.phase.formalRequestStatus === "formal_closed";
   const startedAtDisplay = phaseRecord?.startedAt ?? state.gate.receivedAt;
 
+  const visibility = getFormalRequestVisibility(state);
+
   // dgReturned and dgDecisionRecorded are now equivalent for Phase 2 (scan = evidence)
   const circuitOfficielStatus =
     dgReturned || dgDecisionRecorded
@@ -439,107 +444,136 @@ export function FormalRequestPhaseWorkspace({
             </div>
           </DetailSection>
 
-          <div className="grid gap-4 xl:grid-cols-2">
-            <DetailSection title="Réunion formelle">
-              <div className="space-y-3 text-sm">
-                <div className="flex flex-wrap items-center gap-2">
-                  <Badge variant={meetingProgrammed ? "secondary" : "outline"}>
-                    {state.meeting
-                      ? meetingStatusLabels[state.meeting.status] ?? state.meeting.status
-                      : "Non programmée"}
-                  </Badge>
-                  <AvailabilityBadge
-                    available={meetingHeld}
-                    availableLabel="Tenue"
-                    missingLabel="Non tenue"
-                  />
-                  <AvailabilityBadge
-                    available={Boolean(state.meeting?.reportDocumentId)}
-                    availableLabel="Compte rendu disponible"
-                    missingLabel="Compte rendu non joint"
-                  />
-                </div>
-                <DefinitionGrid>
-                  <Field label="Date prévue">
-                    {formatOptionalDate(state.meeting?.scheduledAt)}
-                  </Field>
-                  <Field label="Lieu">
-                    {state.meeting?.location ?? "Non renseigné"}
-                  </Field>
-                </DefinitionGrid>
-              </div>
-            </DetailSection>
-
-            <DetailSection title="Documents de demande formelle">
-              <div className="space-y-3 text-sm">
-                <div className="rounded-md bg-muted/30 p-3">
-                  <p className="text-sm text-foreground">
-                    <span className="font-medium">
-                      {state.progress.totalTracked} pièces suivies
-                    </span>
-                    {" · "}
-                    {state.progress.submitted} déposée
-                    {state.progress.submitted !== 1 ? "s" : ""}
-                    {" · "}
-                    {state.progress.validated} validée
-                    {state.progress.validated !== 1 ? "s" : ""}
-                    {correctionsCount > 0 ? (
-                      <span className="ml-1 font-medium text-destructive">
-                        {" · "}
-                        {correctionsCount} correction
-                        {correctionsCount !== 1 ? "s" : ""} demandée
-                        {correctionsCount !== 1 ? "s" : ""}
-                      </span>
-                    ) : null}
-                  </p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Suivi documentaire uniquement, sans blocage automatique du
-                    circuit officiel.
-                  </p>
-                </div>
-
-                {gateRequirement ? (
-                  <div className="border-b pb-3">
-                    <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                      Demande formelle
-                    </p>
+          {/* ── Réunion formelle + Documents — progressive reveal ──────────────── */}
+          {visibility.showFormalMeeting || visibility.showSupportingDocuments ? (
+            <div className="grid gap-4 xl:grid-cols-2">
+              {visibility.showFormalMeeting ? (
+                <DetailSection title="Réunion formelle">
+                  <div className="space-y-3 text-sm">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-medium">{gateRequirement.label}</span>
-                      <LevelBadge level={gateRequirement.requirementLevel} />
-                      <StatusBadge status={gateRequirement.status} />
+                      <Badge variant={meetingProgrammed ? "secondary" : "outline"}>
+                        {state.meeting
+                          ? meetingStatusLabels[state.meeting.status] ?? state.meeting.status
+                          : "Non programmée"}
+                      </Badge>
+                      <AvailabilityBadge
+                        available={meetingHeld}
+                        availableLabel="Tenue"
+                        missingLabel="Non tenue"
+                      />
+                      {visibility.showMeetingReport ? (
+                        <AvailabilityBadge
+                          available={Boolean(state.meeting?.reportDocumentId)}
+                          availableLabel="Compte rendu disponible"
+                          missingLabel="Compte rendu non joint"
+                        />
+                      ) : null}
                     </div>
+                    {state.meeting ? (
+                      <DefinitionGrid>
+                        <Field label="Date prévue">
+                          {formatOptionalDate(state.meeting.scheduledAt)}
+                        </Field>
+                        <Field label="Lieu">
+                          {state.meeting.location ?? "Non renseigné"}
+                        </Field>
+                      </DefinitionGrid>
+                    ) : null}
                   </div>
-                ) : null}
+                </DetailSection>
+              ) : null}
 
-                {correctionRequirements.length > 0 ? (
-                  <div>
-                    <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                      Corrections demandées
+              {visibility.showSupportingDocuments ? (
+                <DetailSection title="Documents de demande formelle">
+                  <div className="space-y-3 text-sm">
+                    <div className="rounded-md bg-muted/30 p-3">
+                      <p className="text-sm text-foreground">
+                        <span className="font-medium">
+                          {state.progress.totalTracked} pièces suivies
+                        </span>
+                        {" · "}
+                        {state.progress.submitted} déposée
+                        {state.progress.submitted !== 1 ? "s" : ""}
+                        {" · "}
+                        {state.progress.validated} validée
+                        {state.progress.validated !== 1 ? "s" : ""}
+                        {correctionsCount > 0 ? (
+                          <span className="ml-1 font-medium text-destructive">
+                            {" · "}
+                            {correctionsCount} correction
+                            {correctionsCount !== 1 ? "s" : ""} demandée
+                            {correctionsCount !== 1 ? "s" : ""}
+                          </span>
+                        ) : null}
+                      </p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Suivi documentaire uniquement, sans blocage automatique du
+                        circuit officiel.
+                      </p>
+                    </div>
+
+                    {gateRequirement ? (
+                      <div className="border-b pb-3">
+                        <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                          Demande formelle
+                        </p>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-medium">{gateRequirement.label}</span>
+                          <LevelBadge level={gateRequirement.requirementLevel} />
+                          <StatusBadge status={gateRequirement.status} />
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {correctionRequirements.length > 0 ? (
+                      <div>
+                        <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                          Corrections demandées
+                        </p>
+                        <ul className="space-y-2">
+                          {correctionRequirements.map((requirement) => (
+                            <li
+                              key={requirement.requirementId}
+                              className="flex flex-wrap items-center gap-2"
+                            >
+                              <span>{requirement.label}</span>
+                              <StatusBadge status={requirement.status} />
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : (
+                      <p className="text-muted-foreground">
+                        Aucune correction demandée pour le moment.
+                      </p>
+                    )}
+
+                    <p className="text-xs text-muted-foreground">
+                      Consulter le détail dans l'onglet Documents.
                     </p>
-                    <ul className="space-y-2">
-                      {correctionRequirements.map((requirement) => (
-                        <li
-                          key={requirement.requirementId}
-                          className="flex flex-wrap items-center gap-2"
-                        >
-                          <span>{requirement.label}</span>
-                          <StatusBadge status={requirement.status} />
-                        </li>
-                      ))}
-                    </ul>
                   </div>
-                ) : (
-                  <p className="text-muted-foreground">
-                    Aucune correction demandée pour le moment.
-                  </p>
-                )}
+                </DetailSection>
+              ) : null}
+            </div>
+          ) : null}
 
-                <p className="text-xs text-muted-foreground">
-                  Consulter le détail dans l'onglet Documents.
-                </p>
+          {/* ── Clôture et recevabilité — progressive reveal ────────────────── */}
+          {visibility.showClosureEvidence ? (
+            <DetailSection title="Clôture et recevabilité">
+              <div className="flex flex-wrap gap-2 text-sm">
+                <AvailabilityBadge
+                  available={Boolean(state.closure.recevabilityCourrierDocumentId)}
+                  availableLabel="Courrier de recevabilité joint"
+                  missingLabel="Courrier de recevabilité non joint"
+                />
+                <AvailabilityBadge
+                  available={Boolean(state.closure.phaseClosureCourrierDocumentId)}
+                  availableLabel="Courrier de clôture joint"
+                  missingLabel="Courrier de clôture non joint"
+                />
               </div>
             </DetailSection>
-          </div>
+          ) : null}
 
           <Card>
             <CardHeader className="pb-2">

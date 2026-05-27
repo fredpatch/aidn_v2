@@ -1,39 +1,44 @@
 # Current Task
 
-## Phase: OMA-FORMAL-9C0D — Fix Formal Meeting Action Gating and Refresh
+## Phase: OMA-FORMAL-10 — Phase 2 Progressive Reveal UX
 
 Date: 2026-05-27
-Status: **Complete — API typecheck PASS, API build PASS, Admin typecheck PASS, Admin build PASS**
+Status: **Complete — Admin typecheck PASS, Admin build PASS**
 
 ## Summary files
 
-- Implementation: `exploration-cache/tasks/summaries/2026-05-27-oma-formal-9c0d-formal-meeting-gating-refresh.md`
+- Implementation: `exploration-cache/tasks/summaries/2026-05-27-oma-formal-10-progressive-reveal-ui.md`
 
 ## Files modified
 
-- `apps/api/src/modules/oma-phases/formal-request.service.ts`
-  - `assertFormalDgDecisionRecorded`: accepts `formal_dg_decision_recorded` OR `formal_dg_returned`; new error message
+- `apps/admin/src/pages/dossiers/formal-request-progress.helpers.ts`
+  - Added `FormalRequestVisibility` type
+  - Added `getFormalRequestVisibility(state)` function
 
 - `apps/admin/src/pages/dossiers/FormalRequestPhaseWorkspace.tsx`
-  - `nextActionContent` condition order: meeting states (mark held, upload report) now checked BEFORE DG-evidence/invite branch
-  - `&& !meetingProgrammed` guard added to invite-meeting condition
-  - Removed unused `fs` variable (TS6133 fix)
+  - Import `getFormalRequestVisibility`
+  - Compute `visibility` from state
+  - Réunion formelle section: gated by `visibility.showFormalMeeting`
+  - Documents de demande formelle: gated by `visibility.showSupportingDocuments`
+  - Meeting DefinitionGrid (date/location): only rendered when `state.meeting` exists
+  - "Compte rendu" badge: gated by `visibility.showMeetingReport`
+  - New "Clôture et recevabilité" section: gated by `visibility.showClosureEvidence`
 
-## Phase 2 guided flow (after this change)
+## Phase 2 progressive reveal states
 
-1. No gate → WaitingState postulant
-2. Gate, not sent to DG → WaitingState Courriers officiels
-3. Sent to DG, no return → WaitingState DG return
-4. DG return scanned → **Button: Planifier la réunion formelle** (once only)
-5. Meeting invited (formalMeetingId exists) → **Button: Marquer la réunion comme tenue**
-6. Meeting held, no report → **Button: Joindre le compte rendu**
-7. canClosePhase → **Button: Clôturer la Phase 2**
-8. Closed → Done banner
+1. Initial / waiting formal request → Header + Courrier formel + Prochaine action only
+2. Formal request received → + Documents checklist
+3. Sent to DG / DG return → + Documents checklist
+4. DG decision recorded → + Réunion formelle (invite button) + Documents
+5. Meeting invited → + Réunion formelle (mark held button)
+6. Meeting held → + Réunion formelle + Clôture et recevabilité
+7. Closed → All sections
 
-## Known deferred issue
+## Known deferred
 
-`canClosePhase` and `closeFormalRequestPhase` still check `dgReview.decision === "approved"` — will be false in collapsed flow. Deferred to closure evidence implementation.
+- Closure document downloads not wired (no `downloadFormalRequestDocument` route yet)
+- `canClosePhase` still checks legacy `dgReview.decision === "approved"` — deferred
 
 ## Next step
 
-Manual browser validation of Phase 2 collapsed flow, or OMA-FORMAL closure evidence implementation.
+Manual browser validation, or proceed to formal request closure evidence implementation.

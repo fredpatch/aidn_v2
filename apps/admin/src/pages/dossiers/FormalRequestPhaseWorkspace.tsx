@@ -27,13 +27,11 @@ import {
 import {
   CloseFormalRequestPhaseDialog,
   InviteFormalMeetingDialog,
-  MarkFormalMeetingHeldDialog,
   UploadFormalMeetingReportDialog,
 } from "./formal-request-dialogs";
 
 type DialogKey =
   | "invite_formal_meeting"
-  | "mark_meeting_held"
   | "upload_meeting_report"
   | "close_phase";
 
@@ -315,13 +313,15 @@ export function FormalRequestPhaseWorkspace({
       <WaitingState>Réunion tenue. En attente du compte rendu de réunion.</WaitingState>
     );
   } else if (meetingProgrammed && !meetingHeld) {
-    // Meeting scheduled but not yet held
-    nextActionContent = canManageMeetings ? (
-      <Button onClick={() => setOpenDialog("mark_meeting_held")}>
-        Marquer la réunion formelle comme tenue
+    // Phase 1 pattern: compte rendu upload = meeting held — no separate "mark held" step
+    nextActionContent = canPublishDocuments ? (
+      <Button onClick={() => setOpenDialog("upload_meeting_report")}>
+        Joindre le compte rendu de réunion formelle
       </Button>
     ) : (
-      <WaitingState>En attente de la tenue de la réunion formelle.</WaitingState>
+      <WaitingState>
+        Réunion programmée. En attente du compte rendu de réunion formelle.
+      </WaitingState>
     );
   } else if (!state.gate.exists) {
     nextActionContent = (
@@ -588,17 +588,6 @@ export function FormalRequestPhaseWorkspace({
 
       <InviteFormalMeetingDialog
         open={openDialog === "invite_formal_meeting"}
-        onOpenChange={(value) => {
-          if (!value) setOpenDialog(null);
-        }}
-        dossierId={dossierId}
-        onSuccess={(nextState) => {
-          setOpenDialog(null);
-          onStateChange(nextState);
-        }}
-      />
-      <MarkFormalMeetingHeldDialog
-        open={openDialog === "mark_meeting_held"}
         onOpenChange={(value) => {
           if (!value) setOpenDialog(null);
         }}

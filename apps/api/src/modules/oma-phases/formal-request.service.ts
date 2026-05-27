@@ -828,13 +828,22 @@ export const uploadFormalMeetingReport = async (
     uploadedById: new Types.ObjectId(actor.id),
   });
 
+  // Phase 1 pattern: uploading the compte rendu = marking the meeting as held
+  if (meeting.status !== "held") {
+    meeting.status = "held" as never;
+    meeting.heldAt = new Date();
+  }
   meeting.reportDocumentId = documentId as never;
   if (payload.notes?.trim()) {
     meeting.notes = payload.notes.trim() as never;
   }
   await meeting.save();
 
+  const heldAt = (meeting.heldAt as Date | undefined) ?? new Date();
   phase.formalMeetingReportDocumentId = documentId as Types.ObjectId;
+  phase.formalRequestStatus = "formal_meeting_held" as never;
+  phase.formalMeetingHeldAt = heldAt;
+  phase.status = "in_progress" as never;
   await phase.save();
 
   await writeAuditLog({

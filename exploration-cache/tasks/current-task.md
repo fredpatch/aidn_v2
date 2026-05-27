@@ -1,44 +1,34 @@
 # Current Task
 
-## Phase: OMA-FORMAL-10 — Phase 2 Progressive Reveal UX
+## Phase: OMA-FORMAL-11 — Align Phase 2 Formal Meeting Lifecycle with Phase 1 Pattern
 
 Date: 2026-05-27
-Status: **Complete — Admin typecheck PASS, Admin build PASS**
+Status: **Complete — API typecheck PASS, API build PASS, Admin typecheck PASS, Admin build PASS**
 
 ## Summary files
 
-- Implementation: `exploration-cache/tasks/summaries/2026-05-27-oma-formal-10-progressive-reveal-ui.md`
+- Implementation: `exploration-cache/tasks/summaries/2026-05-27-oma-formal-11-formal-meeting-report-pattern.md`
 
 ## Files modified
 
-- `apps/admin/src/pages/dossiers/formal-request-progress.helpers.ts`
-  - Added `FormalRequestVisibility` type
-  - Added `getFormalRequestVisibility(state)` function
+- `apps/api/src/modules/oma-phases/formal-request.service.ts`
+  - `uploadFormalMeetingReport`: now also marks meeting as held + advances formalRequestStatus
 
 - `apps/admin/src/pages/dossiers/FormalRequestPhaseWorkspace.tsx`
-  - Import `getFormalRequestVisibility`
-  - Compute `visibility` from state
-  - Réunion formelle section: gated by `visibility.showFormalMeeting`
-  - Documents de demande formelle: gated by `visibility.showSupportingDocuments`
-  - Meeting DefinitionGrid (date/location): only rendered when `state.meeting` exists
-  - "Compte rendu" badge: gated by `visibility.showMeetingReport`
-  - New "Clôture et recevabilité" section: gated by `visibility.showClosureEvidence`
+  - `meetingProgrammed && !meetingHeld` branch: "Joindre le compte rendu de réunion formelle" (opens upload_meeting_report, requires canPublishDocuments)
+  - Removed `MarkFormalMeetingHeldDialog` from import, DialogKey, and render
 
-## Phase 2 progressive reveal states
+## Phase 2 meeting lifecycle (after this change)
 
-1. Initial / waiting formal request → Header + Courrier formel + Prochaine action only
-2. Formal request received → + Documents checklist
-3. Sent to DG / DG return → + Documents checklist
-4. DG decision recorded → + Réunion formelle (invite button) + Documents
-5. Meeting invited → + Réunion formelle (mark held button)
-6. Meeting held → + Réunion formelle + Clôture et recevabilité
-7. Closed → All sections
+1. Meeting planned (`formal_meeting_invited`) → Button: "Joindre le compte rendu de réunion formelle"
+2. Compte rendu uploaded → meeting.status = "held", phase = formal_meeting_held, showClosureEvidence = true
+3. Closure evidence section appears → next action: awaiting recevability/closure courrier
 
-## Known deferred
+## Kept as fallback
 
-- Closure document downloads not wired (no `downloadFormalRequestDocument` route yet)
-- `canClosePhase` still checks legacy `dgReview.decision === "approved"` — deferred
+- `POST /phases/formal-request/meeting/mark-held` endpoint preserved (admin correction)
+- `meetingHeld && !reportDocumentId` branch in workspace handles edge case
 
 ## Next step
 
-Manual browser validation, or proceed to formal request closure evidence implementation.
+Manual browser validation, or proceed to formal request closure evidence/download implementation.

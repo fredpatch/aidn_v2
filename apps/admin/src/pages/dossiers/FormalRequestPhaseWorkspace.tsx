@@ -277,15 +277,46 @@ export function FormalRequestPhaseWorkspace({
       requirement.requirementLevel !== "gate",
   );
 
-  const fs = state.phase.formalRequestStatus;
   let nextActionContent: React.ReactNode;
 
+  // Priority order (highest first):
+  // closed → canClose → report upload → mark held → gate/circuit/DG checks → invite meeting → else
   if (isClosed) {
     nextActionContent = (
       <div className="flex items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm font-medium text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-200">
         <CheckCircle2 className="h-4 w-4 shrink-0" aria-hidden="true" />
-        Phase 2 - Demande formelle clôturée.
+        Phase 2 — Demande formelle clôturée.
       </div>
+    );
+  } else if (state.phase.canClosePhase || state.closure.canClosePhase) {
+    nextActionContent = canPhaseClose ? (
+      <Button
+        variant="destructive"
+        onClick={() => setOpenDialog("close_phase")}
+      >
+        Clôturer la Phase 2
+      </Button>
+    ) : (
+      <WaitingState>
+        Phase 2 prête à clôturer — en attente de la clôture par le responsable.
+      </WaitingState>
+    );
+  } else if (meetingHeld && !state.meeting?.reportDocumentId) {
+    nextActionContent = canPublishDocuments ? (
+      <Button onClick={() => setOpenDialog("upload_meeting_report")}>
+        Joindre le compte rendu de réunion formelle
+      </Button>
+    ) : (
+      <WaitingState>Réunion tenue. En attente du compte rendu de réunion.</WaitingState>
+    );
+  } else if (meetingProgrammed && !meetingHeld) {
+    // Meeting scheduled but not yet held
+    nextActionContent = canManageMeetings ? (
+      <Button onClick={() => setOpenDialog("mark_meeting_held")}>
+        Marquer la réunion formelle comme tenue
+      </Button>
+    ) : (
+      <WaitingState>En attente de la tenue de la réunion formelle.</WaitingState>
     );
   } else if (!state.gate.exists) {
     nextActionContent = (
@@ -305,8 +336,8 @@ export function FormalRequestPhaseWorkspace({
         Demande formelle en circuit officiel. En attente du retour DG.
       </WaitingState>
     );
-  } else if (state.phase.canInviteFormalMeeting || dgDecisionRecorded) {
-    // DG return scan = decision evidence for Phase 2 MVP — show meeting action directly
+  } else if ((state.phase.canInviteFormalMeeting || dgDecisionRecorded) && !meetingProgrammed) {
+    // DG return scan = decision evidence — invite meeting (only if no meeting exists yet)
     nextActionContent = canManageMeetings ? (
       <Button onClick={() => setOpenDialog("invite_formal_meeting")}>
         Planifier la réunion formelle
@@ -316,36 +347,8 @@ export function FormalRequestPhaseWorkspace({
         Retour DG disponible. Réunion formelle à programmer par le responsable.
       </WaitingState>
     );
-  } else if (fs === "formal_meeting_invited") {
-    nextActionContent = canManageMeetings ? (
-      <Button onClick={() => setOpenDialog("mark_meeting_held")}>
-        Marquer la réunion formelle comme tenue
-      </Button>
-    ) : (
-      <WaitingState>En attente de la tenue de la réunion formelle.</WaitingState>
-    );
-  } else if (fs === "formal_meeting_held" && !state.meeting?.reportDocumentId) {
-    nextActionContent = canPublishDocuments ? (
-      <Button onClick={() => setOpenDialog("upload_meeting_report")}>
-        Joindre le compte rendu de réunion formelle
-      </Button>
-    ) : (
-      <WaitingState>Réunion tenue. En attente du compte rendu de réunion.</WaitingState>
-    );
-  } else if (state.phase.canClosePhase || state.closure.canClosePhase) {
-    nextActionContent = canPhaseClose ? (
-      <Button
-        variant="destructive"
-        onClick={() => setOpenDialog("close_phase")}
-      >
-        Clôturer la Phase 2
-      </Button>
-    ) : (
-      <WaitingState>
-        Phase 2 prête à clôturer - en attente de la clôture par le responsable.
-      </WaitingState>
-    );
   } else {
+    // Meeting report uploaded, awaiting recevability/closure courrier
     nextActionContent = (
       <WaitingState>
         Réunion tenue et compte rendu joint. En attente du courrier de

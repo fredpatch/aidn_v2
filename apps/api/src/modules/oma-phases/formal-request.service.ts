@@ -630,10 +630,15 @@ export const recordFormalRequestDgDecision = async (
 // ── OMA-FORMAL-4: Formal meeting helpers ─────────────────────────────────────
 
 const assertFormalDgDecisionRecorded = (phase: { formalRequestStatus?: unknown }) => {
-  if (phase.formalRequestStatus !== "formal_dg_decision_recorded") {
+  // MVP: scanned DG return is the decision evidence — accept both statuses
+  const status = phase.formalRequestStatus as string | undefined;
+  const dgEvidenceReady =
+    status === "formal_dg_decision_recorded" ||
+    status === "formal_dg_returned";
+  if (!dgEvidenceReady) {
     throw new HttpError(
       409,
-      "La décision DG doit être approuvée et enregistrée avant de planifier la réunion formelle.",
+      "Le retour DG scanné doit être enregistré avant de planifier la réunion formelle.",
     );
   }
 };

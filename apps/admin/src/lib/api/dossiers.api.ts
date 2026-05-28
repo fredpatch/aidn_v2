@@ -125,7 +125,6 @@ export type FormalRequestStatus =
   | 'formal_not_started'
   | 'formal_waiting_request'
   | 'formal_request_received'
-  | 'formal_documents_tracking'
   | 'formal_sent_to_dg'
   | 'formal_dg_returned'
   | 'formal_dg_decision_recorded'

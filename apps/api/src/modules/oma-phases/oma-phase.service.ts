@@ -19,6 +19,7 @@ import { DocumentSubmissionModel } from "../documents/document-submission.model.
 import { OmaPhaseModel } from "./oma-phase.model.js";
 import { RequestModel } from "../requests/request.model.js";
 import { UserModel } from "../users/user.model.js";
+import { NotificationModel } from "../notifications/notification.model.js";
 
 type Actor = { id: string; role: string; userType: "internal" | "postulant" };
 type GenericRecord = Record<string, unknown> & { _id: Types.ObjectId };
@@ -32,17 +33,17 @@ const ALLOWED_MIME_TYPES = [
 ] as const;
 
 export const PRELIMINARY_STATUS_PORTAL_LABELS: Record<string, string> = {
-  preliminary_not_started: "Dossier en cours de traitement",
-  preliminary_started: "Dossier en cours de traitement",
+  preliminary_not_started: "En cours de traitement par l'ANAC",
+  preliminary_started: "En cours de traitement par l'ANAC",
   first_meeting_invited: "Rendez-vous programmé",
-  first_meeting_held: "Rendez-vous tenu",
-  pre_eval_form_available: "Action requise - Formulaire disponible",
-  pre_eval_form_submitted: "En attente d'analyse",
-  pre_eval_sent_to_dg: "En attente d'analyse",
-  pre_eval_dg_decision_recorded: "En attente d'analyse",
-  preliminary_meeting_invited: "Rendez-vous préliminaire programmé",
-  preliminary_meeting_held: "Phase préliminaire en cours de clôture",
-  preliminary_ready_to_close: "Phase préliminaire en cours de clôture",
+  first_meeting_held: "En cours d'examen",
+  pre_eval_form_available: "Formulaire de pré-évaluation à compléter",
+  pre_eval_form_submitted: "En cours d'examen",
+  pre_eval_sent_to_dg: "En cours d'examen",
+  pre_eval_dg_decision_recorded: "En cours d'examen",
+  preliminary_meeting_invited: "Rendez-vous programmé",
+  preliminary_meeting_held: "En cours d'examen",
+  preliminary_ready_to_close: "En cours d'examen",
   preliminary_closed: "Phase préliminaire clôturée",
 };
 
@@ -58,18 +59,19 @@ const PRE_EVAL_VISIBLE_STATUSES = new Set([
 ]);
 
 const FORMAL_REQUEST_PORTAL_LABELS: Record<string, string> = {
-  formal_waiting_request: "En attente de dépôt de la demande formelle",
-  formal_request_received: "Demande formelle déposée",
-  formal_documents_tracking: "Demande formelle déposée",
-  formal_sent_to_dg: "En attente d'orientation administrative",
-  formal_dg_returned: "En traitement par l'ANAC",
-  formal_dg_decision_recorded: "En traitement par l'ANAC",
-  formal_meeting_invited: "En traitement par l'ANAC",
-  formal_meeting_held: "En traitement par l'ANAC",
-  formal_recevability_recorded: "En traitement par l'ANAC",
-  formal_ready_to_close: "En traitement par l'ANAC",
-  formal_requires_correction: "En traitement par l'ANAC",
-  formal_closed: "En traitement par l'ANAC",
+  formal_not_started: "Demande formelle attendue",
+  formal_waiting_request: "Demande formelle attendue",
+  formal_request_received: "Demande formelle reçue",
+  formal_documents_tracking: "Demande formelle reçue",
+  formal_sent_to_dg: "Demande formelle en cours d'examen",
+  formal_dg_returned: "Demande formelle en cours d'examen",
+  formal_dg_decision_recorded: "Demande formelle en cours d'examen",
+  formal_meeting_invited: "Réunion formelle programmée",
+  formal_meeting_held: "Documents de demande formelle à compléter",
+  formal_recevability_recorded: "Demande formelle en cours d'examen",
+  formal_ready_to_close: "En attente de finalisation par l'ANAC",
+  formal_requires_correction: "Action requise",
+  formal_closed: "Phase de demande formelle clôturée",
 };
 
 const ADMIN_PRELIMINARY_DOWNLOAD_FIELDS = [
@@ -85,6 +87,27 @@ const ensureInternalActor = (actor: Actor) => {
   if (actor.userType !== "internal") {
     throw new HttpError(403, "Internal access required");
   }
+};
+
+const notifyDossierPostulant = async (
+  dossier: { postulantUserId?: unknown },
+  input: {
+    title: string;
+    message: string;
+    relatedType: "phase" | "document" | "meeting";
+    relatedId: Types.ObjectId;
+  },
+) => {
+  if (!dossier.postulantUserId) return;
+  await NotificationModel.create({
+    recipientUserId: dossier.postulantUserId,
+    channel: "in_app",
+    title: input.title,
+    message: input.message,
+    relatedType: input.relatedType,
+    relatedId: input.relatedId,
+    status: "unread",
+  });
 };
 
 const sanitizeRelatedOrg = (source: unknown) => {
@@ -493,6 +516,14 @@ export const inviteFirstMeeting = async (
     },
   });
 
+  await notifyDossierPostulant(dossier, {
+    title: "Rendez-vous programmé",
+    message:
+      "Un rendez-vous a été programmé pour votre dossier. Vous pouvez consulter les détails dans votre espace.",
+    relatedType: "meeting",
+    relatedId: meeting._id as Types.ObjectId,
+  });
+
   return {
     meeting: sanitizeMeeting(meeting.toObject() as unknown as GenericRecord),
   };
@@ -617,6 +648,14 @@ export const publishPreEvaluationForm = async (
     },
   });
 
+  await notifyDossierPostulant(dossier, {
+    title: "Formulaire de pré-évaluation disponible",
+    message:
+      "Le formulaire de pré-évaluation est disponible. Veuillez le télécharger, le compléter puis le téléverser dans votre dossier.",
+    relatedType: "document",
+    relatedId: fileDocumentId,
+  });
+
   return { documentId: fileDocumentId.toString() };
 };
 
@@ -669,6 +708,14 @@ export const invitePreliminaryMeeting = async (
       preliminaryStatus: "preliminary_meeting_invited",
       meetingId: meeting._id.toString(),
     },
+  });
+
+  await notifyDossierPostulant(dossier, {
+    title: "Réunion préliminaire programmée",
+    message:
+      "Une réunion préliminaire a été programmée pour votre dossier. Vous pouvez consulter les détails dans votre espace.",
+    relatedType: "meeting",
+    relatedId: meeting._id as Types.ObjectId,
   });
 
   return {
@@ -866,6 +913,13 @@ export const closePreliminaryPhase = async (
     },
   });
 
+  await notifyDossierPostulant(dossier, {
+    title: "Phase préliminaire clôturée",
+    message: "La phase préliminaire de votre dossier est clôturée.",
+    relatedType: "phase",
+    relatedId: phase._id as Types.ObjectId,
+  });
+
   return { ok: true };
 };
 
@@ -1043,8 +1097,8 @@ export const getPortalDossier = async (dossierId: string, actor: Actor) => {
   const preliminaryStatus = preliminaryPhase?.preliminaryStatus ?? null;
   const portalLabel = preliminaryStatus
     ? (PRELIMINARY_STATUS_PORTAL_LABELS[preliminaryStatus] ??
-      "Dossier en cours de traitement")
-    : "Dossier en cours de traitement";
+      "En cours de traitement par l'ANAC")
+    : "En cours de traitement par l'ANAC";
 
   const preEvaluationFormDocumentId =
     preliminaryPhase?.preEvaluationTemplateDocumentId &&
@@ -1064,13 +1118,16 @@ export const getPortalDossier = async (dossierId: string, actor: Actor) => {
       !hasFormalRequestCourrier,
   );
   const formalRequestPortalLabel = canUploadFormalRequestCourrier
-    ? "En attente de dépôt de la demande formelle"
+    ? "Demande formelle attendue"
     : hasFormalRequestCourrier
-      ? "Demande formelle déposée"
+      ? (formalRequestStatus
+        ? (FORMAL_REQUEST_PORTAL_LABELS[formalRequestStatus] ??
+          "Demande formelle reçue")
+        : "Demande formelle reçue")
       : formalRequestStatus
         ? (FORMAL_REQUEST_PORTAL_LABELS[formalRequestStatus] ??
-          "En traitement par l'ANAC")
-        : "En traitement par l'ANAC";
+          "Demande formelle en cours d'examen")
+        : "En cours de traitement par l'ANAC";
 
   // ── Phase 2 requirements + templates + formal meeting ─────────────────────
 
@@ -1088,7 +1145,7 @@ export const getPortalDossier = async (dossierId: string, actor: Actor) => {
   };
 
   const PORTAL_ACTIVE_SUBMISSION_STATUSES = new Set([
-    "submitted", "under_review", "validated", "requires_correction",
+    "submitted", "under_review", "validated", "requires_correction", "incomplete", "rejected",
   ]);
 
   const computePortalReqStatus = (subs: Array<{ status: unknown }>): string => {
@@ -1161,7 +1218,9 @@ export const getPortalDossier = async (dossierId: string, actor: Actor) => {
     const totalTracked = portalRequirements.length;
     const submitted = portalRequirements.filter((r) => r.submissions.length > 0).length;
     const validated = portalRequirements.filter((r) => r.status === "validated").length;
-    const missing = portalRequirements.filter((r) => r.status === "missing").length;
+    const missing = portalRequirements.filter(
+      (r) => r.requirementLevel === "expected" && r.status === "missing",
+    ).length;
     formalProgress = { totalTracked, submitted, validated, missing };
 
     if ((formalRequestPhase as unknown as { formalMeetingId?: { toString(): string } }).formalMeetingId) {

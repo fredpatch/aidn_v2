@@ -1,11 +1,13 @@
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { CalendarDays, Clock, Download, FileText, MapPin } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   downloadDossierDocument,
+  getAdminFormalRequestPhase,
   type AdminDossierDetail,
+  type AdminFormalRequestPhaseState,
   type AdminMeetingSummary,
 } from "@/lib/api/dossiers.api";
 import { ApiError } from "@/lib/api/client";
@@ -13,10 +15,10 @@ import { openBlobInNewTab } from "@/lib/utils/blob";
 import { ActionError } from "./dossier-detail.helpers";
 
 type MeetingItem = {
-  key: "first_contact_meeting" | "preliminary_meeting";
+  key: "first_contact_meeting" | "preliminary_meeting" | "formal_meeting";
   title: string;
   phaseLabel: string;
-  meeting: AdminMeetingSummary | null;
+  meeting: Partial<AdminMeetingSummary> | null;
   reportDocumentId?: string;
 };
 
@@ -295,8 +297,45 @@ export function DossierMeetingsTab({
 }): React.JSX.Element {
   const [downloadingId, setDownloadingId] = useState("");
   const [downloadError, setDownloadError] = useState("");
+  const [formalState, setFormalState] =
+    useState<AdminFormalRequestPhaseState | null>(null);
 
-  const meetingItems = useMemo(() => buildMeetingItems(detail), [detail]);
+  const loadFormalPhase = useCallback(async () => {
+    try {
+      const state = await getAdminFormalRequestPhase(detail.dossier.id);
+      setFormalState(state);
+    } catch {
+      // Phase 2 not started - no-op
+    }
+  }, [detail.dossier.id]);
+
+  useEffect(() => {
+    void loadFormalPhase();
+  }, [loadFormalPhase]);
+
+  const phaseOneMeetingItems = useMemo(() => buildMeetingItems(detail), [detail]);
+  const formalMeetingItem = useMemo<MeetingItem | null>(() => {
+    if (!formalState?.meeting) return null;
+    return {
+      key: "formal_meeting",
+      title: "Réunion formelle",
+      phaseLabel: "Phase 2 - Demande formelle",
+      meeting: {
+        ...formalState.meeting,
+        meetingType: "formal_meeting",
+        title: "Réunion formelle",
+        reportDocumentId: formalState.meeting.reportDocumentId ?? undefined,
+      },
+      reportDocumentId: formalState.meeting.reportDocumentId ?? undefined,
+    };
+  }, [formalState]);
+  const calendarItems = useMemo(
+    () =>
+      formalMeetingItem
+        ? [...phaseOneMeetingItems, formalMeetingItem]
+        : phaseOneMeetingItems,
+    [formalMeetingItem, phaseOneMeetingItems],
+  );
 
   const handleDownload = async (dossierId: string, documentId: string) => {
     setDownloadingId(documentId);
@@ -318,7 +357,7 @@ export function DossierMeetingsTab({
     }
   };
 
-  const hasAnyMeeting = meetingItems.some((item) => item.meeting);
+  const hasAnyMeeting = calendarItems.some((item) => item.meeting);
 
   return (
     <div className="space-y-4">
@@ -344,11 +383,11 @@ export function DossierMeetingsTab({
               <CalendarDays className="h-4 w-4" aria-hidden="true" />
               Calendrier synthétique
             </div>
-            <EventStrip items={meetingItems} />
+            <EventStrip items={calendarItems} />
           </section>
 
           <section className="grid gap-3 lg:grid-cols-2">
-            {meetingItems.map((item) => (
+            {phaseOneMeetingItems.map((item) => (
               <MeetingCard
                 key={item.key}
                 item={item}
@@ -360,6 +399,23 @@ export function DossierMeetingsTab({
               />
             ))}
           </section>
+
+          {formalMeetingItem ? (
+            <section className="space-y-3">
+              <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                <CalendarDays className="h-4 w-4" aria-hidden="true" />
+                Phase 2 - Réunion formelle
+              </div>
+              <MeetingCard
+                item={formalMeetingItem}
+                dossierId={detail.dossier.id}
+                downloadingId={downloadingId}
+                onDownload={(dossierId, documentId) =>
+                  void handleDownload(dossierId, documentId)
+                }
+              />
+            </section>
+          ) : null}
         </>
       )}
     </div>

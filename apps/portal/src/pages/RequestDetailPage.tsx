@@ -66,20 +66,37 @@ const dossierTypeLabels: Record<string, string> = {
 };
 
 const portalStatusGuidance: Record<string, string> = {
+  "En cours de traitement par l'ANAC":
+    "Votre dossier est en cours de traitement par l'ANAC.",
   "Dossier en cours de traitement":
-    "Votre dossier est en cours de traitement par l'équipe de la Direction de la Navigabilité.",
+    "Votre dossier est en cours de traitement par l'ANAC.",
   "Rendez-vous programmé":
     "Un rendez-vous a été programmé. Votre correspondant ANAC vous contactera avec les détails.",
-  "Rendez-vous tenu":
-    "Le rendez-vous a eu lieu. L'équipe DN prépare la prochaine étape.",
-  "Action requise - Formulaire disponible":
+  "Formulaire de pré-évaluation à compléter":
     "Un formulaire de pré-évaluation est disponible. Téléchargez-le, complétez-le et soumettez-le dans l'onglet Actions requises.",
-  "En attente d'analyse":
-    "Votre formulaire est en cours d'analyse par l'équipe ANAC.",
+  "En cours d'examen":
+    "Votre dossier est en cours d'examen par l'ANAC.",
   "Rendez-vous préliminaire programmé":
     "La réunion préliminaire a été programmée. Votre correspondant ANAC vous contactera.",
   "Phase préliminaire en cours de clôture":
     "La phase préliminaire est en cours de finalisation.",
+  "Phase préliminaire clôturée":
+    "La phase préliminaire est clôturée.",
+  "Demande formelle attendue":
+    "La demande formelle doit être téléversée pour poursuivre le traitement.",
+  "Demande formelle reçue":
+    "Votre demande formelle a été reçue par l'ANAC.",
+  "Demande formelle en cours d'examen":
+    "Votre demande formelle est en cours d'examen par l'ANAC.",
+  "Réunion formelle programmée":
+    "La réunion formelle a été programmée. Votre correspondant ANAC vous contactera avec les détails.",
+  "Documents de demande formelle à compléter":
+    "Des documents de demande formelle sont attendus pour poursuivre le traitement.",
+  "En attente de finalisation par l'ANAC":
+    "Votre demande formelle est en attente de finalisation par l'ANAC.",
+  "Phase de demande formelle clôturée":
+    "La phase de demande formelle est clôturée.",
+  "Action requise": "Une action est attendue de votre part.",
 };
 
 type CourrierMode = "portal_upload" | "physical_deposit";
@@ -217,7 +234,12 @@ function Phase2DocumentChecklist({
   onTemplateDownload,
 }: {
   requirements: PortalFormalRequestRequirement[];
-  progress: { totalTracked: number; submitted: number; validated: number; missing: number };
+  progress: {
+    totalTracked: number;
+    submitted: number;
+    validated: number;
+    missing: number;
+  };
   expandedRequirementId: string | null;
   reqUploadFile: File | null;
   reqUploadNotes: string;
@@ -237,9 +259,10 @@ function Phase2DocumentChecklist({
           Documents de demande formelle
         </h3>
         <p className="mt-1 text-xs text-slate-500">
-          {progress.totalTracked} pièce{progress.totalTracked !== 1 ? "s" : ""} suivie{progress.totalTracked !== 1 ? "s" : ""}{" "}
-          · {progress.submitted} déposée{progress.submitted !== 1 ? "s" : ""}{" "}
-          · {progress.missing} manquante{progress.missing !== 1 ? "s" : ""}
+          {progress.totalTracked} pièce{progress.totalTracked !== 1 ? "s" : ""}{" "}
+          suivie{progress.totalTracked !== 1 ? "s" : ""} · {progress.submitted}{" "}
+          déposée{progress.submitted !== 1 ? "s" : ""} · {progress.missing}{" "}
+          manquante{progress.missing !== 1 ? "s" : ""}
         </p>
       </div>
 
@@ -251,11 +274,14 @@ function Phase2DocumentChecklist({
             req.status === "missing" ||
             req.status === "requires_correction" ||
             req.status === "incomplete" ||
+            req.status === "rejected" ||
             req.isRepeatable;
           const uploadLabel =
             req.isRepeatable && req.submissions.length > 0
               ? "Ajouter un document"
-              : req.status === "requires_correction" || req.status === "incomplete"
+              : req.status === "requires_correction" ||
+                  req.status === "incomplete" ||
+                  req.status === "rejected"
                 ? "Remplacer le document"
                 : "Téléverser";
 
@@ -286,26 +312,32 @@ function Phase2DocumentChecklist({
                     <span
                       className={[
                         "rounded px-2 py-0.5 text-xs font-semibold",
-                        REQ_STATUS_CLASSES[req.status] ?? "bg-slate-100 text-slate-600",
+                        REQ_STATUS_CLASSES[req.status] ??
+                          "bg-slate-100 text-slate-600",
                       ].join(" ")}
                     >
                       {!isOmaApprovalForm && req.status === "submitted"
-                        ? "Déposé — disponible pour consultation"
-                        : REQ_STATUS_LABELS[req.status] ?? req.status}
+                        ? "Déposé - disponible pour consultation"
+                        : (REQ_STATUS_LABELS[req.status] ?? req.status)}
                     </span>
                     {req.submissions.length > 0 && (
                       <span className="text-xs text-slate-400">
-                        {req.submissions.length} dépôt{req.submissions.length !== 1 ? "s" : ""}
+                        {req.submissions.length} dépôt
+                        {req.submissions.length !== 1 ? "s" : ""}
                       </span>
                     )}
                   </div>
-                  {/* Correction / incomplete note — only for the reviewable form */}
+                  {/* Review feedback note - only for the reviewable form */}
                   {isOmaApprovalForm &&
-                  (req.status === "requires_correction" || req.status === "incomplete") ? (
+                  (req.status === "requires_correction" ||
+                    req.status === "incomplete" ||
+                    req.status === "rejected") ? (
                     <div className="mt-1.5 rounded bg-amber-50 px-2 py-1.5 text-xs text-amber-800">
                       {req.status === "requires_correction"
                         ? "La DN a demandé une correction."
-                        : "La DN a indiqué que ce formulaire est incomplet."}
+                        : req.status === "incomplete"
+                          ? "Document incomplet - veuillez compléter et téléverser une nouvelle version."
+                          : "Document rejeté - veuillez téléverser une nouvelle version."}
                       {req.submissions[0]?.reviewComment ? (
                         <span className="block mt-0.5 font-medium">
                           Note : {req.submissions[0].reviewComment}
@@ -321,7 +353,10 @@ function Phase2DocumentChecklist({
                       type="button"
                       className="btn btn-secondary py-1 text-xs"
                       onClick={() =>
-                        onTemplateDownload(req.template!.templateId, req.template!.fileName)
+                        onTemplateDownload(
+                          req.template!.templateId,
+                          req.template!.fileName,
+                        )
                       }
                     >
                       <Download size={12} aria-hidden="true" />
@@ -329,7 +364,9 @@ function Phase2DocumentChecklist({
                     </button>
                   ) : null}
 
-                  {canUpload && req.status !== "validated" && req.status !== "under_review" ? (
+                  {canUpload &&
+                  req.status !== "validated" &&
+                  req.status !== "under_review" ? (
                     <button
                       type="button"
                       className="btn btn-primary py-1 text-xs"
@@ -342,7 +379,8 @@ function Phase2DocumentChecklist({
                         </>
                       ) : (
                         <>
-                          {uploadLabel} <ChevronDown size={12} aria-hidden="true" />
+                          {uploadLabel}{" "}
+                          <ChevronDown size={12} aria-hidden="true" />
                         </>
                       )}
                     </button>
@@ -374,7 +412,9 @@ function Phase2DocumentChecklist({
                       accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
                       required
                       disabled={reqUploadBusy}
-                      onChange={(e) => onFileChange(e.target.files?.[0] ?? null)}
+                      onChange={(e) =>
+                        onFileChange(e.target.files?.[0] ?? null)
+                      }
                     />
                     <p className="mt-1 text-xs font-medium text-slate-500">
                       PDF, JPG ou PNG - taille maximale 10 Mo.
@@ -402,7 +442,9 @@ function Phase2DocumentChecklist({
                       disabled={reqUploadBusy || !reqUploadFile}
                     >
                       <Upload size={14} aria-hidden="true" />
-                      {reqUploadBusy ? "Envoi en cours…" : "Déposer le document"}
+                      {reqUploadBusy
+                        ? "Envoi en cours…"
+                        : "Déposer le document"}
                     </button>
                     <button
                       className="btn btn-secondary w-fit"
@@ -467,7 +509,9 @@ export function RequestDetailPage(): React.JSX.Element {
     useState(false);
   const [showFormalRequestUpload, setShowFormalRequestUpload] = useState(false);
 
-  const [expandedRequirementId, setExpandedRequirementId] = useState<string | null>(null);
+  const [expandedRequirementId, setExpandedRequirementId] = useState<
+    string | null
+  >(null);
   const [reqUploadFile, setReqUploadFile] = useState<File | null>(null);
   const [reqUploadNotes, setReqUploadNotes] = useState("");
   const [reqUploadBusy, setReqUploadBusy] = useState(false);
@@ -484,8 +528,11 @@ export function RequestDetailPage(): React.JSX.Element {
   const hasFormalDocRequired =
     dossierDetail?.formalRequest?.requirements?.some(
       (r) =>
-        (r.requirementLevel === "expected" || r.requirementLevel === "conditional") &&
-        (r.status === "missing" || r.status === "requires_correction" || r.status === "incomplete"),
+        r.requirementLevel === "expected" &&
+        (r.status === "missing" ||
+          r.status === "requires_correction" ||
+          r.status === "incomplete" ||
+          r.status === "rejected"),
     ) ?? false;
 
   const hasActionRequired =
@@ -643,7 +690,9 @@ export function RequestDetailPage(): React.JSX.Element {
     e.preventDefault();
     const file = formalRequestFileRef.current?.files?.[0];
     if (!file || !request?.dossierId) {
-      setFormalRequestError("Veuillez sélectionner le courrier formel à téléverser.");
+      setFormalRequestError(
+        "Veuillez sélectionner le courrier formel à téléverser.",
+      );
       return;
     }
 
@@ -694,7 +743,10 @@ export function RequestDetailPage(): React.JSX.Element {
     }
   };
 
-  const handleTemplateDownload = async (templateId: string, fileName: string) => {
+  const handleTemplateDownload = async (
+    templateId: string,
+    fileName: string,
+  ) => {
     try {
       const blob = await downloadFormalRequestTemplate(templateId);
       const url = URL.createObjectURL(blob);
@@ -1093,11 +1145,11 @@ export function RequestDetailPage(): React.JSX.Element {
                 Action requise
               </p>
               <h2 className="mt-1 text-base font-bold text-slate-950">
-                Déposer la demande formelle
+                Demande formelle attendue
               </h2>
               <p className="mt-2 text-sm text-slate-600">
-                Veuillez téléverser le courrier de demande formelle afin que
-                l'ANAC puisse l'introduire dans le circuit officiel DG.
+                Téléversez le courrier de demande formelle pour permettre à
+                l'ANAC de poursuivre le traitement.
               </p>
 
               {!showFormalRequestUpload ? (
@@ -1107,7 +1159,7 @@ export function RequestDetailPage(): React.JSX.Element {
                   onClick={() => setShowFormalRequestUpload(true)}
                 >
                   <Upload size={16} aria-hidden="true" />
-                  Téléverser le courrier formel
+                  Téléverser la demande formelle
                 </button>
               ) : (
                 <form
@@ -1136,7 +1188,9 @@ export function RequestDetailPage(): React.JSX.Element {
                   </div>
 
                   <div className="field">
-                    <label htmlFor="formalRequestNotes">Notes optionnelles</label>
+                    <label htmlFor="formalRequestNotes">
+                      Notes optionnelles
+                    </label>
                     <textarea
                       id="formalRequestNotes"
                       className="control min-h-20"
@@ -1158,7 +1212,7 @@ export function RequestDetailPage(): React.JSX.Element {
                       <Upload size={16} aria-hidden="true" />
                       {isFormalRequestUploading
                         ? "Envoi en cours..."
-                        : "Téléverser le courrier formel"}
+                        : "Téléverser la demande formelle"}
                     </button>
                     <button
                       className="btn btn-secondary w-fit"
@@ -1181,7 +1235,7 @@ export function RequestDetailPage(): React.JSX.Element {
           !dossierDetail.formalRequest.canUploadFormalRequestCourrier ? (
             <div className="flex items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
               <CheckCircle2 size={16} aria-hidden="true" />
-              Demande formelle déposée - en traitement par l'ANAC.
+              {dossierDetail.formalRequest.portalLabel}
             </div>
           ) : null}
 
@@ -1196,7 +1250,10 @@ export function RequestDetailPage(): React.JSX.Element {
                 Documents de demande formelle à compléter
               </h2>
               <p className="mt-2 text-sm text-slate-600">
-                Téléchargez les formulaires fournis par la DN, complétez-les, puis téléversez les pièces demandées.
+                Téléversez les pièces demandées pour permettre à l'ANAC de
+                poursuivre le traitement. Téléchargez les formulaires
+                disponibles, complétez-les, puis téléversez les versions
+                renseignées.
               </p>
               <button
                 type="button"
@@ -1394,11 +1451,14 @@ export function RequestDetailPage(): React.JSX.Element {
                   reqUploadError={reqUploadError}
                   reqUploadFileRef={reqUploadFileRef}
                   onExpand={(id) => {
-                    setExpandedRequirementId(expandedRequirementId === id ? null : id);
+                    setExpandedRequirementId(
+                      expandedRequirementId === id ? null : id,
+                    );
                     setReqUploadFile(null);
                     setReqUploadNotes("");
                     setReqUploadError("");
-                    if (reqUploadFileRef.current) reqUploadFileRef.current.value = "";
+                    if (reqUploadFileRef.current)
+                      reqUploadFileRef.current.value = "";
                   }}
                   onFileChange={setReqUploadFile}
                   onNotesChange={setReqUploadNotes}

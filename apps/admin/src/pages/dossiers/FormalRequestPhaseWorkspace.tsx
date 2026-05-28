@@ -40,7 +40,6 @@ const formalStatusLabels: Record<string, string> = {
   formal_not_started: "Non démarrée",
   formal_waiting_request: "En attente du courrier formel",
   formal_request_received: "Demande formelle reçue",
-  formal_documents_tracking: "Suivi documentaire",
   formal_sent_to_dg: "Mise en circuit DG",
   formal_dg_returned: "Retour DG / Décision disponible",
   formal_dg_decision_recorded: "Retour DG / Décision disponible",
@@ -51,7 +50,6 @@ const formalStatusLabels: Record<string, string> = {
   formal_requires_correction: "Correction demandée",
   formal_closed: "Clôturée",
 };
-
 
 const submissionStatusLabels: Record<string, string> = {
   missing: "Manquant",
@@ -137,7 +135,6 @@ function AvailabilityBadge({
   return <Badge variant="secondary">{missingLabel}</Badge>;
 }
 
-
 function DetailSection({
   title,
   children,
@@ -218,7 +215,9 @@ export function FormalRequestPhaseWorkspace({
   }
 
   if (error) {
-    return <ActionError message={error || "Impossible de charger la phase 2"} />;
+    return (
+      <ActionError message={error || "Impossible de charger la phase 2"} />
+    );
   }
 
   if (!state) {
@@ -237,11 +236,11 @@ export function FormalRequestPhaseWorkspace({
   const canPhaseClose = hasPermission(user, "PHASE_CLOSE");
 
   const formalStatus = state.phase.formalRequestStatus
-    ? formalStatusLabels[state.phase.formalRequestStatus] ??
-      state.phase.formalRequestStatus
+    ? (formalStatusLabels[state.phase.formalRequestStatus] ??
+      state.phase.formalRequestStatus)
     : "Non renseigné";
   const gateSource = state.gate.source
-    ? sourceLabels[state.gate.source] ?? state.gate.source
+    ? (sourceLabels[state.gate.source] ?? state.gate.source)
     : "Non renseignée";
   const sentToDg = isSentToDgStatus(state.phase.formalRequestStatus);
   const dgReturned = isDgReturnedStatus(state.phase.formalRequestStatus);
@@ -272,9 +271,8 @@ export function FormalRequestPhaseWorkspace({
   const correctionsCount = state.requirements.filter(
     (requirement) => requirement.status === "requires_correction",
   ).length;
-  const omaApprovalFormReq: AdminFormalRequestRequirement | undefined = state.requirements.find(
-    (r) => r.code === "oma_approval_form",
-  );
+  const omaApprovalFormReq: AdminFormalRequestRequirement | undefined =
+    state.requirements.find((r) => r.code === "oma_approval_form");
 
   let nextActionContent: React.ReactNode;
 
@@ -284,7 +282,7 @@ export function FormalRequestPhaseWorkspace({
     nextActionContent = (
       <div className="flex items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm font-medium text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-200">
         <CheckCircle2 className="h-4 w-4 shrink-0" aria-hidden="true" />
-        Phase 2 — Demande formelle clôturée.
+        Phase 2 - Demande formelle clôturée.
       </div>
     );
   } else if (state.phase.canClosePhase || state.closure.canClosePhase) {
@@ -297,7 +295,7 @@ export function FormalRequestPhaseWorkspace({
       </Button>
     ) : (
       <WaitingState>
-        Phase 2 prête à clôturer — en attente de la clôture par le responsable.
+        Phase 2 prête à clôturer - en attente de la clôture par le responsable.
       </WaitingState>
     );
   } else if (meetingHeld && !state.meeting?.reportDocumentId) {
@@ -306,10 +304,12 @@ export function FormalRequestPhaseWorkspace({
         Joindre le compte rendu de réunion formelle
       </Button>
     ) : (
-      <WaitingState>Réunion tenue. En attente du compte rendu de réunion.</WaitingState>
+      <WaitingState>
+        Réunion tenue. En attente du compte rendu de réunion.
+      </WaitingState>
     );
   } else if (meetingProgrammed && !meetingHeld) {
-    // Phase 1 pattern: compte rendu upload = meeting held — no separate "mark held" step
+    // Phase 1 pattern: compte rendu upload = meeting held - no separate "mark held" step
     nextActionContent = canPublishDocuments ? (
       <Button onClick={() => setOpenDialog("upload_meeting_report")}>
         Joindre le compte rendu de réunion formelle
@@ -328,7 +328,8 @@ export function FormalRequestPhaseWorkspace({
   } else if (!sentToDg) {
     nextActionContent = (
       <WaitingState>
-        Demande formelle reçue. Circuit DG à traiter depuis l'espace Courriers officiels.
+        Demande formelle reçue. Circuit DG à traiter depuis l'espace Courriers
+        officiels.
       </WaitingState>
     );
   } else if (!dgReturned) {
@@ -337,8 +338,11 @@ export function FormalRequestPhaseWorkspace({
         Demande formelle en circuit officiel. En attente du retour DG.
       </WaitingState>
     );
-  } else if ((state.phase.canInviteFormalMeeting || dgDecisionRecorded) && !meetingProgrammed) {
-    // DG return scan = decision evidence — invite meeting (only if no meeting exists yet)
+  } else if (
+    (state.phase.canInviteFormalMeeting || dgDecisionRecorded) &&
+    !meetingProgrammed
+  ) {
+    // DG return scan = decision evidence - invite meeting (only if no meeting exists yet)
     nextActionContent = canManageMeetings ? (
       <Button onClick={() => setOpenDialog("invite_formal_meeting")}>
         Planifier la réunion formelle
@@ -349,17 +353,23 @@ export function FormalRequestPhaseWorkspace({
       </WaitingState>
     );
   } else {
-    // Meeting report uploaded but canClosePhase=false — documents are the blocker
+    // Meeting report uploaded but canClosePhase=false - documents are the blocker
     const hasMissingDocs = state.progress.missing > 0;
-    const omaNotValidated = omaApprovalFormReq && omaApprovalFormReq.status !== "validated";
+    const omaNotValidated =
+      omaApprovalFormReq && omaApprovalFormReq.status !== "validated";
     if (hasMissingDocs || omaNotValidated) {
       nextActionContent = (
         <div className="space-y-2">
           <p className="text-sm font-medium text-destructive">
-            Les pièces de demande formelle doivent être complétées avant clôture.
+            Les pièces de demande formelle doivent être complétées avant
+            clôture.
           </p>
           {onNavigateToTab ? (
-            <Button size="sm" variant="outline" onClick={() => onNavigateToTab("documents")}>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => onNavigateToTab("documents")}
+            >
               Voir les documents
             </Button>
           ) : null}
@@ -367,7 +377,9 @@ export function FormalRequestPhaseWorkspace({
       );
     } else {
       nextActionContent = (
-        <WaitingState>Compte rendu joint. La phase peut être clôturée par la DN.</WaitingState>
+        <WaitingState>
+          Compte rendu joint. La phase peut être clôturée par la DN.
+        </WaitingState>
       );
     }
   }
@@ -376,7 +388,9 @@ export function FormalRequestPhaseWorkspace({
     <>
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">Phase 2 - Demande formelle</CardTitle>
+          <CardTitle className="text-base">
+            Phase 2 - Demande formelle
+          </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <DefinitionGrid>
@@ -446,16 +460,18 @@ export function FormalRequestPhaseWorkspace({
                     </Field>
                   </DefinitionGrid>
                   <Note>
-                    Le courrier formel conditionne la suite du circuit. Les autres
-                    pièces sont suivies sans bloquer automatiquement la progression DG.
+                    Le courrier formel conditionne la suite du circuit. Les
+                    autres pièces sont suivies sans bloquer automatiquement la
+                    progression DG.
                   </Note>
                 </div>
               )}
             </div>
           </DetailSection>
 
-          {/* ── Réunion formelle + Documents — progressive reveal ──────────────── */}
-          {visibility.showFormalMeeting || visibility.showSupportingDocuments ? (
+          {/* ── Réunion formelle + Documents - progressive reveal ──────────────── */}
+          {visibility.showFormalMeeting ||
+          visibility.showSupportingDocuments ? (
             <div className="grid gap-4 xl:grid-cols-2">
               {visibility.showFormalMeeting ? (
                 <div className="space-y-1">
@@ -517,7 +533,8 @@ export function FormalRequestPhaseWorkspace({
                         <p className="mt-1.5 text-xs text-foreground">
                           Formulaire{" "}
                           <span className="font-mono font-medium">
-                            {omaApprovalFormReq.formCode ?? "DN-AIR-R2-3-F-E-010"}
+                            {omaApprovalFormReq.formCode ??
+                              "DN-AIR-R2-3-F-E-010"}
                           </span>
                           {" : "}
                           <StatusBadge status={omaApprovalFormReq.status} />
@@ -525,7 +542,8 @@ export function FormalRequestPhaseWorkspace({
                       ) : null}
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      Le détail des pièces et les actions de consultation sont disponibles dans l'onglet Documents.
+                      Le détail des pièces et les actions de consultation sont
+                      disponibles dans l'onglet Documents.
                     </p>
                     {onNavigateToTab ? (
                       <Button
@@ -542,8 +560,8 @@ export function FormalRequestPhaseWorkspace({
             </div>
           ) : null}
 
-          {/* ── Clôture et recevabilité — progressive reveal ────────────────── */}
-          {visibility.showClosureEvidence ? (
+          {/* ── Clôture et recevabilité - progressive reveal ────────────────── */}
+          {/* {visibility.showClosureEvidence ? (
             <DetailSection title="Clôture et recevabilité">
               <div className="flex flex-wrap gap-2 text-sm">
                 <AvailabilityBadge
@@ -558,7 +576,7 @@ export function FormalRequestPhaseWorkspace({
                 />
               </div>
             </DetailSection>
-          ) : null}
+          ) : null} */}
 
           <Card>
             <CardHeader className="pb-2">

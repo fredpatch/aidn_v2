@@ -2,11 +2,22 @@ import { Schema, model, type InferSchemaType, type Types } from "mongoose";
 
 const omaPhaseSchema = new Schema(
   {
-    dossierId: { type: Schema.Types.ObjectId, ref: "Dossier", required: true, index: true },
+    dossierId: {
+      type: Schema.Types.ObjectId,
+      ref: "Dossier",
+      required: true,
+      index: true,
+    },
     phaseKey: {
       type: String,
-      enum: ["preliminary", "formal_request", "document_evaluation", "inspection", "delivery"],
-      required: true
+      enum: [
+        "preliminary",
+        "formal_request",
+        "document_evaluation",
+        "inspection",
+        "delivery",
+      ],
+      required: true,
     },
     status: {
       type: String,
@@ -18,10 +29,10 @@ const omaPhaseSchema = new Schema(
         "waiting_meeting",
         "ready_to_close",
         "closed",
-        "suspended"
+        "suspended",
       ],
       default: "not_started",
-      index: true
+      index: true,
     },
     preliminaryStatus: {
       type: String,
@@ -38,22 +49,37 @@ const omaPhaseSchema = new Schema(
         "preliminary_meeting_held",
         "preliminary_ready_to_close",
         "preliminary_closed",
-        null
+        null,
       ],
-      default: null
+      default: null,
     },
     firstMeetingId: { type: Schema.Types.ObjectId, ref: "Meeting" },
     preliminaryMeetingId: { type: Schema.Types.ObjectId, ref: "Meeting" },
-    preEvaluationTemplateDocumentId: { type: Schema.Types.ObjectId, ref: "Document" },
-    completedPreEvaluationDocumentId: { type: Schema.Types.ObjectId, ref: "Document" },
+    preEvaluationTemplateDocumentId: {
+      type: Schema.Types.ObjectId,
+      ref: "Document",
+    },
+    completedPreEvaluationDocumentId: {
+      type: Schema.Types.ObjectId,
+      ref: "Document",
+    },
     preEvaluationDgReviewId: { type: Schema.Types.ObjectId, ref: "DGReview" },
-    preEvaluationDgAnnotatedDocumentId: { type: Schema.Types.ObjectId, ref: "Document" },
+    preEvaluationDgAnnotatedDocumentId: {
+      type: Schema.Types.ObjectId,
+      ref: "Document",
+    },
     preEvaluationSentToDgAt: { type: Date },
     preEvaluationReturnedFromDgAt: { type: Date },
-    firstMeetingReportDocumentId: { type: Schema.Types.ObjectId, ref: "Document" },
-    preliminaryMeetingReportDocumentId: { type: Schema.Types.ObjectId, ref: "Document" },
+    firstMeetingReportDocumentId: {
+      type: Schema.Types.ObjectId,
+      ref: "Document",
+    },
+    preliminaryMeetingReportDocumentId: {
+      type: Schema.Types.ObjectId,
+      ref: "Document",
+    },
     closureCourrierDocumentId: { type: Schema.Types.ObjectId, ref: "Document" },
-    // ── Phase 2 — Demande formelle ───────────────────────────────────────────
+    // ── Phase 2 - Demande formelle ───────────────────────────────────────────
     formalRequestStatus: {
       type: String,
       enum: [
@@ -78,9 +104,18 @@ const omaPhaseSchema = new Schema(
     formalRequestCourrierId: { type: Schema.Types.ObjectId, ref: "Courrier" },
     formalRequestDgReviewId: { type: Schema.Types.ObjectId, ref: "DGReview" },
     formalMeetingId: { type: Schema.Types.ObjectId, ref: "Meeting" },
-    formalMeetingReportDocumentId: { type: Schema.Types.ObjectId, ref: "Document" },
-    recevabilityCourrierDocumentId: { type: Schema.Types.ObjectId, ref: "Document" },
-    phaseClosureCourrierDocumentId: { type: Schema.Types.ObjectId, ref: "Document" },
+    formalMeetingReportDocumentId: {
+      type: Schema.Types.ObjectId,
+      ref: "Document",
+    },
+    recevabilityCourrierDocumentId: {
+      type: Schema.Types.ObjectId,
+      ref: "Document",
+    },
+    phaseClosureCourrierDocumentId: {
+      type: Schema.Types.ObjectId,
+      ref: "Document",
+    },
     formalRequestReceivedAt: { type: Date },
     formalSentToDgAt: { type: Date },
     formalDgReturnedAt: { type: Date },
@@ -90,12 +125,14 @@ const omaPhaseSchema = new Schema(
     startedAt: { type: Date },
     closedAt: { type: Date },
     startedById: { type: Schema.Types.ObjectId, ref: "User" },
-    closedById: { type: Schema.Types.ObjectId, ref: "User" }
+    closedById: { type: Schema.Types.ObjectId, ref: "User" },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 omaPhaseSchema.index({ dossierId: 1, phaseKey: 1 }, { unique: true });
 
-export type OmaPhase = InferSchemaType<typeof omaPhaseSchema> & { _id: Types.ObjectId };
+export type OmaPhase = InferSchemaType<typeof omaPhaseSchema> & {
+  _id: Types.ObjectId;
+};
 export const OmaPhaseModel = model("OmaPhase", omaPhaseSchema, "oma_phases");

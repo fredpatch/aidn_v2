@@ -1,11 +1,15 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { CalendarDays, Download, History } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   downloadDossierDocument,
+  getAdminFormalRequestPhase,
   type AdminDossierDetail,
+  type AdminFormalRequestPhaseState,
+  type AdminFormalRequestRequirement,
+  type AdminFormalRequestSubmission,
   type AdminMeetingSummary,
 } from "@/lib/api/dossiers.api";
 import { downloadRequestOrientationDocument } from "@/lib/api/requests.api";
@@ -82,11 +86,57 @@ const dossierStatusPhaseLabels: Record<string, string> = {
   cancelled: "Annulé",
 };
 
+const formalStatusOrder = [
+  "formal_request_received",
+  "formal_sent_to_dg",
+  "formal_dg_returned",
+  "formal_dg_decision_recorded",
+  "formal_meeting_invited",
+  "formal_meeting_held",
+  "formal_recevability_recorded",
+  "formal_ready_to_close",
+  "formal_closed",
+];
+
+const formalOmaFormMilestoneTitles: Record<string, string> = {
+  validated: "Formulaire DN-AIR-R2-3-F-E-010 validé",
+  requires_correction: "Correction demandée sur formulaire DN-AIR-R2-3-F-E-010",
+  incomplete: "Formulaire DN-AIR-R2-3-F-E-010 incomplet",
+};
+
 
 function toTimestamp(value?: string): number {
   if (!value) return Number.POSITIVE_INFINITY;
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? Number.POSITIVE_INFINITY : date.getTime();
+}
+
+function hasReachedFormalStatus(
+  current: string | null | undefined,
+  target: string,
+): boolean {
+  if (!current) return false;
+  if (current === target) return true;
+  const currentIndex = formalStatusOrder.indexOf(current);
+  const targetIndex = formalStatusOrder.indexOf(target);
+  return currentIndex >= 0 && targetIndex >= 0 && currentIndex >= targetIndex;
+}
+
+function getRuntimeDateField(
+  value: unknown,
+  field: string,
+): string | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const maybeDate = (value as Record<string, unknown>)[field];
+  return typeof maybeDate === "string" ? maybeDate : undefined;
+}
+
+function getLatestSubmission(
+  req: AdminFormalRequestRequirement,
+): AdminFormalRequestSubmission | undefined {
+  return req.submissions
+    .filter((submission) => submission.status !== "replaced" && submission.status !== "archived")
+    .sort((a, b) => toTimestamp(b.uploadedAt) - toTimestamp(a.uploadedAt))[0];
 }
 
 function formatDateTime(value?: string): string {
@@ -190,7 +240,202 @@ function addMeetingEvents(
   }
 }
 
-function buildHistoryEvents(detail: AdminDossierDetail): DossierHistoryEvent[] {
+function addFormalDocumentEvents(
+  events: DossierHistoryEvent[],
+  formalState: AdminFormalRequestPhaseState,
+): void {
+  const nonGateRequirements = formalState.requirements.filter(
+    (req) => req.requirementLevel !== "gate",
+  );
+  const omaApprovalFormReq = nonGateRequirements.find(
+    (req) => req.code === "oma_approval_form",
+  );
+  const omaApprovalFormLatest = omaApprovalFormReq
+    ? getLatestSubmission(omaApprovalFormReq)
+    : undefined;
+
+  if (
+    omaApprovalFormReq &&
+    formalOmaFormMilestoneTitles[omaApprovalFormReq.status]
+  ) {
+    events.push({
+      id: `formal_document_oma_approval_form_${omaApprovalFormReq.status}`,
+      date: omaApprovalFormLatest?.uploadedAt,
+      title: formalOmaFormMilestoneTitles[omaApprovalFormReq.status],
+      description: omaApprovalFormLatest?.reviewComment
+        ? `Note DN : ${omaApprovalFormLatest.reviewComment}`
+        : "Décision de revue du formulaire de demande formelle.",
+      category: "document",
+      importance: "milestone",
+      group: "document",
+      status: "done",
+      documentId: omaApprovalFormLatest?.documentId,
+      documentDownloadKind: omaApprovalFormLatest?.documentId
+        ? "dossier"
+        : undefined,
+    });
+  }
+
+  nonGateRequirements.forEach((req) => {
+    req.submissions
+      .filter((submission) => submission.status !== "replaced" && submission.status !== "archived")
+      .forEach((submission) => {
+        events.push({
+          id: `formal_submission_${req.requirementId}_${submission.submissionId}`,
+          date: submission.uploadedAt,
+          title: `${req.label} déposé`,
+          description: req.formCode
+            ? `Pièce de demande formelle - ${req.formCode}.`
+            : "Pièce de demande formelle déposée.",
+          category: "document",
+          importance: "detail",
+          group: "document",
+          status: "done",
+          documentId: submission.documentId,
+          documentDownloadKind: "dossier",
+        });
+      });
+  });
+}
+
+function addFormalRequestEvents(
+  events: DossierHistoryEvent[],
+  formalState: AdminFormalRequestPhaseState | null,
+): void {
+  if (!formalState) return;
+
+  const formalStatus = formalState.phase.formalRequestStatus;
+  const gateDate = formalState.gate.receivedAt;
+
+  if (formalState.gate.exists) {
+    events.push({
+      id: "formal_request_received",
+      date: gateDate,
+      title: "Demande formelle reçue",
+      description:
+        formalState.gate.source === "portal_upload"
+          ? "Demande formelle reçue via le portail."
+          : "Demande formelle enregistrée par l'administration.",
+      category: "courrier",
+      importance: "milestone",
+      group: "courrier",
+      status: "done",
+    });
+  }
+
+  if (hasReachedFormalStatus(formalStatus, "formal_sent_to_dg")) {
+    events.push({
+      id: "formal_dg_sent",
+      title: "Circuit DG demande formelle lancé",
+      description: "Mise en circuit officiel/parapheur de la demande formelle.",
+      category: "dg_orientation",
+      importance: "milestone",
+      group: "dg",
+      status: "done",
+    });
+  }
+
+  if (hasReachedFormalStatus(formalStatus, "formal_dg_returned")) {
+    events.push({
+      id: "formal_dg_returned",
+      title: "Retour DG demande formelle enregistré",
+      description: "Retour du circuit DG de la demande formelle enregistré.",
+      category: "dg_orientation",
+      importance: "milestone",
+      group: "dg",
+      status: "done",
+    });
+  }
+
+  if (hasReachedFormalStatus(formalStatus, "formal_dg_decision_recorded")) {
+    events.push({
+      id: "formal_dg_decision_recorded",
+      title: "Décision DG demande formelle enregistrée",
+      description: "Décision DG rattachée à la demande formelle.",
+      category: "dg_orientation",
+      importance: "milestone",
+      group: "dg",
+      status: "done",
+    });
+  }
+
+  const meeting = formalState.meeting;
+  if (meeting?.scheduledAt) {
+    const isHeld = meeting.status === "held";
+    events.push({
+      id: "formal_meeting_planned",
+      date: meeting.scheduledAt,
+      title: "Réunion formelle planifiée",
+      description: meeting.location ? `Lieu: ${meeting.location}` : undefined,
+      category: "meeting",
+      importance: isHeld ? "detail" : "milestone",
+      group: "meeting",
+      status: "done",
+    });
+  }
+
+  if (meeting?.status === "held") {
+    events.push({
+      id: "formal_meeting_held",
+      date:
+        getRuntimeDateField(meeting, "heldAt") ??
+        meeting.scheduledAt ??
+        getRuntimeDateField(meeting, "createdAt"),
+      title: "Réunion formelle tenue",
+      category: "meeting",
+      importance: "milestone",
+      group: "meeting",
+      status: "done",
+    });
+  }
+
+  addDocumentEvent(events, {
+    id: "formal_meeting_report",
+    title: "Compte rendu de réunion formelle joint",
+    description: "Compte rendu associé à la réunion formelle.",
+    documentId: meeting?.reportDocumentId ?? undefined,
+    date: getRuntimeDateField(meeting, "reportUploadedAt"),
+    importance: "milestone",
+  });
+
+  addDocumentEvent(events, {
+    id: "formal_recevability_courrier",
+    title: "Courrier de recevabilité joint",
+    description: "Pièce facultative rattachée à la demande formelle.",
+    category: "courrier",
+    documentId: formalState.closure.recevabilityCourrierDocumentId ?? undefined,
+    importance: "detail",
+  });
+
+  addDocumentEvent(events, {
+    id: "formal_phase_closure_courrier",
+    title: "Courrier de clôture Phase II joint",
+    description: "Pièce facultative rattachée à la clôture de Phase II.",
+    category: "courrier",
+    documentId: formalState.closure.phaseClosureCourrierDocumentId ?? undefined,
+    importance: "detail",
+  });
+
+  addFormalDocumentEvents(events, formalState);
+
+  if (formalStatus === "formal_closed") {
+    events.push({
+      id: "formal_phase_closed",
+      date: getRuntimeDateField(formalState.phase, "closedAt"),
+      title: "Phase 2 - Demande formelle clôturée",
+      description: "Clôture de la phase de demande formelle.",
+      category: "phase",
+      importance: "milestone",
+      group: "phase",
+      status: "done",
+    });
+  }
+}
+
+function buildHistoryEvents(
+  detail: AdminDossierDetail,
+  formalState: AdminFormalRequestPhaseState | null,
+): DossierHistoryEvent[] {
   const events: DossierHistoryEvent[] = [];
   const preliminary = detail.preliminary;
   const phase = preliminary?.phase;
@@ -336,6 +581,8 @@ function buildHistoryEvents(detail: AdminDossierDetail): DossierHistoryEvent[] {
       status: "done",
     });
   }
+
+  addFormalRequestEvents(events, formalState);
 
   return events.sort((a, b) => {
     const dateSort = toTimestamp(a.date) - toTimestamp(b.date);
@@ -536,7 +783,27 @@ export function DossierHistoriqueTab({
   const [downloadError, setDownloadError] = useState("");
   const [selectedFilter, setSelectedFilter] = useState<HistoryFilter>("milestones");
   const [visibleCount, setVisibleCount] = useState(6);
-  const events = useMemo(() => buildHistoryEvents(detail), [detail]);
+  const [formalState, setFormalState] =
+    useState<AdminFormalRequestPhaseState | null>(null);
+
+  const loadFormalPhase = useCallback(async () => {
+    try {
+      const state = await getAdminFormalRequestPhase(detail.dossier.id);
+      setFormalState(state);
+    } catch {
+      // Phase 2 not started - no-op
+      setFormalState(null);
+    }
+  }, [detail.dossier.id]);
+
+  useEffect(() => {
+    void loadFormalPhase();
+  }, [loadFormalPhase]);
+
+  const events = useMemo(
+    () => buildHistoryEvents(detail, formalState),
+    [detail, formalState],
+  );
   const filteredEvents = useMemo(
     () => filterHistoryEvents(events, selectedFilter),
     [events, selectedFilter],

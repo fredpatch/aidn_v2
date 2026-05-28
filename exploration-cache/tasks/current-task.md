@@ -1,56 +1,336 @@
 # Current Task
 
-## Phase: OMA-FORMAL-17 — Block Phase 2 closure until all required documents deposited
+## Phase: OMA-DOCS-UX-1 — Compact Documents tab with phase accordion
 
 Date: 2026-05-28
-Status: **Complete — API PASS, Admin PASS**
+Status: **Complete - Admin TypeScript PASS**
+
+## Summary file
+
+- Implementation: `exploration-cache/tasks/summaries/2026-05-28-oma-docs-ux-1-documents-phase-accordion.md`
+
+## Files changed
+
+- `apps/admin/src/pages/dossiers/DossierDocumentsTab.tsx` — full rewrite
+
+## Next step
+
+Run `npm run build` outside sandbox, then commit + push.
+
+---
+
+## Phase: OMA-HARDENING-7 - Cleanup dead/ambiguous Phase 2 statuses and rejected document semantics
+
+Date: 2026-05-28
+Status: **Complete - API PASS, Admin PASS**
 
 ## Summary files
+
+- Planning: `exploration-cache/tasks/summaries/2026-05-28-oma-hardening-7-status-cleanup-planning.md`
+- Implementation: `exploration-cache/tasks/summaries/2026-05-28-oma-hardening-7-status-cleanup.md`
+- History: `exploration-cache/tasks/history/2026-05-28-oma-hardening-7-status-cleanup.md`
+- Source audit: `exploration-cache/tasks/summaries/2026-05-28-oma-hardening-1-phase-1-2-audit.md`
+- Prior status fix: `exploration-cache/tasks/summaries/2026-05-28-oma-hardening-2-portal-status-consistency.md`
+- Review semantics reference: `exploration-cache/tasks/summaries/2026-05-28-oma-formal-15-consultation-only-documents-implementation.md`
+- Closure reference: `exploration-cache/tasks/summaries/2026-05-28-oma-formal-17-block-closure-until-documents-deposited.md`
+
+## Current scope
+
+- Small backend/types/UI cleanup.
+- Do not change workflow rules.
+- Do not change Phase 1 behavior.
+- Do not change Phase 2 closure gates.
+- Do not change portal checklist behavior except labels/types if needed.
+- Do not start Phase 3.
+
+## Confirmed plan
+
+- `formal_documents_tracking` is still present in model enum, formal request service status set, admin type union, and admin workspace label, but no inspected backend mutation writes it.
+- Keep `formal_documents_tracking` in the Mongoose enum for DB compatibility, but remove it from active logic/UI/type surfaces.
+- `rejected` remains a global `DocumentSubmission.status` enum value.
+- Phase 2 formal request review should allow only `validated`, `requires_correction`, and `incomplete`.
+- Remove `rejected` from the Phase 2 review route/service allowlist while keeping admin/portal labels as defensive fallback.
+
+## Implementation
+
+- `apps/api/src/modules/oma-phases/formal-request.service.ts` no longer includes `formal_documents_tracking` in active recevability status logic and no longer accepts `rejected` as a Phase 2 formal review status.
+- `apps/api/src/modules/admin/admin.routes.ts` now validates formal request review statuses as `validated`, `requires_correction`, or `incomplete`.
+- `apps/admin/src/lib/api/dossiers.api.ts` removed `formal_documents_tracking` from the admin Phase 2 status union.
+- `apps/admin/src/pages/dossiers/FormalRequestPhaseWorkspace.tsx` removed the normal label for `formal_documents_tracking`.
+- `apps/api/src/modules/oma-phases/oma-phase.model.ts` still keeps `formal_documents_tracking` in the enum for DB compatibility.
+
+## Verification
+
+- API: `npx tsc --noEmit` PASS
+- API: `npm run build` PASS
+- Admin: `npx tsc --noEmit` PASS
+- Admin: `npm run build` PASS after outside-sandbox rerun for Windows Tailwind/Vite native binary loading
+- Portal: not run; no portal files were changed.
+
+## Manual checks
+
+- Not run in browser/API runtime.
+
+## Phase: OMA-HARDENING-6 - Harmonize Phase 1 + Phase 2 notifications
+
+Date: 2026-05-28
+Status: **Complete - API PASS**
+
+## Summary files
+
+- Planning: `exploration-cache/tasks/summaries/2026-05-28-oma-hardening-6-notifications-planning.md`
+- Implementation: `exploration-cache/tasks/summaries/2026-05-28-oma-hardening-6-notifications.md`
+- History: `exploration-cache/tasks/history/2026-05-28-oma-hardening-6-notifications.md`
+- Source audit: `exploration-cache/tasks/summaries/2026-05-28-oma-hardening-1-phase-1-2-audit.md`
+- Prior portal status fix: `exploration-cache/tasks/summaries/2026-05-28-oma-hardening-2-portal-status-consistency.md`
+- Prior portal label fix: `exploration-cache/tasks/summaries/2026-05-28-oma-hardening-5-portal-status-labels.md`
+- Document review reference: `exploration-cache/tasks/summaries/2026-05-28-oma-formal-15-consultation-only-documents-implementation.md`
+
+## Current scope
+
+- Backend in-app notifications only.
+- Do not change workflow rules.
+- Do not change Phase 1/Phase 2 status transitions.
+- Do not change document upload/review rules.
+- Do not change closure logic.
+- Do not change portal UI unless type changes require it.
+- Do not start Phase 3.
+
+## Confirmed plan
+
+- Use `NotificationModel` with existing fields: `recipientUserId`, `channel`, `title`, `message`, `relatedType`, `relatedId`, `status`.
+- Recipient is `dossier.postulantUserId`; skip notification when absent.
+- Phase 1 currently emits no notifications from `oma-phase.service.ts`.
+- Add Phase 1 notifications for first meeting scheduled, pre-evaluation form available, preliminary meeting scheduled, and preliminary phase closed.
+- Phase 2 already notifies formal meeting scheduled, correction requested, and Phase 2 closure, but wording/status coverage needs adjustment.
+- Add Phase 2 notification for formal request received.
+- Extend document review notifications to include `incomplete` and align `requires_correction` wording with portal Actions requises.
+- Reword existing formal meeting scheduled and Phase 2 closed notifications.
+- Keep one notification per successful transition call; no broad dedupe/refactor.
+
+## Implementation
+
+- `apps/api/src/modules/oma-phases/oma-phase.service.ts` now emits Phase 1 notifications for first meeting scheduled, pre-evaluation form available, preliminary meeting scheduled, and preliminary phase closed.
+- `apps/api/src/modules/oma-phases/formal-request.service.ts` now emits/aligned Phase 2 notifications for formal request received, formal meeting scheduled, correction requested, incomplete document, and Phase 2 closed.
+- Notification helpers skip when `dossier.postulantUserId` is absent.
+
+## Verification
+
+- API: `npx tsc --noEmit` PASS
+- API: `npm run build` PASS
+- Portal: not run; no portal files/types/UI were touched.
+
+## Manual checks
+
+- Not run in browser/API runtime.
+
+## Phase: OMA-HARDENING-5 - Harmonize portal Phase 1 + Phase 2 status labels
+
+Date: 2026-05-28
+Status: **Complete - API PASS, Portal PASS**
+
+## Summary files
+
+- Planning: `exploration-cache/tasks/summaries/2026-05-28-oma-hardening-5-portal-status-labels-planning.md`
+- Implementation: `exploration-cache/tasks/summaries/2026-05-28-oma-hardening-5-portal-status-labels.md`
+- Source audit: `exploration-cache/tasks/summaries/2026-05-28-oma-hardening-1-phase-1-2-audit.md`
+- Prior status fix: `exploration-cache/tasks/summaries/2026-05-28-oma-hardening-2-portal-status-consistency.md`
+- Phase 2 document reference: `exploration-cache/tasks/summaries/2026-05-28-oma-formal-14-portal-phase-2-documents-implementation.md`
+
+## Current scope
+
+- Portal/backend display wording only.
+- Do not change workflow rules.
+- Do not change admin workflow.
+- Do not change document upload/review rules.
+- Do not change closure logic.
+- Do not start Phase 3.
+
+## Confirmed plan
+
+- Harmonize `PRELIMINARY_STATUS_PORTAL_LABELS` with simple portal-safe labels.
+- Extend `FORMAL_REQUEST_PORTAL_LABELS` so Phase 2 status progresses beyond `Demande formelle déposée`.
+- Remove the `hasFormalRequestCourrier` override that forces the label to stay static; only fall back to `Demande formelle reçue` when status is missing but the formal request exists.
+- Keep `MyRequestsPage` unchanged unless implementation reveals a direct Phase 2 label path; it only renders request-level `portalStatusLabel`.
+- Update `RequestDetailPage` Actions requises wording to avoid `DG`, `circuit`, and internal role wording.
+
+## Verification planned
+
+- API: `npx tsc --noEmit` PASS
+- API: `npm run build` PASS
+- Portal: `npx tsc --noEmit` PASS
+- Portal: `npm run build` PASS after outside-sandbox rerun for Windows Tailwind/Vite native binary loading
+
+## Manual checks
+
+- Not run in browser.
+
+## Phase: OMA-HARDENING-4 - Add Phase 2 events to Admin Historique tab
+
+Date: 2026-05-28
+Status: **Complete - Admin PASS**
+
+## Summary files
+
+- Planning: `exploration-cache/tasks/summaries/2026-05-28-oma-hardening-4-phase-2-historique-planning.md`
+- Implementation: `exploration-cache/tasks/summaries/2026-05-28-oma-hardening-4-phase-2-historique.md`
+- Source audit: `exploration-cache/tasks/summaries/2026-05-28-oma-hardening-1-phase-1-2-audit.md`
+- Reference pattern: `exploration-cache/tasks/summaries/2026-05-28-oma-hardening-3-admin-phase-2-tabs.md`
+- Document reference: `exploration-cache/tasks/summaries/2026-05-28-oma-formal-16-phase-2-documents-tab-refactor.md`
+
+## Current scope
+
+- Admin-only Phase 2 visibility in `DossierHistoriqueTab`.
+- Do not change backend workflow rules.
+- Do not change Phase 1 behavior.
+- Do not change portal.
+- Do not change Documents/Reunions/Courriers tab behavior.
+- Do not change Phase 2 closure logic.
+- Do not start Phase 3.
+
+## Confirmed plan
+
+- Reuse the `DossierDocumentsTab` separate-load pattern: call `getAdminFormalRequestPhase(detail.dossier.id)` and silently ignore failures when Phase 2 is not started.
+- Keep `AdminDossierDetail` unchanged and pass optional `AdminFormalRequestPhaseState` into the local history event builder.
+- Preserve the existing history event model: `category`, `group`, `importance`, compact default `Jalons`, and existing download handling.
+- Add Phase 2 milestones where available: formal request received, DG circuit sent/returned/decision inferred from formal status, formal meeting planned/held, formal meeting report attached, Phase 2 closed.
+- Add Phase 2 document events carefully: `oma_approval_form` review outcomes may appear as milestones; other submission/deposit details stay out of the default `Jalons` filter.
+- Do not add a formal request gate download because `gate.formalRequestCourrierId` is a courrier id, not a confirmed dossier document id.
+
+## Verification
+
+- Admin: `npx tsc --noEmit` PASS
+- Admin: `npm run build` PASS after outside-sandbox rerun for Windows Tailwind/Vite native binary loading
+
+## Manual checks
+
+- Not run in browser.
+
+## Phase: OMA-HARDENING-3 - Add Phase 2 coverage to Admin Reunions and Courriers tabs
+
+Date: 2026-05-28
+Status: **Complete - Admin PASS**
+
+## Summary files
+
+- Planning: `exploration-cache/tasks/summaries/2026-05-28-oma-hardening-3-admin-phase-2-tabs-planning.md`
+- Implementation: `exploration-cache/tasks/summaries/2026-05-28-oma-hardening-3-admin-phase-2-tabs.md`
+- Source audit: `exploration-cache/tasks/summaries/2026-05-28-oma-hardening-1-phase-1-2-audit.md`
+- Prior implementation: `exploration-cache/tasks/summaries/2026-05-28-oma-hardening-2-portal-status-consistency.md`
+- Reference pattern: `exploration-cache/tasks/summaries/2026-05-28-oma-formal-16-phase-2-documents-tab-refactor.md`
+
+## Current scope
+
+- Admin-only Phase 2 visibility in `DossierMeetingsTab` and `DossierCourriersTab`.
+- Do not change backend workflow rules.
+- Do not change Phase 1 behavior.
+- Do not change portal.
+- Do not change Phase 2 closure logic.
+- Do not start Phase 3.
+
+## Confirmed plan
+
+- Follow `DossierDocumentsTab` separate-load pattern: call `getAdminFormalRequestPhase(dossierId)` and silently ignore 404/not-started failures.
+- `AdminFormalRequestPhaseState` exposes `gate`, `meeting`, `requirements`, `progress`, and `closure`.
+- Formal meeting can render from `formalState.meeting` with title/type inferred in UI, scheduled date, location, status, and report document status.
+- `formalState.meeting` type does not currently expose `heldAt`; show held date only if the available object contains it at runtime.
+- Phase 2 courrier rows can show formal gate, recevability courrier, and closure courrier states.
+- Only `closure.recevabilityCourrierDocumentId` and `closure.phaseClosureCourrierDocumentId` are exposed as document IDs.
+- `gate.formalRequestCourrierId` is a courrier id, not a confirmed document id for `downloadDossierDocument`; do not add a formal request courrier download button unless an existing supported document id is available.
+- Recevability and Phase II closure courriers are optional evidence/non-blocking in UI wording.
+
+## Verification
+
+- Admin: `npx tsc --noEmit` PASS
+- Admin: `npm run build` PASS after outside-sandbox rerun for Windows Tailwind/Vite native binary loading
+
+## Manual checks
+
+- Not run in browser.
+
+---
+
+## Phase: OMA-HARDENING-2 - Portal Phase 2 submission status and action-required consistency fixes
+
+Date: 2026-05-28
+Status: **Complete - API PASS, Portal PASS**
+
+## Summary files
+
+- Planning: `exploration-cache/tasks/summaries/2026-05-28-oma-hardening-2-portal-status-consistency-planning.md`
+- Implementation: `exploration-cache/tasks/summaries/2026-05-28-oma-hardening-2-portal-status-consistency.md`
+- Source audit: `exploration-cache/tasks/summaries/2026-05-28-oma-hardening-1-phase-1-2-audit.md`
+
+## Current scope
+
+- Portal/backend Phase 2 status consistency only.
+- Do not change admin workflow.
+- Do not change Phase 2 closure logic.
+- Do not change document upload or review rules.
+- Do not start Phase 3.
+
+## Confirmed plan
+
+- Backend portal active submission statuses should include `submitted`, `under_review`, `validated`, `requires_correction`, `incomplete`, and `rejected`.
+- `incomplete`, `requires_correction`, and `rejected` are active for display/re-upload but not acceptable for completion/closure.
+- Portal `formalProgress.missing` should count only `requirementLevel === "expected"` requirements with `status === "missing"`.
+- Portal `hasFormalDocRequired` should only trigger for `expected` requirements with `missing`, `requires_correction`, `incomplete`, or `rejected`.
+- Portal re-upload action should be available for `missing`, `requires_correction`, `incomplete`, and `rejected`.
+- `rejected` is treated as re-upload-needed and displayed as `Rejeté`, not collapsed to `Manquant`.
+
+## Verification
+
+- API: `npx tsc --noEmit` PASS
+- API: `npm run build` PASS
+- Portal: `npx tsc --noEmit` PASS
+- Portal: `npm run build` PASS after outside-sandbox rerun for Windows Tailwind/Vite native binary loading
+
+---
+
+## Phase: OMA-HARDENING-1 — Phase 1 + Phase 2 audit
+
+Date: 2026-05-28
+Status: **Audit complete — no implementation**
+
+## Summary file
+
+`exploration-cache/tasks/summaries/2026-05-28-oma-hardening-1-phase-1-2-audit.md`
+
+## Prior completed tasks (this session)
 
 - OMA-FORMAL-15: `exploration-cache/tasks/summaries/2026-05-28-oma-formal-15-consultation-only-documents-implementation.md`
 - OMA-FORMAL-16: `exploration-cache/tasks/summaries/2026-05-28-oma-formal-16-phase-2-documents-tab-refactor.md`
 - OMA-FORMAL-17: `exploration-cache/tasks/summaries/2026-05-28-oma-formal-17-block-closure-until-documents-deposited.md`
+- FORMAL-17 conditional fix: `conditional` level now excluded from closure guards + `progress.missing` count
 
-## Files modified (OMA-FORMAL-17)
+## Proposed hardening slices (from audit)
 
-- `apps/api/src/modules/oma-phases/formal-request.service.ts`
-  - Added `"incomplete"` to `ACTIVE_SUBMISSION_STATUSES` (fixes status display for `incomplete` submissions)
-  - Added `"incomplete"` to `ACTIVE_SUBMISSION_STATUS_SET` + treat it like `requires_correction` for re-upload
-  - Moved `requirementList` build before `canClosePhase` computation
-  - Extended `canClosePhase`: requires `allRequiredDeposited` + `omaFormValidated`
-  - Added document deposit + `oma_approval_form` validated guards in `closeFormalRequestPhase`
+### OMA-HARDENING-2 — Portal submission status fix (high impact, small scope)
+- Add `"incomplete"` to `PORTAL_ACTIVE_SUBMISSION_STATUSES` in `oma-phase.service.ts`
+- Exclude conditional/optional from portal `formalProgress.missing` and `hasFormalDocRequired`
+- Fix `"rejected"` portal UX (label + re-upload guidance)
 
-- `apps/admin/src/pages/dossiers/formal-request-dialogs.tsx`
-  - `CloseFormalRequestPhaseDialog`: removed "clôture avec réserves" behavior
-  - Replaced amber partial warning + comment field with destructive blocking message
-  - Disabled close button when `!isComplete`
-  - Removed `completeness`/`comment` from API call
+### OMA-HARDENING-3 — Phase 2 in DossierMeetingsTab + DossierCourriersTab
+- Formal meeting card in DossierMeetingsTab
+- Phase 2 courrier rows in DossierCourriersTab
 
-- `apps/admin/src/pages/dossiers/FormalRequestPhaseWorkspace.tsx`
-  - `nextActionContent` `else` branch: shows blocking message + "Voir les documents" when meeting report uploaded but canClosePhase=false due to missing docs
+### OMA-HARDENING-4 — Phase 2 in DossierHistoriqueTab
+- Extend buildHistoryEvents with formalState events
 
-## Key decisions
+### OMA-HARDENING-5 — Portal formal request label progression
+- Extend FORMAL_REQUEST_PORTAL_LABELS per-step
 
-- `oma_approval_form` submitted but not validated → BLOCK
-- `oma_approval_form` `requires_correction` or `incomplete` → BLOCK
-- Consultation-only docs: deposit only required (validation not required and not possible)
-- `incomplete` status fix: now included in `ACTIVE_SUBMISSION_STATUSES` for correct display
-- `incomplete` re-upload fix: treated like `requires_correction` (replacement allowed)
-- Backend error messages are specific per blocking reason
-- `completeness`/`comment` payload fields kept optional in backend signature (backward-compat)
+### OMA-HARDENING-6 — Notifications Phase 1 + Phase 2 gaps
+- Phase 1: 3 notifications (first meeting, pre-eval form, Phase 1 closed)
+- Phase 2: incomplete correction notification, gate-received notification
 
-## Manual checks
+### OMA-HARDENING-7 — Dead code + rejected status cleanup
+- Remove `formal_documents_tracking` enum value
+- Define `rejected` document semantics clearly
 
-Phase 2 cannot close when:
-- Required documents are missing
-- `oma_approval_form` is missing
-- `oma_approval_form` is `requires_correction`
-- `oma_approval_form` is `incomplete`
-- `oma_approval_form` is `submitted` or `under_review` (not yet validated)
+## Key decisions from audit
 
-Phase 2 CAN close when:
-- All required/expected docs are deposited
-- `oma_approval_form` is `validated`
-- Plus existing conditions: gate, DG evidence, meeting held, report uploaded
-
-No "Clôturer avec réserves" remains in the UI.
+- Accept separate `getAdminFormalRequestPhase()` load pattern for Meetings/Courriers/Historique tabs (consistent with DossierDocumentsTab)
+- `"rejected"` document submission currently maps to `"missing"` in requirement status — undocumented, needs explicit decision
+- Phase 1 emits ZERO notifications — high severity gap
+- Portal `"incomplete"` status fix is independent of admin FORMAL-17 fix (two different sets)

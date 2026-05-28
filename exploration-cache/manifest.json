@@ -44,6 +44,117 @@
   "recentExplorationCacheUpdates": [
     {
       "date": "2026-05-28",
+      "phase": "OMA-DOCS-UX-1-DOCUMENTS-PHASE-ACCORDION",
+      "created": [
+        "exploration-cache/tasks/summaries/2026-05-28-oma-docs-ux-1-documents-phase-accordion.md"
+      ],
+      "updated": [
+        "apps/admin/src/pages/dossiers/DossierDocumentsTab.tsx",
+        "exploration-cache/tasks/current-task.md",
+        "exploration-cache/manifest.json"
+      ],
+      "notes": "Full rewrite of admin Documents tab into compact phase accordion. Phase 1 + Phase 2 documents, Phases 3-5 placeholder. No backend changes."
+    },
+    {
+      "date": "2026-05-28",
+      "phase": "OMA-HARDENING-7-STATUS-CLEANUP",
+      "created": [
+        "exploration-cache/tasks/summaries/2026-05-28-oma-hardening-7-status-cleanup-planning.md",
+        "exploration-cache/tasks/summaries/2026-05-28-oma-hardening-7-status-cleanup.md",
+        "exploration-cache/tasks/history/2026-05-28-oma-hardening-7-status-cleanup.md"
+      ],
+      "updated": [
+        "apps/api/src/modules/oma-phases/formal-request.service.ts",
+        "apps/api/src/modules/admin/admin.routes.ts",
+        "apps/admin/src/lib/api/dossiers.api.ts",
+        "apps/admin/src/pages/dossiers/FormalRequestPhaseWorkspace.tsx",
+        "exploration-cache/tasks/current-task.md",
+        "exploration-cache/06-workflows/PORTAL_REQUEST_WORKFLOW.md",
+        "exploration-cache/manifest.json"
+      ]
+    },
+    {
+      "date": "2026-05-28",
+      "phase": "OMA-HARDENING-6-NOTIFICATIONS",
+      "created": [
+        "exploration-cache/tasks/summaries/2026-05-28-oma-hardening-6-notifications-planning.md",
+        "exploration-cache/tasks/summaries/2026-05-28-oma-hardening-6-notifications.md",
+        "exploration-cache/tasks/history/2026-05-28-oma-hardening-6-notifications.md"
+      ],
+      "updated": [
+        "apps/api/src/modules/oma-phases/oma-phase.service.ts",
+        "apps/api/src/modules/oma-phases/formal-request.service.ts",
+        "exploration-cache/tasks/current-task.md",
+        "exploration-cache/06-workflows/PORTAL_REQUEST_WORKFLOW.md",
+        "exploration-cache/manifest.json"
+      ]
+    },
+    {
+      "date": "2026-05-28",
+      "phase": "OMA-HARDENING-5-PORTAL-STATUS-LABELS",
+      "created": [
+        "exploration-cache/tasks/summaries/2026-05-28-oma-hardening-5-portal-status-labels-planning.md",
+        "exploration-cache/tasks/summaries/2026-05-28-oma-hardening-5-portal-status-labels.md",
+        "exploration-cache/tasks/history/2026-05-28-oma-hardening-5-portal-status-labels.md"
+      ],
+      "updated": [
+        "apps/api/src/modules/oma-phases/oma-phase.service.ts",
+        "apps/portal/src/pages/RequestDetailPage.tsx",
+        "exploration-cache/tasks/current-task.md",
+        "exploration-cache/03-frontend/PORTAL_APP_MAP.md",
+        "exploration-cache/06-workflows/PORTAL_REQUEST_WORKFLOW.md",
+        "exploration-cache/manifest.json"
+      ]
+    },
+    {
+      "date": "2026-05-28",
+      "phase": "OMA-HARDENING-4-ADMIN-PHASE-2-HISTORIQUE",
+      "created": [
+        "exploration-cache/tasks/summaries/2026-05-28-oma-hardening-4-phase-2-historique-planning.md",
+        "exploration-cache/tasks/summaries/2026-05-28-oma-hardening-4-phase-2-historique.md",
+        "exploration-cache/tasks/history/2026-05-28-oma-hardening-4-phase-2-historique.md"
+      ],
+      "updated": [
+        "apps/admin/src/pages/dossiers/DossierHistoriqueTab.tsx",
+        "exploration-cache/tasks/current-task.md",
+        "exploration-cache/03-frontend/ADMIN_APP_MAP.md",
+        "exploration-cache/manifest.json"
+      ]
+    },
+    {
+      "date": "2026-05-28",
+      "phase": "OMA-HARDENING-3-ADMIN-PHASE-2-TABS",
+      "created": [
+        "exploration-cache/tasks/summaries/2026-05-28-oma-hardening-3-admin-phase-2-tabs-planning.md",
+        "exploration-cache/tasks/summaries/2026-05-28-oma-hardening-3-admin-phase-2-tabs.md",
+        "exploration-cache/tasks/history/2026-05-28-oma-hardening-3-admin-phase-2-tabs.md"
+      ],
+      "updated": [
+        "apps/admin/src/pages/dossiers/DossierMeetingsTab.tsx",
+        "apps/admin/src/pages/dossiers/DossierCourriersTab.tsx",
+        "exploration-cache/tasks/current-task.md",
+        "exploration-cache/03-frontend/ADMIN_APP_MAP.md",
+        "exploration-cache/manifest.json"
+      ]
+    },
+    {
+      "date": "2026-05-28",
+      "phase": "OMA-HARDENING-2-PORTAL-STATUS-CONSISTENCY",
+      "created": [
+        "exploration-cache/tasks/summaries/2026-05-28-oma-hardening-2-portal-status-consistency-planning.md",
+        "exploration-cache/tasks/summaries/2026-05-28-oma-hardening-2-portal-status-consistency.md",
+        "exploration-cache/tasks/history/2026-05-28-oma-hardening-2-portal-status-consistency.md"
+      ],
+      "updated": [
+        "apps/api/src/modules/oma-phases/oma-phase.service.ts",
+        "apps/portal/src/pages/RequestDetailPage.tsx",
+        "exploration-cache/tasks/current-task.md",
+        "exploration-cache/QUICK-REFERENCE.md",
+        "exploration-cache/manifest.json"
+      ]
+    },
+    {
+      "date": "2026-05-28",
       "phase": "OMA-FORMAL-15-16-17",
       "created": [
         "exploration-cache/tasks/summaries/2026-05-28-oma-formal-15-consultation-only-documents-implementation.md",

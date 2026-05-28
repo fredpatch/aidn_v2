@@ -62,6 +62,10 @@ Source files inspected: `apps/portal/src/App.tsx`, `apps/portal/src/layouts/*`, 
   - `RequestDetailPage` shows the action in `Actions requises` when Phase 1 is closed and the formal courrier gate is missing.
   - The upload posts multipart field `file` plus optional `notes` to `POST /api/v1/portal/dossiers/:id/phases/formal-request/courrier`.
   - The portal does not expose source selection, physical-deposit/internal-scan choices, DG decision controls, or scanned-return controls.
+- OMA-HARDENING-5 harmonizes portal dossier phase labels:
+  - Phase 1 dossier labels use simple ANAC-facing wording: `En cours de traitement par l'ANAC`, `Rendez-vous programmé`, `Formulaire de pré-évaluation à compléter`, `En cours d'examen`, and `Phase préliminaire clôturée`.
+  - Phase 2 formal labels now progress by status: `Demande formelle attendue`, `Demande formelle reçue`, `Demande formelle en cours d'examen`, `Réunion formelle programmée`, `Documents de demande formelle à compléter`, `En attente de finalisation par l'ANAC`, `Action requise`, and `Phase de demande formelle clôturée`.
+  - `/demandes/:id` formal request Actions requises copy no longer says `circuit officiel DG`; it tells the postulant to upload the formal request so ANAC can continue processing.
 
 ## Boundaries
 - No admin account request validation UI was added in the portal app.

@@ -1,6 +1,6 @@
 # Admin App Map
 
-Last reviewed: 2026-05-21
+Last reviewed: 2026-05-28
 Source files inspected: `apps/admin/src/App.tsx`, `apps/admin/src/contexts/AuthContext.tsx`, `apps/admin/src/lib/api/*.ts`, `apps/admin/src/pages/*Page.tsx`, `apps/admin/src/config/nav.tsx`
 
 ## Confirmed facts
@@ -31,6 +31,14 @@ Source files inspected: `apps/admin/src/App.tsx`, `apps/admin/src/contexts/AuthC
   - Keeps supporting documents tracking-only; only the formal request courrier gates DG circuit placement.
   - The Phase 2 DN workspace follows the Phase 1 guided pattern: one right-panel workspace card, lightweight internal sections for formal courrier / formal meeting / compact documents, and the guided `Prochaine action` card last.
   - Phase 2 `Démarrée le` displays `phaseRecord.startedAt` when available and falls back to formal request reception date when the phase has progressed but start date is absent.
+
+- Admin dossier tabs with Phase 2 read state:
+  - `DossierDocumentsTab`, `DossierMeetingsTab`, `DossierCourriersTab`, and `DossierHistoriqueTab` use a separate `getAdminFormalRequestPhase(dossierId)` load and silently ignore Phase 2-not-started failures.
+  - `DossierMeetingsTab` shows a `Phase 2 - RÃ©union formelle` section only when `formalState.meeting` exists.
+  - `DossierCourriersTab` shows `Phase 2 - Demande formelle` with the formal request gate state plus optional recevability/Phase II closure evidence.
+  - Recevability and Phase II closure courriers are labelled optional/non-blocking. The formal request gate row does not add a download button because the exposed `formalRequestCourrierId` is a courrier id, not a confirmed dossier document id.
+  - `DossierHistoriqueTab` adds Phase 2 formal request, DG circuit, formal meeting, meeting report, Phase 2 closure, and formal document submission/review events to the existing compact timeline model.
+  - In `DossierHistoriqueTab`, default `Jalons` remains compact: consultation-only Phase 2 document deposits are detail events for `Documents`/`Tous`, while the DN-AIR-R2-3-F-E-010 review outcomes can appear as milestones.
 
 ## Admin Auth Routes
 - `/login`: French login page with `Administrateur initial` and `Agent ANAC` modes.

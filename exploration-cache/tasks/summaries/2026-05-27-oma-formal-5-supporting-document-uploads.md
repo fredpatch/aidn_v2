@@ -1,14 +1,14 @@
-# OMA-FORMAL-5 — Supporting Document Uploads for Phase 2 Demande formelle
+# OMA-FORMAL-5 - Supporting Document Uploads for Phase 2 Demande formelle
 
 Date: 2026-05-27
-Status: **Complete — API typecheck PASS, API lint PASS, API build PASS**
+Status: **Complete - API typecheck PASS, API lint PASS, API build PASS**
 
 ---
 
 ## Objective
 
 Implement portal and admin upload endpoints for Phase 2 supporting documents.
-Supporting docs update checklist progress only — they do NOT block or unlock any workflow gate.
+Supporting docs update checklist progress only - they do NOT block or unlock any workflow gate.
 
 ---
 
@@ -19,7 +19,7 @@ Supporting docs update checklist progress only — they do NOT block or unlock a
 
 ## Source files inspected
 
-_(all patterns from this session — no new files needed)_
+_(all patterns from this session - no new files needed)_
 
 ---
 
@@ -55,12 +55,12 @@ _(all patterns from this session — no new files needed)_
 
 ### Repeatable requirements
 
-- No duplicate check — multiple submissions allowed
+- No duplicate check - multiple submissions allowed
 - Applies to: management_personnel_acceptance, cv, management_qualifications, subcontractor_contracts, technical_structure_documents
 
 ### Document type mapping
 
-- `Document.documentType = "other"` for all supporting docs (conservative — avoids exploding enum)
+- `Document.documentType = "other"` for all supporting docs (conservative - avoids exploding enum)
 - Semantic link via `DocumentSubmission.requirementId`
 - `Document.category` mapped: form → oma_approval_form, management_personnel_acceptance, compliance_statement; other → everything else
 
@@ -106,7 +106,7 @@ Not run (no running server).
 
 ## Known risks / TODOs
 
-- `Document.documentType = "other"` is generic — future document review UI may need richer typing. Can be extended later without breaking current behavior.
+- `Document.documentType = "other"` is generic - future document review UI may need richer typing. Can be extended later without breaking current behavior.
 - No notification created for supporting doc uploads (per spec).
 - Document review (approve/reject submissions) deferred.
 - Phase 2 closure deferred to OMA-FORMAL-6.
@@ -115,4 +115,4 @@ Not run (no running server).
 
 ## Next step
 
-OMA-FORMAL-6 — Phase 2 closure: recevability courrier upload + closure courrier upload + close phase mutation.
+OMA-FORMAL-6 - Phase 2 closure: recevability courrier upload + closure courrier upload + close phase mutation.

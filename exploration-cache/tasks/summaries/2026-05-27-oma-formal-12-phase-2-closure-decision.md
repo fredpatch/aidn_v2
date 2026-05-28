@@ -1,4 +1,4 @@
-# OMA-FORMAL-12 — Replace Phase 2 Closure Courrier Requirement with DN Closure Decision
+# OMA-FORMAL-12 - Replace Phase 2 Closure Courrier Requirement with DN Closure Decision
 
 Date: 2026-05-27
 Status: Complete
@@ -11,13 +11,13 @@ Add document completeness warning in closure dialog (partial close with reserves
 
 ## Files changed
 
-| File | Change |
-|------|--------|
-| `apps/api/src/modules/oma-phases/formal-request.service.ts` | Fix `canClosePhase` (remove dgDecisionApproved + courrier check, add dgEvidenceReady + meetingReportUploaded); fix `closeFormalRequestPhase` guards (remove decision===approved + courrier check, add meetingReportDocumentId check); add `completeness`/`comment` to payload + audit |
-| `apps/api/src/modules/admin/admin.routes.ts` | Parse `completeness` and `comment` from request body |
-| `apps/admin/src/lib/api/dossiers.api.ts` | Add `completeness?: "complete" \| "partial"` + `comment?: string` to `closeFormalRequestPhase` payload |
-| `apps/admin/src/pages/dossiers/formal-request-dialogs.tsx` | `CloseFormalRequestPhaseDialog`: takes `progress` prop; shows completeness summary; amber warning if partial; optional comment field; "Clôturer avec réserves" label when partial |
-| `apps/admin/src/pages/dossiers/FormalRequestPhaseWorkspace.tsx` | Pass `state.progress` to dialog; update "else" fallback wording |
+| File                                                            | Change                                                                                                                                                                                                                                                                                |
+| --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `apps/api/src/modules/oma-phases/formal-request.service.ts`     | Fix `canClosePhase` (remove dgDecisionApproved + courrier check, add dgEvidenceReady + meetingReportUploaded); fix `closeFormalRequestPhase` guards (remove decision===approved + courrier check, add meetingReportDocumentId check); add `completeness`/`comment` to payload + audit |
+| `apps/api/src/modules/admin/admin.routes.ts`                    | Parse `completeness` and `comment` from request body                                                                                                                                                                                                                                  |
+| `apps/admin/src/lib/api/dossiers.api.ts`                        | Add `completeness?: "complete" \| "partial"` + `comment?: string` to `closeFormalRequestPhase` payload                                                                                                                                                                                |
+| `apps/admin/src/pages/dossiers/formal-request-dialogs.tsx`      | `CloseFormalRequestPhaseDialog`: takes `progress` prop; shows completeness summary; amber warning if partial; optional comment field; "Clôturer avec réserves" label when partial                                                                                                     |
+| `apps/admin/src/pages/dossiers/FormalRequestPhaseWorkspace.tsx` | Pass `state.progress` to dialog; update "else" fallback wording                                                                                                                                                                                                                       |
 
 ## Backend changes
 
@@ -26,18 +26,22 @@ Add document completeness warning in closure dialog (partial close with reserves
 **Before**: required `dgDecisionApproved` (always false) + recevabilityCourrierDocumentId || phaseClosureCourrierDocumentId
 
 **After**:
+
 ```typescript
 const dgEvidenceReady = DG_EVIDENCE_STATUSES.has(formalRequestStatus);
 const meetingReportUploaded = Boolean(phase.formalMeetingReportDocumentId);
 const canClosePhase = !!(
-  phase.formalRequestCourrierId && dgEvidenceReady && meetingHeld && meetingReportUploaded
+  phase.formalRequestCourrierId &&
+  dgEvidenceReady &&
+  meetingHeld &&
+  meetingReportUploaded
 );
 ```
 
 ### closeFormalRequestPhase guards
 
 - **Removed**: `dgReview.decision !== "approved"` check (always blocked)
-- **Kept**: `dgReview.status !== "decision_recorded"` (valid — DG return scan sets this)
+- **Kept**: `dgReview.status !== "decision_recorded"` (valid - DG return scan sets this)
 - **Removed**: `!recevabilityCourrierDocumentId && !phaseClosureCourrierDocumentId` check
 - **Added**: `!phase.formalMeetingReportDocumentId` → 409
 
@@ -91,9 +95,9 @@ Not run; no live browser session.
 
 ## Known risks / TODOs
 
-- `recevabilityCourrierDocumentId` / `phaseClosureCourrierDocumentId` fields still present in model and API response — existing uploaded documents still displayed in closure section (no data loss)
+- `recevabilityCourrierDocumentId` / `phaseClosureCourrierDocumentId` fields still present in model and API response - existing uploaded documents still displayed in closure section (no data loss)
 - `uploadFormalRecevabilityCourrier` / `uploadFormalClosureCourrier` endpoints preserved
-- `completeness` stored in audit log only — no model field added (minimal approach)
+- `completeness` stored in audit log only - no model field added (minimal approach)
 
 ## Next step
 

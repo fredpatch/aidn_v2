@@ -57,17 +57,17 @@ Last reviewed: 2026-05-21
 - `POST /api/v1/portal/notifications/read-all`
 - `POST /api/v1/portal/notifications/:id/read`
 - `GET /api/v1/admin/audit-logs?page=&limit=`
-- `GET /api/v1/admin/dossiers/:id/phases/formal-request` — Phase 2 read state (OMA-FORMAL-1)
-- `POST /api/v1/admin/dossiers/:id/phases/formal-request/courrier` — Register formal request courrier, admin internal, DOCUMENT_UPLOAD_INTERNAL (OMA-FORMAL-2)
-- `POST /api/v1/portal/dossiers/:id/phases/formal-request/courrier` — Upload formal request courrier, portal postulant, ownership-scoped (OMA-FORMAL-2)
-- `POST /api/v1/admin/dossiers/:id/phases/formal-request/send-to-dg` — Send formal request to DG circuit, DG_CIRCUIT_HANDLE (OMA-FORMAL-3)
-- `POST /api/v1/admin/dossiers/:id/phases/formal-request/dg-return` — Record DG return scan, DG_CIRCUIT_HANDLE, multipart file (OMA-FORMAL-3)
-- `POST /api/v1/admin/dossiers/:id/phases/formal-request/dg-decision` — Record DG decision (approved|rejected|reoriented|pending), DG_DECISION_RECORD (OMA-FORMAL-3)
-- `POST /api/v1/admin/dossiers/:id/phases/formal-request/meeting` — Create formal meeting, MEETING_MANAGE (OMA-FORMAL-4)
-- `POST /api/v1/admin/dossiers/:id/phases/formal-request/meeting/mark-held` — Mark formal meeting held, MEETING_MANAGE (OMA-FORMAL-4)
-- `POST /api/v1/admin/dossiers/:id/phases/formal-request/meeting-report` — Upload formal meeting report, DOCUMENT_UPLOAD_INTERNAL, multipart (OMA-FORMAL-4)
-- `POST /api/v1/admin/dossiers/:id/phases/formal-request/documents/:requirementId` — Upload supporting document (non-gate), DOCUMENT_UPLOAD_INTERNAL, source=physical_deposit|internal_scan (OMA-FORMAL-5)
-- `POST /api/v1/portal/dossiers/:id/phases/formal-request/documents/:requirementId` — Upload supporting document, portal postulant, ownership-scoped, source=portal_upload (OMA-FORMAL-5)
+- `GET /api/v1/admin/dossiers/:id/phases/formal-request` - Phase 2 read state (OMA-FORMAL-1)
+- `POST /api/v1/admin/dossiers/:id/phases/formal-request/courrier` - Register formal request courrier, admin internal, DOCUMENT_UPLOAD_INTERNAL (OMA-FORMAL-2)
+- `POST /api/v1/portal/dossiers/:id/phases/formal-request/courrier` - Upload formal request courrier, portal postulant, ownership-scoped (OMA-FORMAL-2)
+- `POST /api/v1/admin/dossiers/:id/phases/formal-request/send-to-dg` - Send formal request to DG circuit, DG_CIRCUIT_HANDLE (OMA-FORMAL-3)
+- `POST /api/v1/admin/dossiers/:id/phases/formal-request/dg-return` - Record DG return scan, DG_CIRCUIT_HANDLE, multipart file (OMA-FORMAL-3)
+- `POST /api/v1/admin/dossiers/:id/phases/formal-request/dg-decision` - Record DG decision (approved|rejected|reoriented|pending), DG_DECISION_RECORD (OMA-FORMAL-3)
+- `POST /api/v1/admin/dossiers/:id/phases/formal-request/meeting` - Create formal meeting, MEETING_MANAGE (OMA-FORMAL-4)
+- `POST /api/v1/admin/dossiers/:id/phases/formal-request/meeting/mark-held` - Mark formal meeting held, MEETING_MANAGE (OMA-FORMAL-4)
+- `POST /api/v1/admin/dossiers/:id/phases/formal-request/meeting-report` - Upload formal meeting report, DOCUMENT_UPLOAD_INTERNAL, multipart (OMA-FORMAL-4)
+- `POST /api/v1/admin/dossiers/:id/phases/formal-request/documents/:requirementId` - Upload supporting document (non-gate), DOCUMENT_UPLOAD_INTERNAL, source=physical_deposit|internal_scan (OMA-FORMAL-5)
+- `POST /api/v1/portal/dossiers/:id/phases/formal-request/documents/:requirementId` - Upload supporting document, portal postulant, ownership-scoped, source=portal_upload (OMA-FORMAL-5)
 
 ## Route notes
 

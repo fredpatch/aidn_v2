@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
 export interface CalendarSchedulerProps {
   timeSlots?: string[];
   onConfirm?: (value: { date?: Date; time?: string }) => void;
-  /** Called on every date/time selection change — use for controlled/dialog contexts */
+  /** Called on every date/time selection change - use for controlled/dialog contexts */
   onChange?: (value: { date?: Date; time?: string }) => void;
   /** Hide the built-in Reset/Confirm footer when embedding inside a dialog */
   showFooter?: boolean;

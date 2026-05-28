@@ -1,7 +1,7 @@
-# OMA-OPS-3D — Phase preliminary closure independent from closure courrier upload
+# OMA-OPS-3D - Phase preliminary closure independent from closure courrier upload
 
 Date: 2026-05-25
-Status: **Complete — typecheck PASS, build PASS**
+Status: **Complete - typecheck PASS, build PASS**
 
 ---
 
@@ -21,26 +21,26 @@ Treat closure courrier as optional evidence (show if present, don't block on abs
 
 ## Files Changed
 
-| File | Change |
-|------|--------|
-| `preliminary-progress.helpers.ts` | Removed `closure_courrier_uploaded` step; updated `preliminary_closed` current trigger; updated `NEXT_ACTION_LABELS` |
-| `PreliminaryPhaseWorkspace.tsx` | Merged `preliminary_meeting_held` + `preliminary_ready_to_close` branches; removed upload button; updated evidence label |
+| File                              | Change                                                                                                                   |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `preliminary-progress.helpers.ts` | Removed `closure_courrier_uploaded` step; updated `preliminary_closed` current trigger; updated `NEXT_ACTION_LABELS`     |
+| `PreliminaryPhaseWorkspace.tsx`   | Merged `preliminary_meeting_held` + `preliminary_ready_to_close` branches; removed upload button; updated evidence label |
 
 ---
 
 ## Key Decisions
 
-1. **Step removed** — `closure_courrier_uploaded` removed from checklist. Total steps: **10**.
+1. **Step removed** - `closure_courrier_uploaded` removed from checklist. Total steps: **10**.
    - `preliminary_closed` step now triggers when `ps === "preliminary_meeting_held" || ps === "preliminary_ready_to_close"`.
    - `NEXT_ACTION_LABELS.preliminary_closed = "Clôturer la phase préliminaire"`.
 
-2. **`preliminary_ready_to_close` preserved** — backend status untouched; UI treats it identically to `preliminary_meeting_held` (direct close button). The status can still be reached if closure courrier is uploaded via an out-of-band flow.
+2. **`preliminary_ready_to_close` preserved** - backend status untouched; UI treats it identically to `preliminary_meeting_held` (direct close button). The status can still be reached if closure courrier is uploaded via an out-of-band flow.
 
-3. **Upload button removed from main flow** — `UploadClosureCourrierDialog` remains in the dialog tree (keyed to `upload_closure`) but no UI path sets `openDialog = "upload_closure"` anymore. Left unused for future optional use.
+3. **Upload button removed from main flow** - `UploadClosureCourrierDialog` remains in the dialog tree (keyed to `upload_closure`) but no UI path sets `openDialog = "upload_closure"` anymore. Left unused for future optional use.
 
-4. **Evidence label updated** — `closureCourrierDocumentId` entry now reads "Courrier de clôture phase I — optionnel". Evidence block only renders existing documents so no pending row is shown when absent.
+4. **Evidence label updated** - `closureCourrierDocumentId` entry now reads "Courrier de clôture phase I - optionnel". Evidence block only renders existing documents so no pending row is shown when absent.
 
-5. **No backend changes** — closure endpoint was not inspected for guard on `closureCourrierDocumentId`. If the backend requires it, a runtime error will surface; none observed in typecheck/build.
+5. **No backend changes** - closure endpoint was not inspected for guard on `closureCourrierDocumentId`. If the backend requires it, a runtime error will surface; none observed in typecheck/build.
 
 ---
 

@@ -1,4 +1,4 @@
-# OMA-FORMAL-11 — Align Phase 2 Formal Meeting Lifecycle with Phase 1 Pattern
+# OMA-FORMAL-11 - Align Phase 2 Formal Meeting Lifecycle with Phase 1 Pattern
 
 Date: 2026-05-27
 Status: Complete
@@ -10,6 +10,7 @@ Replace the two-step Phase 2 meeting workflow (plan → mark held → upload rep
 ## Phase 1 pattern confirmed
 
 `recordFirstMeeting` / `recordPreliminaryMeeting` in `oma-phase.service.ts`:
+
 - Take a file upload
 - Set `meeting.status = "held"`, `meeting.heldAt = new Date()`, `meeting.reportDocumentId`
 - Set `phase.preliminaryStatus = "first_meeting_held"` / `"preliminary_meeting_held"`
@@ -17,24 +18,24 @@ Replace the two-step Phase 2 meeting workflow (plan → mark held → upload rep
 
 ## Phase 2 before this change
 
-| Endpoint | Effect |
-|----------|--------|
-| `POST /meeting/mark-held` | sets held, no report |
-| `POST /meeting-report` | attaches report, did NOT set held or advance status |
+| Endpoint                  | Effect                                              |
+| ------------------------- | --------------------------------------------------- |
+| `POST /meeting/mark-held` | sets held, no report                                |
+| `POST /meeting-report`    | attaches report, did NOT set held or advance status |
 
 Frontend primary action: "Marquer la réunion formelle comme tenue" (wrong pattern).
 
 ## Files changed
 
-| File | Change |
-|------|--------|
-| `apps/api/src/modules/oma-phases/formal-request.service.ts` | `uploadFormalMeetingReport`: add `meeting.status = "held"` + `heldAt`, set `phase.formalRequestStatus = "formal_meeting_held"`, `phase.formalMeetingHeldAt`, `phase.status = "in_progress"` |
+| File                                                            | Change                                                                                                                                                                                                                                                                                               |
+| --------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `apps/api/src/modules/oma-phases/formal-request.service.ts`     | `uploadFormalMeetingReport`: add `meeting.status = "held"` + `heldAt`, set `phase.formalRequestStatus = "formal_meeting_held"`, `phase.formalMeetingHeldAt`, `phase.status = "in_progress"`                                                                                                          |
 | `apps/admin/src/pages/dossiers/FormalRequestPhaseWorkspace.tsx` | `meetingProgrammed && !meetingHeld` branch: opens `upload_meeting_report` (was `mark_meeting_held`); uses `canPublishDocuments` permission; label "Joindre le compte rendu de réunion formelle"; removed `MarkFormalMeetingHeldDialog` import + render; removed `mark_meeting_held` from `DialogKey` |
 
 ## Backend detail
 
 ```typescript
-// uploadFormalMeetingReport — after saveDocument():
+// uploadFormalMeetingReport - after saveDocument():
 if (meeting.status !== "held") {
   meeting.status = "held" as never;
   meeting.heldAt = new Date();

@@ -1,4 +1,4 @@
-# OMA-FORMAL-9B1 — Courriers Officiels: Demande Formelle Integration
+# OMA-FORMAL-9B1 - Courriers Officiels: Demande Formelle Integration
 
 Date: 2026-05-27
 Status: Complete
@@ -25,11 +25,11 @@ Add Phase 2 Demande formelle items to the existing Courriers officiels / DG circ
 
 ## Files changed
 
-| File | Change |
-|------|--------|
-| `apps/api/src/modules/dg-circuit/dg-circuit.service.ts` | Added formal_request source, DG_DECISION_RECORD permission, OmaPhase query + bucket mapping |
-| `apps/admin/src/lib/api/dg-circuit.api.ts` | Added formal_request to DgCircuitSource; record_dg_decision to DgCircuitAction |
-| `apps/admin/src/pages/DgCircuitPage.tsx` | Imports, ModalState, sourceLabels, markTransmitted/submitReturn branches, submitDecision, decision button, RecordFormalDgDecisionDialog render |
+| File                                                    | Change                                                                                                                                         |
+| ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `apps/api/src/modules/dg-circuit/dg-circuit.service.ts` | Added formal_request source, DG_DECISION_RECORD permission, OmaPhase query + bucket mapping                                                    |
+| `apps/admin/src/lib/api/dg-circuit.api.ts`              | Added formal_request to DgCircuitSource; record_dg_decision to DgCircuitAction                                                                 |
+| `apps/admin/src/pages/DgCircuitPage.tsx`                | Imports, ModalState, sourceLabels, markTransmitted/submitReturn branches, submitDecision, decision button, RecordFormalDgDecisionDialog render |
 
 ## Key decisions
 
@@ -47,12 +47,12 @@ Add Phase 2 Demande formelle items to the existing Courriers officiels / DG circ
 
 ## Status mapping
 
-| Condition | Bucket | Actions |
-|-----------|--------|---------|
-| No formalRequestDgReviewId | `to_transmit` | mark_transmitted (DG_CIRCUIT_HANDLE) |
-| DGReview awaiting_return | `awaiting_return` | record_annotated_return (DG_CIRCUIT_HANDLE) |
-| DGReview returned_scanned | `returned_scanned` | download_annotated_return + record_dg_decision (DG_DECISION_RECORD) |
-| DGReview decision_recorded | `decision_recorded` | download_annotated_return (DG_CIRCUIT_HANDLE) |
+| Condition                  | Bucket              | Actions                                                             |
+| -------------------------- | ------------------- | ------------------------------------------------------------------- |
+| No formalRequestDgReviewId | `to_transmit`       | mark_transmitted (DG_CIRCUIT_HANDLE)                                |
+| DGReview awaiting_return   | `awaiting_return`   | record_annotated_return (DG_CIRCUIT_HANDLE)                         |
+| DGReview returned_scanned  | `returned_scanned`  | download_annotated_return + record_dg_decision (DG_DECISION_RECORD) |
+| DGReview decision_recorded | `decision_recorded` | download_annotated_return (DG_CIRCUIT_HANDLE)                       |
 
 ## Filters/counters
 

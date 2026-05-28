@@ -1,7 +1,7 @@
-# OMA-OPS-8D — Workflow Primitives & Code Reuse Audit
+# OMA-OPS-8D - Workflow Primitives & Code Reuse Audit
 
 Date: 2026-05-26
-Status: **Complete — analysis only, no code changed**
+Status: **Complete - analysis only, no code changed**
 
 ---
 
@@ -31,7 +31,7 @@ Audit the existing code and identify reusable workflow primitives before Phase 2
 
 ## Files Changed
 
-None — audit only.
+None - audit only.
 
 ---
 
@@ -52,13 +52,13 @@ None — audit only.
 ### DGReview model is already generic
 
 - `DGReviewModel.targetType` supports: `initial_request`, `pre_evaluation_form`, `formal_request`, `phase_closure_document`, `certificate_document`
-- Service is not generic — each targetType is handled in its own service
+- Service is not generic - each targetType is handled in its own service
 - Extracting a `DgCircuitService` unlocks Phase 2 and beyond without a third copy
 
 ### Meeting model is already generic
 
-- `MeetingModel.meetingType` includes `formal_meeting` — Phase 2 meetings are model-ready
-- Creation is hardcoded inside phase orchestrators — acceptable to keep for now
+- `MeetingModel.meetingType` includes `formal_meeting` - Phase 2 meetings are model-ready
+- Creation is hardcoded inside phase orchestrators - acceptable to keep for now
 
 ### Notification model exists but is not wired
 
@@ -79,13 +79,13 @@ None — audit only.
 
 ### Must before Phase 2
 
-1. `shared/utils/service.helpers.ts` — extract `ensureObjectId`, `toIso`, `parseDate`
-2. `shared/utils/document.helpers.ts` — extract `saveDocument`
-3. `dg-circuit.service.ts` — add generic DG review operations
+1. `shared/utils/service.helpers.ts` - extract `ensureObjectId`, `toIso`, `parseDate`
+2. `shared/utils/document.helpers.ts` - extract `saveDocument`
+3. `dg-circuit.service.ts` - add generic DG review operations
 
 ### Should during Phase 2
 
-4. `lib/utils/blob.ts` — extract `openBlobInNewTab`
+4. `lib/utils/blob.ts` - extract `openBlobInNewTab`
 5. Generic `UploadDocumentDialog` component
 6. Extend `EvidenceRequirement` with `submittedDocumentId?` + `reviewStatus?`
 
@@ -119,4 +119,4 @@ OMA-OPS-9A (pre-Phase 2 prep): 3 targeted extractions:
 2. `shared/utils/document.helpers.ts`
 3. `dg-circuit.service.ts` generic DG review operations
 
-Then start OMA-OPS-9 / Phase 2 — Demande formelle.
+Then start OMA-OPS-9 / Phase 2 - Demande formelle.

@@ -120,7 +120,9 @@ export function RegisterFormalCourrierDialog({
       onOpenChange(false);
       onSuccess(nextState);
     } catch (err) {
-      setError(extractError(err, "Impossible d'enregistrer le courrier formel."));
+      setError(
+        extractError(err, "Impossible d'enregistrer le courrier formel."),
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -136,14 +138,19 @@ export function RegisterFormalCourrierDialog({
     >
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Scanner / enregistrer un courrier reçu hors portail</DialogTitle>
+          <DialogTitle>
+            Scanner / enregistrer un courrier reçu hors portail
+          </DialogTitle>
           <DialogDescription>
             À utiliser uniquement si la demande formelle a été reçue
             physiquement ou scannée en interne. Si le postulant téléverse sa
             demande depuis le portail, elle apparaîtra automatiquement ici.
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={(event) => void handleSubmit(event)} className="space-y-4">
+        <form
+          onSubmit={(event) => void handleSubmit(event)}
+          className="space-y-4"
+        >
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1">
               <Label htmlFor="formal-courrier-file" className="text-xs">
@@ -168,7 +175,10 @@ export function RegisterFormalCourrierDialog({
                   setSource(value as AdminFormalRequestCourrierSource)
                 }
               >
-                <SelectTrigger id="formal-courrier-source" className="h-8 text-sm">
+                <SelectTrigger
+                  id="formal-courrier-source"
+                  className="h-8 text-sm"
+                >
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -264,7 +274,10 @@ export function SendFormalToDgDialog({
       onSuccess(nextState);
     } catch (err) {
       setError(
-        extractError(err, "Impossible de mettre la demande formelle en circuit DG."),
+        extractError(
+          err,
+          "Impossible de mettre la demande formelle en circuit DG.",
+        ),
       );
     } finally {
       setIsSubmitting(false);
@@ -352,7 +365,8 @@ export function RecordFormalDgReturnDialog({
     try {
       const formData = new FormData();
       formData.append("file", file);
-      if (returnedFromDgAt) formData.append("returnedFromDgAt", returnedFromDgAt);
+      if (returnedFromDgAt)
+        formData.append("returnedFromDgAt", returnedFromDgAt);
       if (officialReference.trim()) {
         formData.append("officialReference", officialReference.trim());
       }
@@ -363,7 +377,9 @@ export function RecordFormalDgReturnDialog({
       onOpenChange(false);
       onSuccess(nextState);
     } catch (err) {
-      setError(extractError(err, "Impossible d'enregistrer le retour DG scanné."));
+      setError(
+        extractError(err, "Impossible d'enregistrer le retour DG scanné."),
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -381,7 +397,10 @@ export function RecordFormalDgReturnDialog({
         <DialogHeader>
           <DialogTitle>Enregistrer le retour DG scanné</DialogTitle>
         </DialogHeader>
-        <form onSubmit={(event) => void handleSubmit(event)} className="space-y-4">
+        <form
+          onSubmit={(event) => void handleSubmit(event)}
+          className="space-y-4"
+        >
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1">
               <Label htmlFor="formal-dg-return-file" className="text-xs">
@@ -517,7 +536,10 @@ export function RecordFormalDgDecisionDialog({
         <DialogHeader>
           <DialogTitle>Enregistrer la décision DG</DialogTitle>
         </DialogHeader>
-        <form onSubmit={(event) => void handleSubmit(event)} className="space-y-4">
+        <form
+          onSubmit={(event) => void handleSubmit(event)}
+          className="space-y-4"
+        >
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1">
               <Label htmlFor="formal-dg-decision" className="text-xs">
@@ -566,7 +588,10 @@ export function RecordFormalDgDecisionDialog({
             />
           </div>
           <div className="space-y-1">
-            <Label htmlFor="formal-dg-decision-observations" className="text-xs">
+            <Label
+              htmlFor="formal-dg-decision-observations"
+              className="text-xs"
+            >
               Observations
             </Label>
             <Textarea
@@ -644,7 +669,9 @@ export function InviteFormalMeetingDialog({
       onOpenChange(false);
       onSuccess(nextState);
     } catch (err) {
-      setError(extractError(err, "Impossible de planifier la réunion formelle."));
+      setError(
+        extractError(err, "Impossible de planifier la réunion formelle."),
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -665,7 +692,10 @@ export function InviteFormalMeetingDialog({
             Choisissez une date, une heure et un lieu pour la réunion formelle.
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={(event) => void handleSubmit(event)} className="space-y-4">
+        <form
+          onSubmit={(event) => void handleSubmit(event)}
+          className="space-y-4"
+        >
           <CalendarScheduler
             title=""
             showFooter={false}
@@ -754,7 +784,9 @@ export function MarkFormalMeetingHeldDialog({
       onOpenChange(false);
       onSuccess(nextState);
     } catch (err) {
-      setError(extractError(err, "Impossible de marquer la réunion comme tenue."));
+      setError(
+        extractError(err, "Impossible de marquer la réunion comme tenue."),
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -888,7 +920,10 @@ export function UploadFormalMeetingReportDialog({
         <DialogHeader>
           <DialogTitle>Joindre le compte rendu de réunion formelle</DialogTitle>
         </DialogHeader>
-        <form onSubmit={(event) => void handleSubmit(event)} className="space-y-4">
+        <form
+          onSubmit={(event) => void handleSubmit(event)}
+          className="space-y-4"
+        >
           <div className="space-y-1">
             <Label htmlFor="formal-meeting-report-file" className="text-xs">
               Compte rendu <span className="text-red-500">*</span>
@@ -998,7 +1033,7 @@ export function CloseFormalRequestPhaseDialog({
     >
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Clôturer la Phase 2 — Demande formelle</DialogTitle>
+          <DialogTitle>Clôturer la Phase 2 - Demande formelle</DialogTitle>
           <DialogDescription>
             Cette action est irréversible. La phase 2 sera marquée clôturée et
             la phase 3 (Évaluation documentaire) sera déverrouillée.
@@ -1011,14 +1046,17 @@ export function CloseFormalRequestPhaseDialog({
             Pièces justificatives
           </p>
           <p className="text-foreground">
-            <span className="font-medium">{progress.totalTracked}</span> pièces suivies
+            <span className="font-medium">{progress.totalTracked}</span> pièces
+            suivies
             {" · "}
-            <span className="font-medium">{progress.submitted}</span> déposée{progress.submitted !== 1 ? "s" : ""}
+            <span className="font-medium">{progress.submitted}</span> déposée
+            {progress.submitted !== 1 ? "s" : ""}
             {progress.missing > 0 ? (
               <>
                 {" · "}
                 <span className="font-medium text-destructive">
-                  {progress.missing} manquante{progress.missing !== 1 ? "s" : ""}
+                  {progress.missing} manquante
+                  {progress.missing !== 1 ? "s" : ""}
                 </span>
               </>
             ) : null}
@@ -1030,7 +1068,8 @@ export function CloseFormalRequestPhaseDialog({
                 className={
                   omaFormValidated
                     ? "font-medium text-emerald-700"
-                    : omaApprovalFormRequirement.status === "requires_correction" ||
+                    : omaApprovalFormRequirement.status ===
+                          "requires_correction" ||
                         omaApprovalFormRequirement.status === "incomplete"
                       ? "font-medium text-destructive"
                       : "text-muted-foreground"
@@ -1044,14 +1083,14 @@ export function CloseFormalRequestPhaseDialog({
                       ? "Incomplet"
                       : omaApprovalFormRequirement.status === "submitted" ||
                           omaApprovalFormRequirement.status === "under_review"
-                        ? "Déposé — décision DN en attente"
+                        ? "Déposé - décision DN en attente"
                         : "Non déposé"}
               </span>
             </p>
           ) : null}
         </div>
 
-        {/* Blocking message — closure not possible until conditions are met */}
+        {/* Blocking message - closure not possible until conditions are met */}
         {!isComplete ? (
           <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
             {!omaFormValidated && hasMissingDocs

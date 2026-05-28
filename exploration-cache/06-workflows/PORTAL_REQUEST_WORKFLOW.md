@@ -40,6 +40,19 @@ Last reviewed: 2026-05-21
 - Portal can mark a single notification read via `POST /api/v1/portal/notifications/:id/read`.
 - Portal can mark all unread notifications read via `POST /api/v1/portal/notifications/read-all`.
 
+## OMA Phase Notifications (OMA-HARDENING-6)
+
+- Phase 1 creates in-app notifications for first meeting scheduled, pre-evaluation form available, preliminary meeting scheduled, and preliminary phase closed.
+- Phase 2 creates in-app notifications for formal request received, formal meeting scheduled, `oma_approval_form` correction requested, `oma_approval_form` incomplete, and formal request phase closed.
+- OMA phase notifications are sent to `dossier.postulantUserId`; if the dossier has no postulant owner, notification creation is skipped and the workflow continues.
+- Notification wording is portal-safe and avoids internal DG/circuit/status-code language.
+
+## OMA Phase Status Cleanup (OMA-HARDENING-7)
+
+- Phase 2 formal request document review accepts only `validated`, `requires_correction`, and `incomplete`.
+- `rejected` remains a defensive/legacy display status in portal/admin checklists, but the formal request review route no longer creates it.
+- `formal_documents_tracking` remains model-compatible for old data but is no longer part of active Phase 2 logic or normal admin labels.
+
 ## Rendez-vous (PORTAL-H1D)
 
 - Portal can list read-only meetings via `GET /api/v1/portal/meetings`.
@@ -48,6 +61,13 @@ Last reviewed: 2026-05-21
 - If no date range is supplied, the backend returns a conservative upcoming-and-recent window: 30 days past through 180 days future, with unscheduled meetings sorted last.
 - Portal UI exposes `/rendez-vous` with upcoming meetings and a read-only calendar. Postulants cannot create, update, acknowledge, postpone, or cancel meetings.
 - PORTAL-H1D-1 adds a portal-side printable convocation card for each meeting. It is a browser-print view only and does not create a document registry entry or official PDF.
+
+## OMA Dossier Phase Labels (OMA-HARDENING-5)
+
+- Portal dossier Phase 1 labels are simplified for postulants: `En cours de traitement par l'ANAC`, `Rendez-vous programmé`, `Formulaire de pré-évaluation à compléter`, `En cours d'examen`, and `Phase préliminaire clôturée`.
+- Portal dossier Phase 2 labels progress by formal request status instead of staying static after the formal request courrier is received.
+- Phase 2 formal request labels are portal-safe: `Demande formelle attendue`, `Demande formelle reçue`, `Demande formelle en cours d'examen`, `Réunion formelle programmée`, `Documents de demande formelle à compléter`, `En attente de finalisation par l'ANAC`, `Action requise`, and `Phase de demande formelle clôturée`.
+- The Phase 2 formal request upload action no longer mentions `circuit officiel DG`; it asks the postulant to upload the formal request so ANAC can continue processing.
 
 ## Portal Response Safety (PORTAL-H1B)
 

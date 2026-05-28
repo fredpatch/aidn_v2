@@ -59,11 +59,16 @@ const MEETING_HELD_OR_AFTER = new Set([
 
 export function getFormalRequestProgress(
   state: AdminFormalRequestPhaseState | null,
-): { steps: FormalRequestStep[]; doneCount: number; totalCount: number; currentStep: FormalRequestStep | null } {
+): {
+  steps: FormalRequestStep[];
+  doneCount: number;
+  totalCount: number;
+  currentStep: FormalRequestStep | null;
+} {
   const status = state?.phase.formalRequestStatus ?? "";
   const closureEvidence = Boolean(
     state?.closure.recevabilityCourrierDocumentId ||
-      state?.closure.phaseClosureCourrierDocumentId,
+    state?.closure.phaseClosureCourrierDocumentId,
   );
 
   const rawSteps = [
@@ -91,8 +96,7 @@ export function getFormalRequestProgress(
       key: "meeting_held",
       label: "Réunion formelle tenue",
       done:
-        state?.meeting?.status === "held" ||
-        MEETING_HELD_OR_AFTER.has(status),
+        state?.meeting?.status === "held" || MEETING_HELD_OR_AFTER.has(status),
     },
     {
       key: "closure_evidence",
@@ -120,14 +124,16 @@ export function getFormalRequestProgress(
   };
 }
 
-export function hasFormalDgDecision(state: AdminFormalRequestPhaseState): boolean {
+export function hasFormalDgDecision(
+  state: AdminFormalRequestPhaseState,
+): boolean {
   return DECISION_OR_AFTER.has(state.phase.formalRequestStatus ?? "");
 }
 
 // ── Progressive reveal visibility ─────────────────────────────────────────────
 
 export type FormalRequestVisibility = {
-  /** Always true — formal request gate is the entry step */
+  /** Always true - formal request gate is the entry step */
   showFormalRequestGate: true;
   /** Show supporting document checklist once formal request exists */
   showSupportingDocuments: boolean;
@@ -141,7 +147,7 @@ export type FormalRequestVisibility = {
 
 /**
  * Derive which Phase 2 workspace sections are currently relevant.
- * All logic is frontend-only — no backend changes required.
+ * All logic is frontend-only - no backend changes required.
  */
 export function getFormalRequestVisibility(
   state: AdminFormalRequestPhaseState,
@@ -164,7 +170,7 @@ export function getFormalRequestVisibility(
   // Closure or recevability courrier has been recorded
   const hasClosureEvidence = Boolean(
     state.closure.recevabilityCourrierDocumentId ||
-      state.closure.phaseClosureCourrierDocumentId,
+    state.closure.phaseClosureCourrierDocumentId,
   );
 
   return {
@@ -176,6 +182,7 @@ export function getFormalRequestVisibility(
     // Report badge shown once report is attached (or meeting held = report expected)
     showMeetingReport: hasMeetingReport,
     // Closure section shown once meeting is held so DN knows next step
-    showClosureEvidence: meetingHeld || hasClosureEvidence || status === "formal_closed",
+    showClosureEvidence:
+      meetingHeld || hasClosureEvidence || status === "formal_closed",
   };
 }

@@ -1,7 +1,7 @@
-# OMA-FORMAL-14 — Portal Phase 2 Document Checklist + DN Template Forms — Implementation
+# OMA-FORMAL-14 - Portal Phase 2 Document Checklist + DN Template Forms - Implementation
 
 Date: 2026-05-28
-Status: **Complete — API PASS, Portal PASS, Admin PASS**
+Status: **Complete - API PASS, Portal PASS, Admin PASS**
 
 ## Objective
 
@@ -40,12 +40,12 @@ Expose Phase 2 document requirements to postulants with DN-provided template dow
 
 ## Key decisions
 
-- Templates identified by `code` field matching `DocumentRequirement.formCode` — no new model changes
-- `documentType: "other"` for Phase 2 templates — no enum extension needed
+- Templates identified by `code` field matching `DocumentRequirement.formCode` - no new model changes
+- `documentType: "other"` for Phase 2 templates - no enum extension needed
 - Portal template download route: `GET /api/v1/portal/document-templates/:id/download`; guarded by `phaseKey=formal_request` check; no dossier ownership required
-- `downloadPortalDossierDocument` not extended — Phase 2 templates are globally available to portal users, not phase-linked
+- `downloadPortalDossierDocument` not extended - Phase 2 templates are globally available to portal users, not phase-linked
 - Requirements sorted by `sortOrder` and filtered to non-gate only in portal
-- Formal meeting already returns from `/rendez-vous` for all meeting types — no calendar change needed
+- Formal meeting already returns from `/rendez-vous` for all meeting types - no calendar change needed
 - One upload row open at a time; reset on row switch to avoid state bleed
 
 ## Implementation details
@@ -85,13 +85,13 @@ cd apps/admin && npm run build     → PASS
 
 ## Manual checks run
 
-Not run — no live session.
+Not run - no live session.
 
 ## Known risks / TODOs
 
 - No portal download endpoint for submitted supporting documents (only template download is live)
-- `reviewComment` field on `DocumentSubmission` assumed to exist — if not present in model, it will return `undefined` gracefully
-- Phase 2 template download route is open to any authenticated postulant (no dossier scoping) — intentional since templates are public DN materials
+- `reviewComment` field on `DocumentSubmission` assumed to exist - if not present in model, it will return `undefined` gracefully
+- Phase 2 template download route is open to any authenticated postulant (no dossier scoping) - intentional since templates are public DN materials
 
 ## Next step
 

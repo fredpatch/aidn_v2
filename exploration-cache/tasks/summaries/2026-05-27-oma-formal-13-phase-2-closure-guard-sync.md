@@ -1,4 +1,4 @@
-# OMA-FORMAL-13 — Fix Phase 2 Closure Guard Mismatch
+# OMA-FORMAL-13 - Fix Phase 2 Closure Guard Mismatch
 
 Date: 2026-05-27
 Status: Complete
@@ -15,8 +15,8 @@ Align `canClosePhase` (read path) and `closeFormalRequestPhase` (write path) so 
 
 ## Files changed
 
-| File | Change |
-|------|--------|
+| File                                                        | Change                                                                                                                                                                         |
+| ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `apps/api/src/modules/oma-phases/formal-request.service.ts` | Extract `FORMAL_DG_EVIDENCE_STATUSES` as module-level constant; use it in `canClosePhase`; replace DGReview-status block in `closeFormalRequestPhase` with same constant check |
 
 ## Change detail
@@ -24,12 +24,14 @@ Align `canClosePhase` (read path) and `closeFormalRequestPhase` (write path) so 
 ### Before
 
 `getAdminFormalRequestPhase`:
+
 ```typescript
 const DG_EVIDENCE_STATUSES = new Set([...]); // local
 const dgEvidenceReady = DG_EVIDENCE_STATUSES.has(phase.formalRequestStatus);
 ```
 
 `closeFormalRequestPhase`:
+
 ```typescript
 const dgReview = await DGReviewModel.findById(phase.formalRequestDgReviewId);
 if (dgReview.status !== "decision_recorded") throw 409; // always fails in collapsed flow
@@ -38,6 +40,7 @@ if (dgReview.status !== "decision_recorded") throw 409; // always fails in colla
 ### After
 
 Module-level:
+
 ```typescript
 const FORMAL_DG_EVIDENCE_STATUSES = new Set([
   "formal_dg_returned", "formal_dg_decision_recorded",
@@ -46,8 +49,9 @@ const FORMAL_DG_EVIDENCE_STATUSES = new Set([
 ```
 
 Both functions use:
+
 ```typescript
-FORMAL_DG_EVIDENCE_STATUSES.has(phase.formalRequestStatus)
+FORMAL_DG_EVIDENCE_STATUSES.has(phase.formalRequestStatus);
 ```
 
 DGReview document is still loaded in `getAdminFormalRequestPhase` for reading data, but the status field is no longer used as a closure gate.

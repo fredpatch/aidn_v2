@@ -31,7 +31,6 @@ type BaseProps = {
   onSuccess: () => void;
 };
 
-
 function buildScheduledAt(date: Date, timeStr: string): string {
   const match = /^(\d{2}):(\d{2}) (AM|PM)$/.exec(timeStr);
   if (!match) return date.toISOString();
@@ -212,7 +211,9 @@ export function RecordMeetingDialog({
     try {
       const file = fileRef.current?.files?.[0];
       if (!file) {
-        setError("Le compte rendu est obligatoire pour enregistrer la tenue de la réunion.");
+        setError(
+          "Le compte rendu est obligatoire pour enregistrer la tenue de la réunion.",
+        );
         setIsSubmitting(false);
         return;
       }
@@ -493,7 +494,7 @@ export function UploadClosureCourrierDialog({
     <UploadDocumentDialog
       open={open}
       title="Téléverser le courrier de clôture"
-      description="Document de clôture de la phase préliminaire — sera visible au postulant."
+      description="Document de clôture de la phase préliminaire - sera visible au postulant."
       fileLabel="Courrier de clôture"
       notesLabel="Intitulé (optionnel)"
       submitLabel="Téléverser"

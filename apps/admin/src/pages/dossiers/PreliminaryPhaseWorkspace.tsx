@@ -47,12 +47,12 @@ type DialogKey =
   | "close_preliminary";
 
 const EVIDENCE_LABELS: Record<string, string> = {
-  firstMeetingReportDocumentId: "Compte rendu — 1ère réunion",
+  firstMeetingReportDocumentId: "Compte rendu - 1ère réunion",
   preEvaluationTemplateDocumentId: "Formulaire pré-évaluation (modèle)",
   completedPreEvaluationDocumentId: "Formulaire pré-évaluation (soumis)",
   preEvaluationDgAnnotatedDocumentId: "Retour DG annoté",
-  preliminaryMeetingReportDocumentId: "Compte rendu — réunion préliminaire",
-  closureCourrierDocumentId: "Courrier de clôture phase I — optionnel",
+  preliminaryMeetingReportDocumentId: "Compte rendu - réunion préliminaire",
+  closureCourrierDocumentId: "Courrier de clôture phase I - optionnel",
 };
 
 export function PreliminaryActionPanel({
@@ -195,8 +195,8 @@ export function PreliminaryActionPanel({
       <div className="flex items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-200">
         <CheckCircle2 className="h-4 w-4 shrink-0" />
         <p>
-          Phase préliminaire clôturée. La phase de demande formelle est
-          prête à démarrer.
+          Phase préliminaire clôturée. La phase de demande formelle est prête à
+          démarrer.
         </p>
       </div>
     );

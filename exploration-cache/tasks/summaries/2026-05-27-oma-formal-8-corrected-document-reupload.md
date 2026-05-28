@@ -1,7 +1,7 @@
-# OMA-FORMAL-8 — Corrected Supporting Document Re-upload for Phase 2
+# OMA-FORMAL-8 - Corrected Supporting Document Re-upload for Phase 2
 
 Date: 2026-05-27
-Status: **Complete — API typecheck PASS, API lint PASS, API build PASS**
+Status: **Complete - API typecheck PASS, API lint PASS, API build PASS**
 
 ---
 
@@ -26,8 +26,8 @@ document becomes `archived`, new upload returns to `submitted`.
 
 ## Files changed
 
-| File | Change |
-|------|--------|
+| File                                                        | Change                                                                                                                                  |
+| ----------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
 | `apps/api/src/modules/oma-phases/formal-request.service.ts` | Updated `uploadFormalRequestSupportingDocument`: replacement detection, replacement mutations, branched audit, extended portal response |
 
 No new files. No new routes. No schema changes.
@@ -41,6 +41,7 @@ No new files. No new routes. No schema changes.
 Old: flat 409 if any active submission exists.
 
 New:
+
 ```ts
 let submissionToReplace: GenericRecord | null = null;
 
@@ -57,7 +58,7 @@ if (!requirement.isRepeatable) {
 }
 ```
 
-`ACTIVE_SUBMISSION_STATUS_SET` unchanged — still includes `requires_correction` so it's found. Now the response to finding it is conditional.
+`ACTIVE_SUBMISSION_STATUS_SET` unchanged - still includes `requires_correction` so it's found. Now the response to finding it is conditional.
 
 ### Replacement mutations (after new document + submission created)
 
@@ -65,7 +66,7 @@ if (!requirement.isRepeatable) {
 if (isReplacement) {
   await DocumentModel.findByIdAndUpdate(submissionToReplace!.documentId, {
     status: "archived",
-    replacedByDocumentId: documentId,  // Document.replacedByDocumentId already in schema
+    replacedByDocumentId: documentId, // Document.replacedByDocumentId already in schema
   });
   await DocumentSubmissionModel.findByIdAndUpdate(submissionToReplace!._id, {
     status: "replaced",
@@ -81,6 +82,7 @@ if (isReplacement) {
 ### Portal response
 
 Extended with `replaced: boolean` and optional `previousSubmissionId`:
+
 ```ts
 {
   uploaded: true,
@@ -90,13 +92,14 @@ Extended with `replaced: boolean` and optional `previousSubmissionId`:
 }
 ```
 
-Admin response unchanged — returns `getAdminFormalRequestPhase` which already reflects new state.
+Admin response unchanged - returns `getAdminFormalRequestPhase` which already reflects new state.
 
 ---
 
 ## Read-state behavior
 
 `computeRequirementStatus` filters by `ACTIVE_SUBMISSION_STATUSES` (submitted/under_review/validated/requires_correction). After replacement:
+
 - Old submission → `replaced` → NOT in active set → ignored
 - New submission → `submitted` → IS in active set → becomes latest
 
@@ -157,4 +160,4 @@ Not run (no running server).
 
 ## Next step
 
-Frontend Phase 2 cockpit — or OMA-FORMAL-9 if additional backend Phase 2 slices are needed.
+Frontend Phase 2 cockpit - or OMA-FORMAL-9 if additional backend Phase 2 slices are needed.

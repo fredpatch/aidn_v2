@@ -1,4 +1,4 @@
-# OMA-FORMAL-9C — Guided Action Card for Phase 2
+# OMA-FORMAL-9C - Guided Action Card for Phase 2
 
 Date: 2026-05-27
 Status: Complete
@@ -12,17 +12,18 @@ a WaitingState explanation, so users are never lost during the Phase 2 process.
 ## Pattern applied
 
 Phase 1 reference: `PreliminaryPhaseWorkspace.tsx` → `PreliminaryActionPanel` component.
+
 - `openDialog` state (DialogKey union), `nextActionCard` conditional block, dialogs rendered at bottom.
 - Permission checks via `useContext(AuthContext)` + `hasPermission`.
 - Each mutation dialog calls API → `onSuccess(nextState)` → parent updates state via `onStateChange`.
 
 ## Files changed
 
-| File | Change |
-|------|--------|
-| `apps/admin/src/lib/api/dossiers.api.ts` | +4 API functions for meeting lifecycle and closure |
-| `apps/admin/src/pages/dossiers/formal-request-dialogs.tsx` | +4 dialog components + CalendarScheduler import + buildScheduledAt helper |
-| `apps/admin/src/pages/dossiers/FormalRequestPhaseWorkspace.tsx` | Full guided action card implementation |
+| File                                                            | Change                                                                    |
+| --------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| `apps/admin/src/lib/api/dossiers.api.ts`                        | +4 API functions for meeting lifecycle and closure                        |
+| `apps/admin/src/pages/dossiers/formal-request-dialogs.tsx`      | +4 dialog components + CalendarScheduler import + buildScheduledAt helper |
+| `apps/admin/src/pages/dossiers/FormalRequestPhaseWorkspace.tsx` | Full guided action card implementation                                    |
 
 ## API functions added (dossiers.api.ts)
 
@@ -42,14 +43,15 @@ closeFormalRequestPhase(id, { notes? })
 
 ## Dialogs added (formal-request-dialogs.tsx)
 
-| Component | Fields | API |
-|-----------|--------|-----|
-| `InviteFormalMeetingDialog` | CalendarScheduler (date+time), location, notes | inviteFormalMeeting |
-| `MarkFormalMeetingHeldDialog` | heldAt (date), notes | markFormalMeetingHeld |
-| `UploadFormalMeetingReportDialog` | file (required), notes | uploadFormalMeetingReport |
-| `CloseFormalRequestPhaseDialog` | notes (optional), destructive confirm | closeFormalRequestPhase |
+| Component                         | Fields                                         | API                       |
+| --------------------------------- | ---------------------------------------------- | ------------------------- |
+| `InviteFormalMeetingDialog`       | CalendarScheduler (date+time), location, notes | inviteFormalMeeting       |
+| `MarkFormalMeetingHeldDialog`     | heldAt (date), notes                           | markFormalMeetingHeld     |
+| `UploadFormalMeetingReportDialog` | file (required), notes                         | uploadFormalMeetingReport |
+| `CloseFormalRequestPhaseDialog`   | notes (optional), destructive confirm          | closeFormalRequestPhase   |
 
 Notes:
+
 - `CalendarScheduler` uses `onChange?: (value: { date?: Date; time?: string }) => void` (not `onSchedule`)
 - `buildScheduledAt(date, time)` helper copied from preliminary-dialogs.tsx (local function)
 
@@ -94,6 +96,6 @@ npm run typecheck  → PASS (no output)
 
 ## Known risks / TODOs
 
-- `buildScheduledAt` duplicated in two dialog files — extract to shared util in future cleanup
+- `buildScheduledAt` duplicated in two dialog files - extract to shared util in future cleanup
 - Recevability/closure courrier uploads remain in FormalRequestPhaseChecklist (no dedicated action buttons in the guided card yet)
 - No re-invite / reschedule path for a cancelled or postponed meeting

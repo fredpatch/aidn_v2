@@ -350,7 +350,9 @@ function TemplateSlot({
       if (fileRef.current) fileRef.current.value = "";
       onUploaded();
     } catch (err) {
-      setUploadError(err instanceof Error ? err.message : "Une erreur est survenue.");
+      setUploadError(
+        err instanceof Error ? err.message : "Une erreur est survenue.",
+      );
     } finally {
       setIsUploading(false);
     }
@@ -358,16 +360,21 @@ function TemplateSlot({
 
   return (
     <div className="space-y-2 rounded-md border border-slate-200 p-3 dark:border-slate-700">
-      <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{slot.title}</p>
+      <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+        {slot.title}
+      </p>
       <p className="text-xs text-muted-foreground font-mono">{slot.code}</p>
       {active ? (
         <div className="flex items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm dark:border-emerald-900 dark:bg-emerald-950">
           <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-          <span className="font-medium text-emerald-800 dark:text-emerald-200">Configuré</span>
+          <span className="font-medium text-emerald-800 dark:text-emerald-200">
+            Configuré
+          </span>
         </div>
       ) : (
         <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200">
-          Non configuré — les postulants ne pourront pas télécharger ce formulaire.
+          Non configuré - les postulants ne pourront pas télécharger ce
+          formulaire.
         </div>
       )}
       <form onSubmit={(e) => void handleUpload(e)} className="space-y-2">
@@ -408,7 +415,9 @@ function TemplateSlot({
 function DocumentTemplatesSection(): React.JSX.Element {
   const fileRef = useRef<HTMLInputElement>(null);
   const [templates, setTemplates] = useState<DocumentTemplate[]>([]);
-  const [phase2Templates, setPhase2Templates] = useState<DocumentTemplate[]>([]);
+  const [phase2Templates, setPhase2Templates] = useState<DocumentTemplate[]>(
+    [],
+  );
   const [isLoading, setIsLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
@@ -468,17 +477,20 @@ function DocumentTemplatesSection(): React.JSX.Element {
       <CardHeader className="pb-3">
         <CardTitle>Modèles de documents</CardTitle>
         <p className="text-sm text-slate-500 dark:text-slate-400">
-          Configurer les formulaires réutilisables pour les phases de traitement.
+          Configurer les formulaires réutilisables pour les phases de
+          traitement.
         </p>
       </CardHeader>
       <CardContent className="space-y-6">
-        {/* Phase 1 — pre-evaluation */}
+        {/* Phase 1 - pre-evaluation */}
         <div className="space-y-3">
           <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">
             Phase préliminaire
           </p>
           <div className="space-y-1">
-            <p className="text-sm font-medium">Formulaire de pré-évaluation actif</p>
+            <p className="text-sm font-medium">
+              Formulaire de pré-évaluation actif
+            </p>
             {isLoading ? (
               <p className="text-sm text-muted-foreground">Chargement…</p>
             ) : active ? (
@@ -487,11 +499,14 @@ function DocumentTemplatesSection(): React.JSX.Element {
                 <span className="font-medium text-emerald-800 dark:text-emerald-200">
                   {active.title}
                 </span>
-                <span className="text-emerald-600 dark:text-emerald-400">- configuré</span>
+                <span className="text-emerald-600 dark:text-emerald-400">
+                  - configuré
+                </span>
               </div>
             ) : (
               <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200">
-                Aucun modèle configuré. Les dossiers DN ne pourront pas rendre le formulaire disponible aux postulants.
+                Aucun modèle configuré. Les dossiers DN ne pourront pas rendre
+                le formulaire disponible aux postulants.
               </div>
             )}
           </div>
@@ -526,20 +541,25 @@ function DocumentTemplatesSection(): React.JSX.Element {
               </div>
             ) : null}
             <Button type="submit" size="sm" disabled={isUploading}>
-              {isUploading ? "Téléversement…" : active ? "Remplacer le modèle" : "Téléverser le modèle"}
+              {isUploading
+                ? "Téléversement…"
+                : active
+                  ? "Remplacer le modèle"
+                  : "Téléverser le modèle"}
             </Button>
           </form>
         </div>
 
         <div className="border-t border-slate-200 dark:border-slate-700" />
 
-        {/* Phase 2 — formal request forms */}
+        {/* Phase 2 - formal request forms */}
         <div className="space-y-3">
           <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-            Phase de demande formelle — formulaires DN
+            Phase de demande formelle - formulaires DN
           </p>
           <p className="text-xs text-muted-foreground">
-            Ces formulaires sont mis à disposition des postulants pour téléchargement, remplissage et retour dans leur espace dossier.
+            Ces formulaires sont mis à disposition des postulants pour
+            téléchargement, remplissage et retour dans leur espace dossier.
           </p>
           {isLoading ? (
             <p className="text-sm text-muted-foreground">Chargement…</p>
@@ -549,7 +569,9 @@ function DocumentTemplatesSection(): React.JSX.Element {
                 <TemplateSlot
                   key={slot.code}
                   slot={slot}
-                  active={phase2Templates.find((t) => t.code === slot.code && t.isActive)}
+                  active={phase2Templates.find(
+                    (t) => t.code === slot.code && t.isActive,
+                  )}
                   onUploaded={() => void load()}
                 />
               ))}

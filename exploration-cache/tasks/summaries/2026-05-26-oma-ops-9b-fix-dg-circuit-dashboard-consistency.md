@@ -1,13 +1,14 @@
-# OMA-OPS-9B-FIX — DG Circuit Dashboard Consistency + Téléversé Status
+# OMA-OPS-9B-FIX - DG Circuit Dashboard Consistency + Téléversé Status
 
 Date: 2026-05-26
-Status: **Complete — API typecheck PASS, API build PASS, Admin typecheck PASS, Admin build PASS**
+Status: **Complete - API typecheck PASS, API build PASS, Admin typecheck PASS, Admin build PASS**
 
 ---
 
 ## Objective
 
 Fix three regressions introduced by OMA-OPS-9B:
+
 1. "Téléversé" timeline step not checked for returned DG rows
 2. Dashboard stats always 0 for "Traités aujourd'hui" / "Traités cette semaine" / "Derniers traitements"
 3. Source label inconsistency between Courriers officiels and dashboard
@@ -18,32 +19,34 @@ Fix three regressions introduced by OMA-OPS-9B:
 
 OMA-OPS-9B replaced the `processed` bucket with `returned_scanned` and `decision_recorded`. Two components were not updated:
 
-- `CourrierTimeline` in `DgCircuitPage.tsx`: `done: !!task.processedAt` — for `returned_scanned` items, `processedAt` (= `decisionRecordedAt`) is null, so the step never checked even when the document is uploaded
-- `CourrierDashboard.tsx`: `items.filter(t => t.bucket === "processed")` — no item ever has `bucket === "processed"` now, so all computed stats = 0 and `recentProcessed` = empty
+- `CourrierTimeline` in `DgCircuitPage.tsx`: `done: !!task.processedAt` - for `returned_scanned` items, `processedAt` (= `decisionRecordedAt`) is null, so the step never checked even when the document is uploaded
+- `CourrierDashboard.tsx`: `items.filter(t => t.bucket === "processed")` - no item ever has `bucket === "processed"` now, so all computed stats = 0 and `recentProcessed` = empty
 
 ---
 
 ## Files Modified
 
-| File | Change |
-|------|--------|
-| `apps/admin/src/pages/DgCircuitPage.tsx` | Fixed `CourrierTimeline` Téléversé step |
+| File                                                                 | Change                                                             |
+| -------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| `apps/admin/src/pages/DgCircuitPage.tsx`                             | Fixed `CourrierTimeline` Téléversé step                            |
 | `apps/admin/src/features/dashboard/components/CourrierDashboard.tsx` | Fixed processed filter, date fallback, status labels, source label |
 
 No backend changes. No model changes.
 
 ---
 
-## Fix 1 — Téléversé Timeline Step
+## Fix 1 - Téléversé Timeline Step
 
-**File**: `DgCircuitPage.tsx` — `CourrierTimeline` component
+**File**: `DgCircuitPage.tsx` - `CourrierTimeline` component
 
 **Before**:
+
 ```ts
 { label: "Téléversé", date: task.processedAt, done: !!task.processedAt }
 ```
 
 **After**:
+
 ```ts
 const documentUploaded = !!(
   task.annotatedReturnDocumentId || task.returnedFromDgAt || task.returnedAt || task.processedAt
@@ -57,21 +60,24 @@ Also improved "Signé ou annoté" to prefer `returnedFromDgAt` over `returnedAt`
 
 ---
 
-## Fix 2 — Dashboard Stats
+## Fix 2 - Dashboard Stats
 
 **File**: `CourrierDashboard.tsx`
 
-**Before**: `items.filter(t => t.bucket === "processed")` — never matches
+**Before**: `items.filter(t => t.bucket === "processed")` - never matches
 **After**: `items.filter(t => completedBuckets.includes(t.bucket))` where `completedBuckets = ["returned_scanned", "decision_recorded"]`
 
 **Date fallback for today/week checks**:
+
 ```ts
-const processedDate = (t) => t.decisionRecordedAt ?? t.returnedFromDgAt ?? t.processedAt ?? t.returnedAt;
+const processedDate = (t) =>
+  t.decisionRecordedAt ?? t.returnedFromDgAt ?? t.processedAt ?? t.returnedAt;
 ```
 
 `returned_scanned` items often have `decisionRecordedAt = null`, so fallback to `returnedFromDgAt` is required.
 
 **In-progress counts**:
+
 - Before: `bucket !== "processed"` (matched everything since processed is gone)
 - After: `bucket === "to_transmit" || bucket === "awaiting_return"` (explicit active buckets only)
 
@@ -79,14 +85,16 @@ const processedDate = (t) => t.decisionRecordedAt ?? t.returnedFromDgAt ?? t.pro
 
 ---
 
-## Fix 3 — Status Labels and Source Labels
+## Fix 3 - Status Labels and Source Labels
 
 **RecentCourrierRow**:
+
 - Status badge now shows `"Décision DG saisie"` for `decision_recorded`, `"Retour DG enregistré"` for `returned_scanned`
 - Badge color: emerald for decision_recorded, teal for returned_scanned (matches Courriers officiels)
 - "Traité le" date now uses `completedDate(task)` = `decisionRecordedAt ?? returnedFromDgAt ?? processedAt ?? returnedAt`
 
 **sourceLabels**:
+
 - `"Courrier initial"` → `"Demande initiale"` (matches Courriers officiels page)
 
 ---
@@ -126,4 +134,4 @@ npm run build      → PASS
 
 ## Next Step
 
-OMA-OPS-10 / Phase 2 — Demande formelle
+OMA-OPS-10 / Phase 2 - Demande formelle

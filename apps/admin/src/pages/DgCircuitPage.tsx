@@ -67,8 +67,16 @@ const bucketTabs: Array<{
   { key: "all", label: "Tous" },
   { key: "to_transmit", label: "À imprimer", countKey: "toTransmit" },
   { key: "awaiting_return", label: "En circuit", countKey: "awaitingReturn" },
-  { key: "returned_scanned", label: "Retours enregistrés", countKey: "returnedScanned" },
-  { key: "decision_recorded", label: "Décision enregistrée", countKey: "decisionRecorded" },
+  {
+    key: "returned_scanned",
+    label: "Retours enregistrés",
+    countKey: "returnedScanned",
+  },
+  {
+    key: "decision_recorded",
+    label: "Décision enregistrée",
+    countKey: "decisionRecorded",
+  },
 ];
 
 const sourceLabels: Record<string, string> = {
@@ -757,208 +765,224 @@ export function DgCircuitPage(): React.JSX.Element {
       <SplitView
         left={
           <div className="space-y-3">
-          <div className="flex flex-wrap gap-2">
-            {bucketTabs.map((tab) => (
-              <Button
-                key={tab.key}
-                type="button"
-                variant={bucket === tab.key ? "default" : "outline"}
-                size="sm"
-                onClick={() => setBucket(tab.key)}
-              >
-                {tab.label}
-                {tab.countKey ? ` (${data?.counts[tab.countKey] ?? 0})` : ""}
-              </Button>
-            ))}
-          </div>
-
-          <div className="relative">
-            <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              className="pl-9"
-              placeholder="Référence, organisme, postulant…"
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-            />
-          </div>
-
-          {isLoading ? (
-            <div className="grid gap-2">
-              <SkeletonCard lines={3} />
-              <SkeletonCard lines={3} />
-              <SkeletonCard lines={3} />
-            </div>
-          ) : data && data.items.length > 0 ? (
-            <div className="grid gap-2">
-              {data.items.map((task) => (
-                <CourrierTaskRow
-                  key={task.id}
-                  task={task}
-                  isSelected={selected?.id === task.id}
-                  onClick={() => setSelected(task)}
-                />
+            <div className="flex flex-wrap gap-2">
+              {bucketTabs.map((tab) => (
+                <Button
+                  key={tab.key}
+                  type="button"
+                  variant={bucket === tab.key ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setBucket(tab.key)}
+                >
+                  {tab.label}
+                  {tab.countKey ? ` (${data?.counts[tab.countKey] ?? 0})` : ""}
+                </Button>
               ))}
             </div>
-          ) : (
-            <EmptyState message="Aucun courrier dans cette vue. Les courriers traités restent disponibles via les filtres Retours enregistrés ou Décision enregistrée." />
-          )}
-        </div>
+
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                className="pl-9"
+                placeholder="Référence, organisme, postulant…"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+              />
+            </div>
+
+            {isLoading ? (
+              <div className="grid gap-2">
+                <SkeletonCard lines={3} />
+                <SkeletonCard lines={3} />
+                <SkeletonCard lines={3} />
+              </div>
+            ) : data && data.items.length > 0 ? (
+              <div className="grid gap-2">
+                {data.items.map((task) => (
+                  <CourrierTaskRow
+                    key={task.id}
+                    task={task}
+                    isSelected={selected?.id === task.id}
+                    onClick={() => setSelected(task)}
+                  />
+                ))}
+              </div>
+            ) : (
+              <EmptyState message="Aucun courrier dans cette vue. Les courriers traités restent disponibles via les filtres Retours enregistrés ou Décision enregistrée." />
+            )}
+          </div>
         }
         right={
           selected ? (
-          <div className="mt-4 space-y-4 rounded-md border bg-background p-4 lg:mt-0">
-            <div>
-              <div className="mb-1 flex flex-wrap items-center gap-2">
-                <Badge variant="outline" className="text-xs">
-                  {sourceLabels[selected.source] ?? selected.source}
-                </Badge>
-                <StatusBadge bucket={selected.bucket} />
+            <div className="mt-4 space-y-4 rounded-md border bg-background p-4 lg:mt-0">
+              <div>
+                <div className="mb-1 flex flex-wrap items-center gap-2">
+                  <Badge variant="outline" className="text-xs">
+                    {sourceLabels[selected.source] ?? selected.source}
+                  </Badge>
+                  <StatusBadge bucket={selected.bucket} />
+                </div>
+                <h2 className="text-lg font-semibold text-slate-950 dark:text-white">
+                  {selected.reference || selected.subject}
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                  {selected.organizationName ||
+                    selected.applicantName ||
+                    "Non renseigné"}
+                </p>
               </div>
-              <h2 className="text-lg font-semibold text-slate-950 dark:text-white">
-                {selected.reference || selected.subject}
-              </h2>
-              <p className="text-sm text-muted-foreground">
-                {selected.organizationName ||
-                  selected.applicantName ||
-                  "Non renseigné"}
-              </p>
-            </div>
 
-            <div>
-              <p className="mb-3 text-sm font-medium">Suivi</p>
-              <CourrierTimeline task={selected} />
-            </div>
+              <div>
+                <p className="mb-3 text-sm font-medium">Suivi</p>
+                <CourrierTimeline task={selected} />
+              </div>
 
-            <div className="rounded-md border bg-muted/40 p-3 space-y-3">
-              {selected.bucket === "to_transmit" ? (
-                <>
-                  <div>
-                    <p className="text-sm font-medium">Action requise</p>
-                    <p className="text-xs text-muted-foreground">
-                      Imprimez le document et placez-le dans le circuit officiel
-                      (DG / parapheur).
-                    </p>
-                  </div>
-                  <Button
-                    type="button"
-                    onClick={() => void handlePrintAndCircuit(selected)}
-                    disabled={isSubmitting}
-                  >
-                    <Printer className="mr-2 h-4 w-4" />
-                    Imprimer et marquer mis en circuit
-                  </Button>
-                </>
-              ) : selected.bucket === "awaiting_return" ? (
-                <>
-                  <div>
-                    <p className="text-sm font-medium">
-                      En attente du retour signé
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Téléversez le document signé ou annoté reçu du DG.
-                    </p>
-                  </div>
-                  {selected.availableActions.includes(
-                    "record_annotated_return",
-                  ) ? (
+              <div className="rounded-md border bg-muted/40 p-3 space-y-3">
+                {selected.bucket === "to_transmit" ? (
+                  <>
+                    <div>
+                      <p className="text-sm font-medium">Action requise</p>
+                      <p className="text-xs text-muted-foreground">
+                        Imprimez le document et placez-le dans le circuit
+                        officiel (DG / parapheur).
+                      </p>
+                    </div>
                     <Button
                       type="button"
-                      onClick={() =>
-                        setModal({ kind: "dg-return", task: selected })
-                      }
+                      onClick={() => void handlePrintAndCircuit(selected)}
                       disabled={isSubmitting}
                     >
-                      <FileUp className="mr-2 h-4 w-4" />
-                      Téléverser le retour signé/annoté
+                      <Printer className="mr-2 h-4 w-4" />
+                      Imprimer et marquer mis en circuit
                     </Button>
-                  ) : selected.availableActions.includes(
-                      "record_physical_receipt",
+                  </>
+                ) : selected.bucket === "awaiting_return" ? (
+                  <>
+                    <div>
+                      <p className="text-sm font-medium">
+                        En attente du retour signé
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Téléversez le document signé ou annoté reçu du DG.
+                      </p>
+                    </div>
+                    {selected.availableActions.includes(
+                      "record_annotated_return",
                     ) ? (
-                    <Button
-                      type="button"
-                      onClick={() =>
-                        setModal({ kind: "physical-receipt", task: selected })
-                      }
-                      disabled={isSubmitting}
-                    >
-                      <FileUp className="mr-2 h-4 w-4" />
-                      Enregistrer la réception physique
-                    </Button>
-                  ) : null}
-                </>
-              ) : selected.bucket === "returned_scanned" ||
-                selected.bucket === "decision_recorded" ||
-                selected.bucket === "processed" ? (
-                <>
-                  <div>
-                    <p className="text-sm font-medium">Traçabilité</p>
-                  </div>
-                  <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm">
-                    <dt className="text-muted-foreground">Type</dt>
-                    <dd>{sourceLabels[selected.source] ?? selected.source}</dd>
-                    {selected.organizationName ? (
-                      <>
-                        <dt className="text-muted-foreground">Organisation</dt>
-                        <dd>{selected.organizationName}</dd>
-                      </>
+                      <Button
+                        type="button"
+                        onClick={() =>
+                          setModal({ kind: "dg-return", task: selected })
+                        }
+                        disabled={isSubmitting}
+                      >
+                        <FileUp className="mr-2 h-4 w-4" />
+                        Téléverser le retour signé/annoté
+                      </Button>
+                    ) : selected.availableActions.includes(
+                        "record_physical_receipt",
+                      ) ? (
+                      <Button
+                        type="button"
+                        onClick={() =>
+                          setModal({ kind: "physical-receipt", task: selected })
+                        }
+                        disabled={isSubmitting}
+                      >
+                        <FileUp className="mr-2 h-4 w-4" />
+                        Enregistrer la réception physique
+                      </Button>
                     ) : null}
-                    {selected.applicantName ? (
-                      <>
-                        <dt className="text-muted-foreground">Postulant</dt>
-                        <dd>{selected.applicantName}</dd>
-                      </>
+                  </>
+                ) : selected.bucket === "returned_scanned" ||
+                  selected.bucket === "decision_recorded" ||
+                  selected.bucket === "processed" ? (
+                  <>
+                    <div>
+                      <p className="text-sm font-medium">Traçabilité</p>
+                    </div>
+                    <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm">
+                      <dt className="text-muted-foreground">Type</dt>
+                      <dd>
+                        {sourceLabels[selected.source] ?? selected.source}
+                      </dd>
+                      {selected.organizationName ? (
+                        <>
+                          <dt className="text-muted-foreground">
+                            Organisation
+                          </dt>
+                          <dd>{selected.organizationName}</dd>
+                        </>
+                      ) : null}
+                      {selected.applicantName ? (
+                        <>
+                          <dt className="text-muted-foreground">Postulant</dt>
+                          <dd>{selected.applicantName}</dd>
+                        </>
+                      ) : null}
+                      <dt className="text-muted-foreground">Envoi DG</dt>
+                      <dd>
+                        {formatDate(
+                          selected.sentToDgAt ?? selected.transmittedAt,
+                        )}
+                      </dd>
+                      <dt className="text-muted-foreground">Retour DG</dt>
+                      <dd>
+                        {formatDate(
+                          selected.returnedFromDgAt ?? selected.returnedAt,
+                        )}
+                      </dd>
+                      {selected.decision ? (
+                        <>
+                          <dt className="text-muted-foreground">Décision</dt>
+                          <dd>{selected.decision}</dd>
+                        </>
+                      ) : null}
+                      {selected.orientedDirection ? (
+                        <>
+                          <dt className="text-muted-foreground">Direction</dt>
+                          <dd>{selected.orientedDirection}</dd>
+                        </>
+                      ) : null}
+                      {selected.observations ? (
+                        <>
+                          <dt className="text-muted-foreground">
+                            Observations
+                          </dt>
+                          <dd className="whitespace-pre-line">
+                            {selected.observations}
+                          </dd>
+                        </>
+                      ) : null}
+                    </dl>
+                    {selected.availableActions.includes(
+                      "download_annotated_return",
+                    ) && selected.annotatedReturnDocumentId ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() =>
+                          downloadDocument(
+                            selected,
+                            selected.annotatedReturnDocumentId,
+                          )
+                        }
+                        disabled={isSubmitting}
+                      >
+                        <Download className="mr-2 h-4 w-4" />
+                        Consulter le retour DG
+                      </Button>
                     ) : null}
-                    <dt className="text-muted-foreground">Envoi DG</dt>
-                    <dd>{formatDate(selected.sentToDgAt ?? selected.transmittedAt)}</dd>
-                    <dt className="text-muted-foreground">Retour DG</dt>
-                    <dd>{formatDate(selected.returnedFromDgAt ?? selected.returnedAt)}</dd>
-                    {selected.decision ? (
-                      <>
-                        <dt className="text-muted-foreground">Décision</dt>
-                        <dd>{selected.decision}</dd>
-                      </>
-                    ) : null}
-                    {selected.orientedDirection ? (
-                      <>
-                        <dt className="text-muted-foreground">Direction</dt>
-                        <dd>{selected.orientedDirection}</dd>
-                      </>
-                    ) : null}
-                    {selected.observations ? (
-                      <>
-                        <dt className="text-muted-foreground">Observations</dt>
-                        <dd className="whitespace-pre-line">{selected.observations}</dd>
-                      </>
-                    ) : null}
-                  </dl>
-                  {selected.availableActions.includes(
-                    "download_annotated_return",
-                  ) && selected.annotatedReturnDocumentId ? (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() =>
-                        downloadDocument(
-                          selected,
-                          selected.annotatedReturnDocumentId,
-                        )
-                      }
-                      disabled={isSubmitting}
-                    >
-                      <Download className="mr-2 h-4 w-4" />
-                      Consulter le retour DG
-                    </Button>
-                  ) : null}
-                  {/* formal_request: no separate decision step — scanned return is the evidence */}
-                </>
-              ) : null}
+                    {/* formal_request: no separate decision step - scanned return is the evidence */}
+                  </>
+                ) : null}
+              </div>
             </div>
-          </div>
-        ) : (
-          <div className="mt-4 hidden items-center justify-center rounded-md border border-dashed bg-background p-10 text-sm text-muted-foreground lg:mt-0 lg:flex">
-            Sélectionnez un courrier pour voir son détail.
-          </div>
-        )
+          ) : (
+            <div className="mt-4 hidden items-center justify-center rounded-md border border-dashed bg-background p-10 text-sm text-muted-foreground lg:mt-0 lg:flex">
+              Sélectionnez un courrier pour voir son détail.
+            </div>
+          )
         }
       />
 

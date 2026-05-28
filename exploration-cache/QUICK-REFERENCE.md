@@ -1,6 +1,6 @@
 # Quick Reference
 
-Last updated: 2026-05-22
+Last updated: 2026-05-28
 
 ## OMA-1H Hardening Audit Notes (2026-05-22)
 
@@ -25,13 +25,22 @@ Last updated: 2026-05-22
 
 ## OMA-FORMAL-14 Notes (2026-05-28)
 
-- `GET /api/v1/portal/document-templates/:id/download` added — portal-safe, guarded by `phaseKey=formal_request` and `isActive`
+- `GET /api/v1/portal/document-templates/:id/download` added - portal-safe, guarded by `phaseKey=formal_request` and `isActive`
 - `getPortalDossier` now returns `formalRequest.requirements[]`, `formalRequest.progress`, `formalRequest.formalMeeting`
 - Phase 2 templates use `documentType: "other"` + unique `code` field; linked to requirements via `DocumentRequirement.formCode` matching `DocumentTemplate.code`
 - Admin SettingsPage extended with 3 Phase 2 template slots: DN-AIR-R2-3-F-E-010, DN-AIR-R2-3-F-E-012, DN-AIR-R2-3-F-E-011
 - Portal `Phase2DocumentChecklist` component handles status display, template download, and per-row upload
 - Portal `hasFormalDocRequired` flag drives Actions requises badge and guidance card
 - No portal download endpoint for submitted supporting documents yet
+
+## OMA-HARDENING-2 Notes (2026-05-28)
+
+- Portal Phase 2 active submission statuses are now `submitted`, `under_review`, `validated`, `requires_correction`, `incomplete`, and `rejected`.
+- Portal `incomplete` and `rejected` statuses stay visible; they no longer collapse to `missing`.
+- Portal Phase 2 progress `missing` counts only `expected` requirements with `status === "missing"`.
+- Conditional/optional missing Phase 2 requirements remain visible in the checklist but do not trigger `Actions requises`.
+- Portal re-upload is available for `missing`, `requires_correction`, `incomplete`, and `rejected`.
+- `rejected` is treated as a re-upload-needed blocking status for portal UX.
 
 ## Current Objective Notes
 

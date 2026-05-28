@@ -1,4 +1,4 @@
-# OMA-FORMAL-16 — Phase 2 document detail moved to Documents tab
+# OMA-FORMAL-16 - Phase 2 document detail moved to Documents tab
 
 Date: 2026-05-28
 Status: Complete
@@ -12,20 +12,24 @@ After FORMAL-15 added inline document review to `FormalRequestPhaseWorkspace`, t
 ### API
 
 **`apps/api/src/modules/oma-phases/oma-phase.service.ts`**
-- `downloadAdminDossierDocument`: extended allowlist with a secondary lookup — if not linked to preliminary evidence, checks `DocumentSubmissionModel` for a live Phase 2 submission with matching `dossierId` + `documentId`. Reuses existing download endpoint without a new route.
+
+- `downloadAdminDossierDocument`: extended allowlist with a secondary lookup - if not linked to preliminary evidence, checks `DocumentSubmissionModel` for a live Phase 2 submission with matching `dossierId` + `documentId`. Reuses existing download endpoint without a new route.
 
 ### Admin
 
 **`apps/admin/src/pages/DossierDetailPage.tsx`**
+
 - Converted `<Tabs>` from uncontrolled (`defaultValue`) to controlled (`value={activeTab}` / `onValueChange={setActiveTab}`)
 - Added `dossierId={dossier.id}` prop to `DossierDocumentsTab`
 - Added `onNavigateToTab={setActiveTab}` prop to `DossierPhasesTab`
 
 **`apps/admin/src/pages/dossiers/DossierPhasesTab.tsx`**
+
 - Added `onNavigateToTab?: (tab: string) => void` to props interface
 - Passed it through to `FormalRequestPhaseWorkspace`
 
 **`apps/admin/src/pages/dossiers/FormalRequestPhaseWorkspace.tsx`**
+
 - Removed: full document review UI (`Phase2RequirementRow`, `omaApprovalFormReq` review form, consultation-only list)
 - Removed: unused `LevelBadge`, `requirementLevelLabels`, `gateRequirement`, `FormalRequirementLevel` import
 - Added: compact `<DetailSection title="Documents de demande formelle">` card showing:
@@ -34,6 +38,7 @@ After FORMAL-15 added inline document review to `FormalRequestPhaseWorkspace`, t
   - "Voir les documents" button → `onNavigateToTab("documents")`
 
 **`apps/admin/src/pages/dossiers/DossierDocumentsTab.tsx`**
+
 - Added imports: `useCallback`, `useContext`, `useEffect`, `Label`, `Textarea`, `AuthContext`, `adminReviewFormalRequestDocument`, `getAdminFormalRequestPhase`, various types, `hasPermission`, `extractError`
 - Added `formalSubmissionStatusLabels` map
 - Added `FormalStatusBadge` component
@@ -47,6 +52,6 @@ After FORMAL-15 added inline document review to `FormalRequestPhaseWorkspace`, t
 ## Invariants preserved
 
 - Phase 1 document list and download behavior unchanged
-- Backend consultation-only guard (FORMAL-15) still enforced — UI merely reflects it
+- Backend consultation-only guard (FORMAL-15) still enforced - UI merely reflects it
 - `oma_approval_form` review actions only shown when `canReview && latestSubmission && status !== "validated"`
 - `getAdminFormalRequestPhase` 404 is swallowed silently (Phase 2 not started = no card shown)

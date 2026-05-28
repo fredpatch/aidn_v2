@@ -1,7 +1,7 @@
-# OMA-OPS-3 — Phase préliminaire checklist + action dialogs
+# OMA-OPS-3 - Phase préliminaire checklist + action dialogs
 
 Date: 2026-05-25
-Status: **Complete — typecheck PASS, build PASS**
+Status: **Complete - typecheck PASS, build PASS**
 
 ---
 
@@ -23,7 +23,7 @@ backend changes.
 
 ## Source Files Inspected
 
-- `apps/admin/src/pages/dossiers/PreliminaryPhaseWorkspace.tsx` — 849 lines, 5 inline forms
+- `apps/admin/src/pages/dossiers/PreliminaryPhaseWorkspace.tsx` - 849 lines, 5 inline forms
 - `apps/admin/src/pages/dossiers/DossierPhasesTab.tsx`
 - `apps/admin/src/pages/dossiers/dossier-detail.helpers.tsx`
 - `apps/admin/src/lib/api/dossiers.api.ts`
@@ -35,42 +35,42 @@ backend changes.
 
 ## Files Changed
 
-| File | Change |
-|------|--------|
-| `apps/admin/src/components/ui/split-view.tsx` | Fixed Tailwind CSS production issue |
-| `apps/admin/src/pages/dossiers/PreliminaryPhaseWorkspace.tsx` | Full rewrite |
-| `apps/admin/src/pages/dossiers/DossierPhasesTab.tsx` | Section title update only |
+| File                                                          | Change                              |
+| ------------------------------------------------------------- | ----------------------------------- |
+| `apps/admin/src/components/ui/split-view.tsx`                 | Fixed Tailwind CSS production issue |
+| `apps/admin/src/pages/dossiers/PreliminaryPhaseWorkspace.tsx` | Full rewrite                        |
+| `apps/admin/src/pages/dossiers/DossierPhasesTab.tsx`          | Section title update only           |
 
 ## Files Created
 
-| File | Purpose |
-|------|---------|
-| `apps/admin/src/pages/dossiers/preliminary-dialogs.tsx` | 7 dialog components bundled |
-| `apps/admin/src/pages/dossiers/PreliminaryPhaseChecklist.tsx` | 11-step checklist |
+| File                                                          | Purpose                     |
+| ------------------------------------------------------------- | --------------------------- |
+| `apps/admin/src/pages/dossiers/preliminary-dialogs.tsx`       | 7 dialog components bundled |
+| `apps/admin/src/pages/dossiers/PreliminaryPhaseChecklist.tsx` | 11-step checklist           |
 
 ---
 
 ## Key Decisions
 
-1. **Dialogs bundled in one file** (`preliminary-dialogs.tsx`) — avoids 7
+1. **Dialogs bundled in one file** (`preliminary-dialogs.tsx`) - avoids 7
    separate files for tightly related, small components. Documented.
 
-2. **Each dialog manages its own loading/error state** — simpler than shared
+2. **Each dialog manages its own loading/error state** - simpler than shared
    parent state from original; dialogs call API directly and invoke `onSuccess`
    on completion.
 
 3. **`InviteMeetingDialog` and `RecordMeetingDialog` use `onConfirm` callback**
-   — reused for two contexts each (first meeting vs preliminary meeting). The
-   workspace passes the correct API call.
+   - reused for two contexts each (first meeting vs preliminary meeting). The
+     workspace passes the correct API call.
 
-4. **Evidence block** — only `preEvaluationDgAnnotatedDocumentId` has a working
+4. **Evidence block** - only `preEvaluationDgAnnotatedDocumentId` has a working
    download button (existing `downloadDossierDocument` API + `canConsultPreEvalDgReturn`
    permission). All other documents show "Téléchargement à activer dans OMA-OPS-4".
 
-5. **Export kept as `PreliminaryActionPanel`** — avoids touching `DossierPhasesTab.tsx`
+5. **Export kept as `PreliminaryActionPanel`** - avoids touching `DossierPhasesTab.tsx`
    import. The internal refactor is transparent.
 
-6. **SplitView fix** — Changed from `lg:grid-cols-${columns}` (not statically
+6. **SplitView fix** - Changed from `lg:grid-cols-${columns}` (not statically
    scannable by Tailwind) to `lg:grid-cols-[var(--split-cols)]` (literal class
    present in source) + `style={{ '--split-cols': cols }}`. Added
    `parseColumns()` to strip Tailwind arbitrary value brackets/underscores so
@@ -99,17 +99,17 @@ backend changes.
 
 ## Dialog → API mapping
 
-| Dialog | API call |
-|--------|----------|
-| InviteMeetingDialog (first) | `inviteFirstMeeting` |
-| RecordMeetingDialog (first) | `recordFirstMeeting` |
-| PublishPreEvalDialog | `publishPreEvaluationForm` |
-| SendToDgDialog | `sendPreEvalToDg` |
-| RecordDgReturnDialog | `recordPreEvalDgReturn` |
+| Dialog                       | API call                   |
+| ---------------------------- | -------------------------- |
+| InviteMeetingDialog (first)  | `inviteFirstMeeting`       |
+| RecordMeetingDialog (first)  | `recordFirstMeeting`       |
+| PublishPreEvalDialog         | `publishPreEvaluationForm` |
+| SendToDgDialog               | `sendPreEvalToDg`          |
+| RecordDgReturnDialog         | `recordPreEvalDgReturn`    |
 | InviteMeetingDialog (prelim) | `invitePreliminaryMeeting` |
 | RecordMeetingDialog (prelim) | `recordPreliminaryMeeting` |
-| UploadClosureCourrierDialog | `uploadClosureCourrier` |
-| ClosePreliminaryDialog | `closePreliminaryPhase` |
+| UploadClosureCourrierDialog  | `uploadClosureCourrier`    |
+| ClosePreliminaryDialog       | `closePreliminaryPhase`    |
 
 ---
 

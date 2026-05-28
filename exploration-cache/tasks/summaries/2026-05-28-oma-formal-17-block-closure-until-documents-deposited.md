@@ -1,4 +1,4 @@
-# OMA-FORMAL-17 — Block Phase 2 closure until all required documents deposited
+# OMA-FORMAL-17 - Block Phase 2 closure until all required documents deposited
 
 Date: 2026-05-28
 Status: Complete
@@ -11,10 +11,10 @@ After PO clarification: Phase 2 must not close until all required/expected postu
 
 ### Backend (`apps/api/src/modules/oma-phases/formal-request.service.ts`)
 
-**a) `ACTIVE_SUBMISSION_STATUSES` — add `"incomplete"`**
+**a) `ACTIVE_SUBMISSION_STATUSES` - add `"incomplete"`**
 Fixes: `computeRequirementStatus` was returning `"missing"` for requirements with an `incomplete` submission. Now returns `"incomplete"` correctly.
 
-**b) `ACTIVE_SUBMISSION_STATUS_SET` — add `"incomplete"` + re-upload condition**
+**b) `ACTIVE_SUBMISSION_STATUS_SET` - add `"incomplete"` + re-upload condition**
 Fixes: postulant re-upload for `incomplete` requirements now correctly treats the old submission as a replacement (same pattern as `requires_correction`).
 
 **c) Move `requirementList` build before `canClosePhase`**
@@ -22,17 +22,20 @@ Structural refactor so `canClosePhase` can use the already-computed requirement 
 
 **d) Extended `canClosePhase`**
 New conditions added:
+
 - `allRequiredDeposited`: every non-gate, non-optional requirement has at least one active submission (status ≠ `"missing"`)
 - `omaFormValidated`: `oma_approval_form` requirement status === `"validated"`
 
 **e) New guards in `closeFormalRequestPhase`**
 After the meeting report check, re-queries requirements and submissions for the dossier:
+
 - If any non-gate required/expected requirement has no active submission → 409 "Toutes les pièces requises..."
 - If `oma_approval_form` is not validated → 409 "Le formulaire DN-AIR-R2-3-F-E-010 doit être validé avant la clôture."
 
 ### Frontend (`apps/admin/src/pages/dossiers/formal-request-dialogs.tsx`)
 
 **`CloseFormalRequestPhaseDialog`**:
+
 - Removed `comment` state variable
 - Removed `completeness` computed variable
 - Replaced amber "clôture avec réserves" warning with destructive blocking message
@@ -45,6 +48,7 @@ After the meeting report check, re-queries requirements and submissions for the 
 
 **`nextActionContent` else branch**:
 When meeting report is uploaded but `canClosePhase` is still false (due to documents), shows:
+
 - Destructive text: "Les pièces de demande formelle doivent être complétées avant clôture."
 - "Voir les documents" button → `onNavigateToTab("documents")`
 

@@ -1,7 +1,7 @@
-# OMA-FORMAL-2 — Formal Request Courrier Registration API
+# OMA-FORMAL-2 - Formal Request Courrier Registration API
 
 Date: 2026-05-27
-Status: **Complete — API typecheck PASS, API lint PASS, API build PASS**
+Status: **Complete - API typecheck PASS, API lint PASS, API build PASS**
 
 ---
 
@@ -34,14 +34,14 @@ This is the main Phase 2 gate: only `formalRequestCourrierId` blocks `canSendToD
 
 ## Files changed
 
-| File | Change |
-|------|--------|
-| `apps/api/src/modules/courriers/courrier.model.ts` | Added `"formal_request_courrier"` to `type` enum |
-| `apps/api/src/modules/documents/document.model.ts` | Added `"formal_request_letter"` to `documentType` enum |
+| File                                                        | Change                                                                                                   |
+| ----------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `apps/api/src/modules/courriers/courrier.model.ts`          | Added `"formal_request_courrier"` to `type` enum                                                         |
+| `apps/api/src/modules/documents/document.model.ts`          | Added `"formal_request_letter"` to `documentType` enum                                                   |
 | `apps/api/src/modules/oma-phases/formal-request.service.ts` | Added `registerFormalRequestCourrier`; exported `Actor` type; added `validateFile` helper; added imports |
-| `apps/api/src/modules/oma-phases/oma-phase.service.ts` | Exported `getOwnedDossier` (was private `const`) |
-| `apps/api/src/modules/portal/portal.routes.ts` | Added `POST /dossiers/:id/phases/formal-request/courrier` |
-| `apps/api/src/modules/admin/admin.routes.ts` | Added `POST /dossiers/:id/phases/formal-request/courrier` |
+| `apps/api/src/modules/oma-phases/oma-phase.service.ts`      | Exported `getOwnedDossier` (was private `const`)                                                         |
+| `apps/api/src/modules/portal/portal.routes.ts`              | Added `POST /dossiers/:id/phases/formal-request/courrier`                                                |
+| `apps/api/src/modules/admin/admin.routes.ts`                | Added `POST /dossiers/:id/phases/formal-request/courrier`                                                |
 
 ---
 
@@ -65,39 +65,48 @@ This is the main Phase 2 gate: only `formalRequestCourrierId` blocks `canSendToD
 ## Key decisions
 
 ### Enum updates
-- `Courrier.type` enum: added `"formal_request_courrier"` — separate from `initial_request_courrier` (intake flow)
+
+- `Courrier.type` enum: added `"formal_request_courrier"` - separate from `initial_request_courrier` (intake flow)
 - `Document.documentType` enum: added `"formal_request_letter"`
 
 ### Document creation
+
 - `saveDocument()` called with `ownerType="phase"`, `ownerId=phase._id`, `category="courrier"`, `documentType="formal_request_letter"`, `visibility="internal_only"`, `status="uploaded"`
 
 ### Courrier creation
+
 - `CourrierModel.create({ dossierId, requestId?, type="formal_request_courrier", source, documentId, uploadedAt (portal) | physicalDepositDate (admin), officialReference?, notes?, registeredById })`
 
 ### DocumentSubmission creation
+
 - Linked to gate requirement (`formal_request_letter`, `requirementLevel=gate`)
 - `status="submitted"`, `submittedByRole` = "postulant" for portal or actor.role for admin
 
 ### OmaPhase update
+
 - `formalRequestCourrierId = courrier._id`
 - `formalRequestStatus = "formal_request_received"`
 - `status = "in_progress"`
 - `formalRequestReceivedAt = now`
 
 ### Duplicate protection
+
 - If `phase.formalRequestCourrierId` already set: reject with 409 `"La demande formelle est déjà enregistrée pour cette phase."`
 
 ### Gate/progress after upload
+
 - `gate.exists = true`
 - `blockingMissing = false`
 - `canSendToDg = true`
 - Supporting checklist does NOT block `canSendToDg`
 
 ### Response shape
+
 - Admin path: returns full `getAdminFormalRequestPhase` read state
 - Portal path: returns sanitized subset `{ phase: { id, phaseKey, status, formalRequestStatus, canSendToDg }, gate: { exists, formalRequestCourrierId, source, receivedAt }, progress: { blockingMissing, completionRate: null } }`
 
 ### Audit
+
 - Action: `formal_request.courrier_registered`
 - Metadata: dossierId, phaseId, courrierId, documentId, source, officialReference?
 
@@ -127,7 +136,7 @@ Not run (no running server).
 
 ## Known risks / TODOs
 
-- `getOwnedDossier` exported from `oma-phase.service.ts` — if the file ever splits into smaller modules, this export may need relocation.
+- `getOwnedDossier` exported from `oma-phase.service.ts` - if the file ever splits into smaller modules, this export may need relocation.
 - `physicalDepositDate` is accepted but no validation on date format (relies on `new Date()` coercion).
 - Duplicate protection is intentionally simple (409 only); replacement/versioning deferred to a later slice.
 - No DG mutation added (OMA-FORMAL-3 deferred).
@@ -139,4 +148,4 @@ Not run (no running server).
 
 ## Next step
 
-OMA-FORMAL-3 — Phase 2 DG send/return mutations (`POST /admin/dossiers/:id/phases/formal-request/send-to-dg`, `POST /admin/dossiers/:id/phases/formal-request/record-dg-return`).
+OMA-FORMAL-3 - Phase 2 DG send/return mutations (`POST /admin/dossiers/:id/phases/formal-request/send-to-dg`, `POST /admin/dossiers/:id/phases/formal-request/record-dg-return`).

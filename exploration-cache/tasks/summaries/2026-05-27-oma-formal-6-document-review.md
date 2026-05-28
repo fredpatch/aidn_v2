@@ -1,7 +1,7 @@
-# OMA-FORMAL-6 — DN Document Review for Phase 2 Demande formelle
+# OMA-FORMAL-6 - DN Document Review for Phase 2 Demande formelle
 
 Date: 2026-05-27
-Status: **Complete — API typecheck PASS, API lint PASS, API build PASS**
+Status: **Complete - API typecheck PASS, API lint PASS, API build PASS**
 
 ---
 
@@ -9,7 +9,7 @@ Status: **Complete — API typecheck PASS, API lint PASS, API build PASS**
 
 Implement DN/admin review for Phase 2 `DocumentSubmission` records.
 DN can validate, reject, or request correction on a submitted supporting document.
-Review is informative/workflow support only — does not block or unlock any phase gate.
+Review is informative/workflow support only - does not block or unlock any phase gate.
 
 ---
 
@@ -59,15 +59,15 @@ Payload:
 
 ### Guard chain
 
-1. `ensureInternalActor` — admin/internal only
-2. `status` in `{validated, rejected, requires_correction}` — else 400
-3. `requires_correction` requires non-empty `comment` — else 400
-4. Submission exists — else 404
-5. `submission.phaseKey === "formal_request"` — else 400
-6. `submission.status` not in `{archived, replaced}` — else 409
-7. Linked requirement `requirementLevel !== "gate"` (if set) — else 409 "La demande formelle est traitée via le circuit courrier dédié."
-8. Linked document exists — else 404
-9. Phase exists and not closed — else 409
+1. `ensureInternalActor` - admin/internal only
+2. `status` in `{validated, rejected, requires_correction}` - else 400
+3. `requires_correction` requires non-empty `comment` - else 400
+4. Submission exists - else 404
+5. `submission.phaseKey === "formal_request"` - else 400
+6. `submission.status` not in `{archived, replaced}` - else 409
+7. Linked requirement `requirementLevel !== "gate"` (if set) - else 409 "La demande formelle est traitée via le circuit courrier dédié."
+8. Linked document exists - else 404
+9. Phase exists and not closed - else 409
 
 ### Review does NOT require
 
@@ -113,7 +113,7 @@ Payload:
 ### Read state impact
 
 `getAdminFormalRequestPhase` already reads `DocumentSubmission.status` via `computeRequirementStatus`.
-`computeRequirementStatus` returns the latest active submission status: supports `validated`, `rejected`, `requires_correction` — all already in `ACTIVE_SUBMISSION_STATUSES`.
+`computeRequirementStatus` returns the latest active submission status: supports `validated`, `rejected`, `requires_correction` - all already in `ACTIVE_SUBMISSION_STATUSES`.
 
 ---
 
@@ -150,4 +150,4 @@ Not run (no running server).
 
 ## Next step
 
-OMA-FORMAL-7 — Phase 2 closure: recevability courrier upload + closure courrier upload + close phase mutation.
+OMA-FORMAL-7 - Phase 2 closure: recevability courrier upload + closure courrier upload + close phase mutation.

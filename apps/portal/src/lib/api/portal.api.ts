@@ -140,11 +140,46 @@ export type PortalDossierPreliminary = {
   preliminaryMeeting: PortalDossierMeeting | null;
 };
 
+export type PortalFormalRequestSubmission = {
+  submissionId: string;
+  uploadedAt: string;
+  status: string;
+  reviewComment?: string;
+};
+
+export type PortalFormalRequestTemplate = {
+  templateId: string;
+  title: string;
+  fileName: string;
+};
+
+export type PortalFormalRequestRequirement = {
+  requirementId: string;
+  code: string;
+  label: string;
+  formCode?: string;
+  requirementLevel: "expected" | "optional" | "conditional";
+  isRepeatable: boolean;
+  template?: PortalFormalRequestTemplate;
+  status: "missing" | "submitted" | "under_review" | "validated" | "requires_correction" | "incomplete" | "rejected";
+  submissions: PortalFormalRequestSubmission[];
+};
+
+export type PortalFormalRequestProgress = {
+  totalTracked: number;
+  submitted: number;
+  validated: number;
+  missing: number;
+};
+
 export type PortalDossierFormalRequest = {
   status: string | null;
   portalLabel: string;
   hasFormalRequestCourrier: boolean;
   canUploadFormalRequestCourrier: boolean;
+  requirements: PortalFormalRequestRequirement[];
+  progress: PortalFormalRequestProgress;
+  formalMeeting: PortalDossierMeeting | null;
 };
 
 export type PortalDossierDetail = {
@@ -315,6 +350,21 @@ export function downloadPortalDossierDocument(
   return portalGetBlob(
     `/api/v1/portal/dossiers/${dossierId}/documents/${documentId}`,
   );
+}
+
+export function uploadFormalRequestDocument(
+  dossierId: string,
+  requirementId: string,
+  formData: FormData,
+): Promise<{ ok: boolean }> {
+  return portalPostForm(
+    `/api/v1/portal/dossiers/${dossierId}/phases/formal-request/documents/${requirementId}`,
+    formData,
+  );
+}
+
+export function downloadFormalRequestTemplate(templateId: string): Promise<Blob> {
+  return portalGetBlob(`/api/v1/portal/document-templates/${templateId}/download`);
 }
 
 export type PortalMeetingStatus =

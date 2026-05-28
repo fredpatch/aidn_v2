@@ -32,6 +32,7 @@ import {
   type AdminFormalRequestCourrierSource,
   type AdminFormalRequestDgDecision,
   type AdminFormalRequestPhaseState,
+  type AdminFormalRequestRequirement,
 } from "@/lib/api/dossiers.api";
 import { extractError } from "@/lib/utils/error";
 import { ActionError } from "./dossier-detail.helpers";
@@ -945,6 +946,7 @@ export function UploadFormalMeetingReportDialog({
 
 type CloseFormalRequestPhaseDialogProps = BaseProps & {
   progress: AdminFormalRequestPhaseState["progress"];
+  omaApprovalFormRequirement?: AdminFormalRequestRequirement;
 };
 
 export function CloseFormalRequestPhaseDialog({
@@ -953,21 +955,19 @@ export function CloseFormalRequestPhaseDialog({
   dossierId,
   onSuccess,
   progress,
+  omaApprovalFormRequirement,
 }: CloseFormalRequestPhaseDialogProps): React.JSX.Element {
   const [notes, setNotes] = useState("");
-  const [comment, setComment] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
 
-  const isComplete =
-    progress.totalTracked > 0 &&
-    progress.validated >= progress.totalTracked &&
-    progress.missing === 0;
-  const completeness: "complete" | "partial" = isComplete ? "complete" : "partial";
+  // Closure requires all required docs deposited AND oma_approval_form validated.
+  const omaFormValidated = omaApprovalFormRequirement?.status === "validated";
+  const hasMissingDocs = progress.missing > 0;
+  const isComplete = omaFormValidated && !hasMissingDocs;
 
   const reset = () => {
     setNotes("");
-    setComment("");
     setError("");
   };
 
@@ -977,8 +977,6 @@ export function CloseFormalRequestPhaseDialog({
     try {
       const nextState = await closeFormalRequestPhase(dossierId, {
         notes: notes.trim() || undefined,
-        completeness,
-        comment: comment.trim() || undefined,
       });
       reset();
       onOpenChange(false);
@@ -1008,16 +1006,14 @@ export function CloseFormalRequestPhaseDialog({
         </DialogHeader>
 
         {/* Document completeness summary */}
-        <div className="rounded-md border bg-muted/20 p-3 text-sm">
-          <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        <div className="rounded-md border bg-muted/20 p-3 text-sm space-y-1.5">
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
             Pièces justificatives
           </p>
           <p className="text-foreground">
             <span className="font-medium">{progress.totalTracked}</span> pièces suivies
             {" · "}
             <span className="font-medium">{progress.submitted}</span> déposée{progress.submitted !== 1 ? "s" : ""}
-            {" · "}
-            <span className="font-medium">{progress.validated}</span> validée{progress.validated !== 1 ? "s" : ""}
             {progress.missing > 0 ? (
               <>
                 {" · "}
@@ -1027,30 +1023,42 @@ export function CloseFormalRequestPhaseDialog({
               </>
             ) : null}
           </p>
+          {omaApprovalFormRequirement ? (
+            <p className="text-foreground">
+              Formulaire DN-AIR-R2-3-F-E-010 :{" "}
+              <span
+                className={
+                  omaFormValidated
+                    ? "font-medium text-emerald-700"
+                    : omaApprovalFormRequirement.status === "requires_correction" ||
+                        omaApprovalFormRequirement.status === "incomplete"
+                      ? "font-medium text-destructive"
+                      : "text-muted-foreground"
+                }
+              >
+                {omaFormValidated
+                  ? "Validé"
+                  : omaApprovalFormRequirement.status === "requires_correction"
+                    ? "Correction demandée"
+                    : omaApprovalFormRequirement.status === "incomplete"
+                      ? "Incomplet"
+                      : omaApprovalFormRequirement.status === "submitted" ||
+                          omaApprovalFormRequirement.status === "under_review"
+                        ? "Déposé — décision DN en attente"
+                        : "Non déposé"}
+              </span>
+            </p>
+          ) : null}
         </div>
 
-        {/* Partial closure warning */}
+        {/* Blocking message — closure not possible until conditions are met */}
         {!isComplete ? (
-          <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200">
-            Certaines pièces ne sont pas encore validées. La phase sera clôturée
-            avec réserves. Indiquez un motif ci-dessous si nécessaire.
-          </div>
-        ) : null}
-
-        {/* Comment (required for partial) */}
-        {!isComplete ? (
-          <div className="space-y-1">
-            <Label htmlFor="formal-close-comment" className="text-xs">
-              Motif / observation de clôture avec réserves
-            </Label>
-            <Textarea
-              id="formal-close-comment"
-              value={comment}
-              onChange={(event) => setComment(event.target.value)}
-              rows={2}
-              className="text-sm"
-              placeholder="Ex. : Documents complémentaires attendus en phase 3…"
-            />
+          <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
+            {!omaFormValidated && hasMissingDocs
+              ? "Des pièces sont manquantes et le formulaire DN-AIR-R2-3-F-E-010 n'est pas validé. La clôture est impossible."
+              : !omaFormValidated
+                ? "Le formulaire DN-AIR-R2-3-F-E-010 doit être validé avant clôture."
+                : "Toutes les pièces requises doivent être déposées avant de clôturer la phase."}
           </div>
         ) : null}
 
@@ -1082,7 +1090,7 @@ export function CloseFormalRequestPhaseDialog({
           <Button
             type="button"
             variant="destructive"
-            disabled={isSubmitting}
+            disabled={isSubmitting || !isComplete}
             onClick={() => void handleConfirm()}
           >
             {isSubmitting ? (
@@ -1090,10 +1098,8 @@ export function CloseFormalRequestPhaseDialog({
                 <Clock className="mr-2 h-4 w-4 animate-spin" />
                 En cours...
               </>
-            ) : isComplete ? (
-              "Clôturer la Phase 2"
             ) : (
-              "Clôturer avec réserves"
+              "Clôturer la Phase 2"
             )}
           </Button>
         </DialogFooter>

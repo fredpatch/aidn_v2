@@ -285,9 +285,130 @@ function DataModeSection(): React.JSX.Element {
   );
 }
 
+type TemplateSlotConfig = {
+  code: string;
+  title: string;
+  documentType: string;
+  phaseKey: string;
+  inputId: string;
+};
+
+const PHASE2_TEMPLATE_SLOTS: TemplateSlotConfig[] = [
+  {
+    code: "DN-AIR-R2-3-F-E-010",
+    title: "Formulaire de demande d'agrément d'OMA",
+    documentType: "other",
+    phaseKey: "formal_request",
+    inputId: "template-file-010",
+  },
+  {
+    code: "DN-AIR-R2-3-F-E-012",
+    title: "Formulaire d'acceptation du personnel d'encadrement",
+    documentType: "other",
+    phaseKey: "formal_request",
+    inputId: "template-file-012",
+  },
+  {
+    code: "DN-AIR-R2-3-F-E-011",
+    title: "État de conformité à la règlementation en vigueur",
+    documentType: "other",
+    phaseKey: "formal_request",
+    inputId: "template-file-011",
+  },
+];
+
+function TemplateSlot({
+  slot,
+  active,
+  onUploaded,
+}: {
+  slot: TemplateSlotConfig;
+  active: DocumentTemplate | undefined;
+  onUploaded: () => void;
+}): React.JSX.Element {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
+  const [uploadSuccess, setUploadSuccess] = useState("");
+
+  const handleUpload = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const file = fileRef.current?.files?.[0];
+    if (!file) return;
+    setIsUploading(true);
+    setUploadError("");
+    setUploadSuccess("");
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("code", slot.code);
+      fd.append("title", slot.title);
+      fd.append("documentType", slot.documentType);
+      fd.append("phaseKey", slot.phaseKey);
+      await uploadDocumentTemplate(fd);
+      setUploadSuccess("Modèle mis à jour.");
+      if (fileRef.current) fileRef.current.value = "";
+      onUploaded();
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : "Une erreur est survenue.");
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  return (
+    <div className="space-y-2 rounded-md border border-slate-200 p-3 dark:border-slate-700">
+      <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{slot.title}</p>
+      <p className="text-xs text-muted-foreground font-mono">{slot.code}</p>
+      {active ? (
+        <div className="flex items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm dark:border-emerald-900 dark:bg-emerald-950">
+          <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+          <span className="font-medium text-emerald-800 dark:text-emerald-200">Configuré</span>
+        </div>
+      ) : (
+        <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200">
+          Non configuré — les postulants ne pourront pas télécharger ce formulaire.
+        </div>
+      )}
+      <form onSubmit={(e) => void handleUpload(e)} className="space-y-2">
+        <div className="space-y-1">
+          <Label htmlFor={slot.inputId} className="text-sm">
+            {active ? "Remplacer le fichier" : "Téléverser le modèle"}{" "}
+            <span className="text-red-500">*</span>
+          </Label>
+          <Input
+            id={slot.inputId}
+            ref={fileRef}
+            type="file"
+            accept=".pdf,.doc,.docx"
+            required
+            className="h-8 text-sm"
+            disabled={isUploading}
+          />
+          <p className="text-xs text-muted-foreground">PDF, DOC ou DOCX</p>
+        </div>
+        {uploadError ? (
+          <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300">
+            {uploadError}
+          </div>
+        ) : null}
+        {uploadSuccess ? (
+          <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300">
+            {uploadSuccess}
+          </div>
+        ) : null}
+        <Button type="submit" size="sm" disabled={isUploading}>
+          {isUploading ? "Téléversement…" : active ? "Remplacer" : "Téléverser"}
+        </Button>
+      </form>
+    </div>
+  );
+}
+
 function DocumentTemplatesSection(): React.JSX.Element {
   const fileRef = useRef<HTMLInputElement>(null);
   const [templates, setTemplates] = useState<DocumentTemplate[]>([]);
+  const [phase2Templates, setPhase2Templates] = useState<DocumentTemplate[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
@@ -296,10 +417,12 @@ function DocumentTemplatesSection(): React.JSX.Element {
   const load = async () => {
     setIsLoading(true);
     try {
-      const result = await listDocumentTemplates({
-        documentType: "pre_evaluation_blank_form",
-      });
-      setTemplates(result.items);
+      const [phase1Result, phase2Result] = await Promise.all([
+        listDocumentTemplates({ documentType: "pre_evaluation_blank_form" }),
+        listDocumentTemplates({ phaseKey: "formal_request" }),
+      ]);
+      setTemplates(phase1Result.items);
+      setPhase2Templates(phase2Result.items);
     } catch {
       // non-fatal
     } finally {
@@ -345,72 +468,94 @@ function DocumentTemplatesSection(): React.JSX.Element {
       <CardHeader className="pb-3">
         <CardTitle>Modèles de documents</CardTitle>
         <p className="text-sm text-slate-500 dark:text-slate-400">
-          Configurer le formulaire de pré-évaluation réutilisable pour les
-          dossiers DN.
+          Configurer les formulaires réutilisables pour les phases de traitement.
         </p>
       </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="space-y-1">
-          <p className="text-sm font-medium">
-            Formulaire de pré-évaluation actif
+      <CardContent className="space-y-6">
+        {/* Phase 1 — pre-evaluation */}
+        <div className="space-y-3">
+          <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+            Phase préliminaire
+          </p>
+          <div className="space-y-1">
+            <p className="text-sm font-medium">Formulaire de pré-évaluation actif</p>
+            {isLoading ? (
+              <p className="text-sm text-muted-foreground">Chargement…</p>
+            ) : active ? (
+              <div className="flex items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm dark:border-emerald-900 dark:bg-emerald-950">
+                <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                <span className="font-medium text-emerald-800 dark:text-emerald-200">
+                  {active.title}
+                </span>
+                <span className="text-emerald-600 dark:text-emerald-400">- configuré</span>
+              </div>
+            ) : (
+              <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200">
+                Aucun modèle configuré. Les dossiers DN ne pourront pas rendre le formulaire disponible aux postulants.
+              </div>
+            )}
+          </div>
+
+          <form onSubmit={(e) => void handleUpload(e)} className="space-y-3">
+            <p className="text-sm font-medium">
+              {active ? "Remplacer le modèle actif" : "Téléverser le modèle"}
+            </p>
+            <div className="space-y-1">
+              <Label htmlFor="template-file" className="text-sm">
+                Fichier <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                id="template-file"
+                ref={fileRef}
+                type="file"
+                accept=".pdf,.doc,.docx"
+                required
+                className="h-8 text-sm"
+                disabled={isUploading}
+              />
+              <p className="text-xs text-muted-foreground">PDF, DOC ou DOCX</p>
+            </div>
+            {uploadError ? (
+              <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300">
+                {uploadError}
+              </div>
+            ) : null}
+            {uploadSuccess ? (
+              <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300">
+                {uploadSuccess}
+              </div>
+            ) : null}
+            <Button type="submit" size="sm" disabled={isUploading}>
+              {isUploading ? "Téléversement…" : active ? "Remplacer le modèle" : "Téléverser le modèle"}
+            </Button>
+          </form>
+        </div>
+
+        <div className="border-t border-slate-200 dark:border-slate-700" />
+
+        {/* Phase 2 — formal request forms */}
+        <div className="space-y-3">
+          <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+            Phase de demande formelle — formulaires DN
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Ces formulaires sont mis à disposition des postulants pour téléchargement, remplissage et retour dans leur espace dossier.
           </p>
           {isLoading ? (
             <p className="text-sm text-muted-foreground">Chargement…</p>
-          ) : active ? (
-            <div className="flex items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm dark:border-emerald-900 dark:bg-emerald-950">
-              <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-              <span className="font-medium text-emerald-800 dark:text-emerald-200">
-                {active.title}
-              </span>
-              <span className="text-emerald-600 dark:text-emerald-400">
-                - configuré
-              </span>
-            </div>
           ) : (
-            <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200">
-              Aucun modèle configuré. Les dossiers DN ne pourront pas rendre le
-              formulaire disponible aux postulants.
+            <div className="space-y-3">
+              {PHASE2_TEMPLATE_SLOTS.map((slot) => (
+                <TemplateSlot
+                  key={slot.code}
+                  slot={slot}
+                  active={phase2Templates.find((t) => t.code === slot.code && t.isActive)}
+                  onUploaded={() => void load()}
+                />
+              ))}
             </div>
           )}
         </div>
-
-        <form onSubmit={(e) => void handleUpload(e)} className="space-y-3">
-          <p className="text-sm font-medium">
-            {active ? "Remplacer le modèle actif" : "Téléverser le modèle"}
-          </p>
-          <div className="space-y-1">
-            <Label htmlFor="template-file" className="text-sm">
-              Fichier <span className="text-red-500">*</span>
-            </Label>
-            <Input
-              id="template-file"
-              ref={fileRef}
-              type="file"
-              accept=".pdf,.doc,.docx"
-              required
-              className="h-8 text-sm"
-              disabled={isUploading}
-            />
-            <p className="text-xs text-muted-foreground">PDF, DOC ou DOCX</p>
-          </div>
-          {uploadError ? (
-            <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300">
-              {uploadError}
-            </div>
-          ) : null}
-          {uploadSuccess ? (
-            <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300">
-              {uploadSuccess}
-            </div>
-          ) : null}
-          <Button type="submit" size="sm" disabled={isUploading}>
-            {isUploading
-              ? "Téléversement…"
-              : active
-                ? "Remplacer le modèle"
-                : "Téléverser le modèle"}
-          </Button>
-        </form>
       </CardContent>
     </Card>
   );

@@ -48,6 +48,7 @@ const mockUser: AuthUser = {
     'PRE_EVAL_DG_RETURN_CONSULT',
     'DOSSIER_VIEW_ALL',
     'DOCUMENT_UPLOAD_INTERNAL',
+    'DOCUMENT_REVIEW',
     'MEETING_MANAGE',
     'PHASE_CLOSE',
   ],

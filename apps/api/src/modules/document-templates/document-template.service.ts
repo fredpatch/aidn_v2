@@ -4,6 +4,7 @@ import { HttpError } from "../../shared/errors/http-error.js";
 import { storageAdapter } from "../../shared/storage/storage.adapter.js";
 import { DocumentModel } from "../documents/document.model.js";
 import { DocumentTemplateModel } from "./document-template.model.js";
+import { ensureObjectId } from "../../shared/utils/service.helpers.js";
 
 type Actor = { id: string; role: string; userType: "internal" | "postulant" };
 
@@ -81,13 +82,14 @@ export const createDocumentTemplate = async (
 };
 
 export const listDocumentTemplates = async (
-  filters: { documentType?: string; isActive?: boolean },
+  filters: { documentType?: string; phaseKey?: string; isActive?: boolean },
   actor: Actor,
 ) => {
   if (actor.userType !== "internal") throw new HttpError(403, "Internal access required");
 
   const query: Record<string, unknown> = {};
   if (filters.documentType) query.documentType = filters.documentType;
+  if (filters.phaseKey) query.phaseKey = filters.phaseKey;
   if (filters.isActive !== undefined) query.isActive = filters.isActive;
 
   const templates = await DocumentTemplateModel.find(query).sort({ createdAt: -1 }).lean();
@@ -119,4 +121,52 @@ export const getActivePreEvalTemplate = async (): Promise<{ fileDocumentId: Type
   }
 
   return { fileDocumentId: template.fileDocumentId };
+};
+
+export const getActiveTemplatesByFormCodes = async (
+  formCodes: string[],
+): Promise<Map<string, { templateId: string; title: string; fileName: string }>> => {
+  if (formCodes.length === 0) return new Map();
+
+  const templates = await DocumentTemplateModel.find({
+    code: { $in: formCodes },
+    isActive: true,
+  }).lean();
+
+  const docIds = templates.map((t) => t.fileDocumentId);
+  const docs = await DocumentModel.find({ _id: { $in: docIds } })
+    .select("_id fileName")
+    .lean();
+  const docById = new Map(docs.map((d) => [d._id.toString(), String(d.fileName ?? "")]));
+
+  const result = new Map<string, { templateId: string; title: string; fileName: string }>();
+  for (const t of templates) {
+    result.set(t.code, {
+      templateId: t._id.toString(),
+      title: t.title,
+      fileName: docById.get(t.fileDocumentId.toString()) ?? "",
+    });
+  }
+  return result;
+};
+
+export const downloadPortalFormalRequestTemplate = async (
+  templateId: string,
+  actor: { userType: string },
+) => {
+  if (actor.userType !== "postulant") throw new HttpError(403, "Portal access required");
+
+  const objId = ensureObjectId(templateId, "Template ID");
+  const template = await DocumentTemplateModel.findById(objId).lean();
+
+  if (!template || !template.isActive) throw new HttpError(404, "Modèle introuvable");
+  if (template.phaseKey !== "formal_request") {
+    throw new HttpError(403, "Ce modèle n'est pas accessible via cette route");
+  }
+
+  const doc = await DocumentModel.findById(template.fileDocumentId).lean();
+  if (!doc) throw new HttpError(404, "Fichier du modèle introuvable");
+
+  const buffer = await storageAdapter.getBuffer(doc.storageKey as string);
+  return { buffer, mimeType: doc.mimeType as string, fileName: doc.fileName as string };
 };

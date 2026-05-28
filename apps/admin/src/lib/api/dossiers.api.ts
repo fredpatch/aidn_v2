@@ -148,6 +148,7 @@ export type FormalSubmissionStatus =
   | 'under_review'
   | 'validated'
   | 'requires_correction'
+  | 'incomplete'
   | 'rejected'
   | 'replaced'
   | 'not_applicable'
@@ -176,6 +177,7 @@ export type AdminFormalRequestSubmission = {
   status: FormalSubmissionStatus;
   uploadedById?: string | null;
   source?: FormalDocumentSource;
+  reviewComment?: string;
 };
 
 export type AdminFormalRequestRequirement = {
@@ -455,6 +457,30 @@ export function closeFormalRequestPhase(
 ): Promise<AdminFormalRequestPhaseState> {
   return apiPost<AdminFormalRequestPhaseState>(
     `/api/v1/admin/dossiers/${id}/phases/formal-request/close`,
+    payload,
+  );
+}
+
+export type ReviewFormalDocumentResult = {
+  submission: {
+    id: string;
+    status: string;
+    reviewComment?: string;
+    reviewedAt: string;
+    reviewedById: string;
+  };
+  document: { id: string; status: string };
+};
+
+export function adminReviewFormalRequestDocument(
+  submissionId: string,
+  payload: {
+    status: "validated" | "requires_correction" | "incomplete";
+    comment?: string;
+  },
+): Promise<ReviewFormalDocumentResult> {
+  return apiPost<ReviewFormalDocumentResult>(
+    `/api/v1/admin/document-submissions/${submissionId}/review`,
     payload,
   );
 }

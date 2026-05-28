@@ -28,6 +28,7 @@ import {
   getPortalDossier,
   uploadCompletedPreEvaluationForm,
 } from "../oma-phases/oma-phase.service.js";
+import { downloadPortalFormalRequestTemplate } from "../document-templates/document-template.service.js";
 import {
   registerFormalRequestCourrier,
   uploadFormalRequestSupportingDocument,
@@ -243,6 +244,21 @@ portalRouter.post(
         req.user!,
       ),
     );
+  }),
+);
+
+portalRouter.get(
+  "/document-templates/:id/download",
+  requireAuth({ scope: "portal" }),
+  asyncHandler(async (req, res) => {
+    const { buffer, mimeType, fileName } = await downloadPortalFormalRequestTemplate(
+      String(req.params.id),
+      req.user!,
+    );
+    res.set("Content-Type", mimeType);
+    res.set("Content-Disposition", `attachment; filename="${encodeURIComponent(fileName)}"`);
+    res.set("Content-Length", String(buffer.length));
+    res.end(buffer);
   }),
 );
 

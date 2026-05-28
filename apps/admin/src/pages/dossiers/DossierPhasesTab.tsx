@@ -90,10 +90,12 @@ export function DossierPhasesTab({
   detail,
   dossierId,
   onRefresh,
+  onNavigateToTab,
 }: {
   detail: AdminDossierDetail;
   dossierId: string;
   onRefresh: () => void;
+  onNavigateToTab?: (tab: string) => void;
 }): React.JSX.Element {
   const { phases } = detail;
   const byKey = new Map(phases.map((p) => [p.phaseKey, p]));
@@ -283,6 +285,7 @@ export function DossierPhasesTab({
         onRefresh={onRefresh}
         onRefreshPhase={() => loadFormalPhase({ showLoading: false })}
         onStateChange={setFormalState}
+        onNavigateToTab={onNavigateToTab}
         phaseRecord={byKey.get("formal_request")}
         state={formalState}
       />

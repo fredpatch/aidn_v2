@@ -8,7 +8,8 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "lint": "tsc --noEmit -p tsconfig.json",
-    "seed:bootstrap-admin": "tsx src/scripts/seed-bootstrap-admin.ts"
+    "seed:bootstrap-admin": "tsx src/scripts/seed-bootstrap-admin.ts",
+    "seed:document-requirements": "tsx src/scripts/seed-document-requirements.ts"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

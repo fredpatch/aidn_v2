@@ -10,7 +10,12 @@ import { DGReviewModel } from "../dg-reviews/dg-review.model.js";
 import { DocumentModel } from "../documents/document.model.js";
 import { DossierModel } from "../dossiers/dossier.model.js";
 import { MeetingModel } from "../meetings/meeting.model.js";
-import { getActivePreEvalTemplate } from "../document-templates/document-template.service.js";
+import {
+  getActivePreEvalTemplate,
+  getActiveTemplatesByFormCodes,
+} from "../document-templates/document-template.service.js";
+import { DocumentRequirementModel } from "../documents/document-requirement.model.js";
+import { DocumentSubmissionModel } from "../documents/document-submission.model.js";
 import { OmaPhaseModel } from "./oma-phase.model.js";
 import { RequestModel } from "../requests/request.model.js";
 import { UserModel } from "../users/user.model.js";
@@ -1002,7 +1007,19 @@ export const downloadAdminDossierDocument = async (
   );
 
   if (!isLinkedToPreliminaryEvidence) {
-    throw new HttpError(403, "Document non accessible");
+    // Allow Phase 2 supporting document downloads: any live submission linked to
+    // this dossier's formal_request phase.
+    const formalSubmission = await DocumentSubmissionModel.findOne({
+      dossierId: dossierObjectId,
+      documentId: docObjectId,
+      phaseKey: "formal_request",
+      status: { $nin: ["replaced", "archived"] },
+    })
+      .select("_id")
+      .lean();
+    if (!formalSubmission) {
+      throw new HttpError(403, "Document non accessible");
+    }
   }
 
   const doc = await DocumentModel.findById(docObjectId).lean();
@@ -1054,6 +1071,115 @@ export const getPortalDossier = async (dossierId: string, actor: Actor) => {
         ? (FORMAL_REQUEST_PORTAL_LABELS[formalRequestStatus] ??
           "En traitement par l'ANAC")
         : "En traitement par l'ANAC";
+
+  // ── Phase 2 requirements + templates + formal meeting ─────────────────────
+
+  type PortalSubmission = { submissionId: string; uploadedAt: string; status: string; reviewComment?: string };
+  type PortalRequirement = {
+    requirementId: string;
+    code: string;
+    label: string;
+    formCode?: string;
+    requirementLevel: string;
+    isRepeatable: boolean;
+    template?: { templateId: string; title: string; fileName: string };
+    status: string;
+    submissions: PortalSubmission[];
+  };
+
+  const PORTAL_ACTIVE_SUBMISSION_STATUSES = new Set([
+    "submitted", "under_review", "validated", "requires_correction",
+  ]);
+
+  const computePortalReqStatus = (subs: Array<{ status: unknown }>): string => {
+    const active = subs.filter((s) => PORTAL_ACTIVE_SUBMISSION_STATUSES.has(String(s.status)));
+    if (active.length === 0) return "missing";
+    return String(active[0].status);
+  };
+
+  let portalRequirements: PortalRequirement[] = [];
+  let formalProgress = { totalTracked: 0, submitted: 0, validated: 0, missing: 0 };
+  let formalMeetingBlock: { scheduledAt: string | null; location: string | null; status: string; notes: string | null } | null = null;
+
+  if (formalRequestPhase) {
+    const [rawReqs, rawSubs] = await Promise.all([
+      DocumentRequirementModel.find({
+        phaseKey: "formal_request",
+        isActive: true,
+        requirementLevel: { $ne: "gate" },
+      }).sort({ sortOrder: 1 }).lean(),
+      DocumentSubmissionModel.find({
+        dossierId: dossier._id,
+        phaseKey: "formal_request",
+      }).sort({ createdAt: -1 }).lean(),
+    ]);
+
+    const subsByReq = new Map<string, Array<{ status: unknown; _id: { toString(): string }; createdAt?: unknown; reviewComment?: unknown }>>();
+    for (const s of rawSubs) {
+      const key = (s as unknown as { requirementId?: { toString(): string } }).requirementId?.toString() ?? "";
+      if (!key) continue;
+      const list = subsByReq.get(key) ?? [];
+      list.push(s as unknown as { status: unknown; _id: { toString(): string }; createdAt?: unknown; reviewComment?: unknown });
+      subsByReq.set(key, list);
+    }
+
+    const formCodes = (rawReqs as unknown as Array<{ formCode?: unknown }>)
+      .map((r) => r.formCode ? String(r.formCode) : "")
+      .filter(Boolean);
+    const templateMap = await getActiveTemplatesByFormCodes(formCodes);
+
+    portalRequirements = (rawReqs as unknown as Array<{
+      _id: { toString(): string };
+      code: unknown;
+      label: unknown;
+      formCode?: unknown;
+      requirementLevel: unknown;
+      isRepeatable: unknown;
+    }>).map((req) => {
+      const reqId = req._id.toString();
+      const subs = subsByReq.get(reqId) ?? [];
+      const formCode = req.formCode ? String(req.formCode) : undefined;
+      const templateEntry = formCode ? templateMap.get(formCode) : undefined;
+      return {
+        requirementId: reqId,
+        code: String(req.code),
+        label: String(req.label),
+        formCode,
+        requirementLevel: String(req.requirementLevel),
+        isRepeatable: Boolean(req.isRepeatable),
+        template: templateEntry,
+        status: computePortalReqStatus(subs),
+        submissions: subs.map((s) => ({
+          submissionId: s._id.toString(),
+          uploadedAt: toIso(s.createdAt as unknown) ?? new Date().toISOString(),
+          status: String(s.status),
+          reviewComment: s.reviewComment ? String(s.reviewComment) : undefined,
+        })),
+      };
+    });
+
+    const totalTracked = portalRequirements.length;
+    const submitted = portalRequirements.filter((r) => r.submissions.length > 0).length;
+    const validated = portalRequirements.filter((r) => r.status === "validated").length;
+    const missing = portalRequirements.filter((r) => r.status === "missing").length;
+    formalProgress = { totalTracked, submitted, validated, missing };
+
+    if ((formalRequestPhase as unknown as { formalMeetingId?: { toString(): string } }).formalMeetingId) {
+      const mtg = await MeetingModel.findById(
+        (formalRequestPhase as unknown as { formalMeetingId: { toString(): string } }).formalMeetingId,
+      ).lean();
+      if (mtg) {
+        formalMeetingBlock = {
+          scheduledAt: toIso(mtg.scheduledAt) ?? null,
+          location: mtg.location ? String(mtg.location) : null,
+          status: String(mtg.status),
+          notes: mtg.notes ? String(mtg.notes) : null,
+        };
+      }
+    }
+  }
+
+  // ── Preliminary meetings ───────────────────────────────────────────────────
 
   let firstMeeting: {
     scheduledAt: string | null;
@@ -1140,6 +1266,9 @@ export const getPortalDossier = async (dossierId: string, actor: Actor) => {
       portalLabel: formalRequestPortalLabel,
       hasFormalRequestCourrier,
       canUploadFormalRequestCourrier,
+      requirements: portalRequirements,
+      progress: formalProgress,
+      formalMeeting: formalMeetingBlock,
     },
   };
 };

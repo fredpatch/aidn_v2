@@ -715,15 +715,15 @@ adminRouter.post(
   requirePermission(Permissions.DOCUMENT_REVIEW),
   asyncHandler(async (req, res) => {
     const status = req.body.status as string;
-    if (!["validated", "rejected", "requires_correction"].includes(status)) {
-      throw new HttpError(400, "status doit être validated, rejected ou requires_correction.");
+    if (!["validated", "rejected", "requires_correction", "incomplete"].includes(status)) {
+      throw new HttpError(400, "status doit être validated, rejected, requires_correction ou incomplete.");
     }
     res.json(
       await reviewFormalRequestDocumentSubmission(
         String(req.params.id),
         req.user!,
         {
-          status: status as "validated" | "rejected" | "requires_correction",
+          status: status as "validated" | "rejected" | "requires_correction" | "incomplete",
           comment: typeof req.body.comment === "string" ? req.body.comment : undefined,
         },
       ),
@@ -918,6 +918,7 @@ adminRouter.get(
       await listDocumentTemplates(
         {
           documentType: typeof req.query.documentType === "string" ? req.query.documentType : undefined,
+          phaseKey: typeof req.query.phaseKey === "string" ? req.query.phaseKey : undefined,
           isActive: req.query.isActive === "true" ? true : req.query.isActive === "false" ? false : undefined,
         },
         req.user!,

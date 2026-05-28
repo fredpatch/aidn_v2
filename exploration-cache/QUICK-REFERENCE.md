@@ -23,6 +23,16 @@ Last updated: 2026-05-22
 - `Prêt pour phase préliminaire` emerald badge shown in detail panel when `canOpenDossier` is true.
 - Permission constants changed: `dn_supervisor` lost `DG_CIRCUIT_HANDLE`, `COURRIER_REGISTER_PHYSICAL`; `dn_agent` lost `DG_CIRCUIT_HANDLE`.
 
+## OMA-FORMAL-14 Notes (2026-05-28)
+
+- `GET /api/v1/portal/document-templates/:id/download` added — portal-safe, guarded by `phaseKey=formal_request` and `isActive`
+- `getPortalDossier` now returns `formalRequest.requirements[]`, `formalRequest.progress`, `formalRequest.formalMeeting`
+- Phase 2 templates use `documentType: "other"` + unique `code` field; linked to requirements via `DocumentRequirement.formCode` matching `DocumentTemplate.code`
+- Admin SettingsPage extended with 3 Phase 2 template slots: DN-AIR-R2-3-F-E-010, DN-AIR-R2-3-F-E-012, DN-AIR-R2-3-F-E-011
+- Portal `Phase2DocumentChecklist` component handles status display, template download, and per-row upload
+- Portal `hasFormalDocRequired` flag drives Actions requises badge and guidance card
+- No portal download endpoint for submitted supporting documents yet
+
 ## Current Objective Notes
 
 - OMA-FORMAL-9B0 implemented:

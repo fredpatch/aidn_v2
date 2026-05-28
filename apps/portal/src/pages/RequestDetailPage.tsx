@@ -1,7 +1,10 @@
 import {
   ArrowLeft,
   CheckCircle2,
+  ChevronDown,
+  ChevronUp,
   Download,
+  FileText,
   FolderOpen,
   RefreshCw,
   Save,
@@ -19,17 +22,20 @@ import {
   RequestTypeLabel,
 } from "../components/RequestTypeLabel";
 import {
+  downloadFormalRequestTemplate,
   downloadPortalDossierDocument,
   getPortalDossier,
   getRequest,
   submitRequestWithCourrier,
   updateRequest,
   uploadFormalRequestCourrier,
+  uploadFormalRequestDocument,
   uploadPreEvaluationForm,
   type PortalCourrier,
   type PortalDocument,
   type PortalDossierDetail,
   type PortalDossierMeeting,
+  type PortalFormalRequestRequirement,
   type PortalRequest,
   type PortalRequestType,
 } from "../lib/api/portal.api";
@@ -175,6 +181,248 @@ function MeetingBlock({
   );
 }
 
+const REQ_STATUS_LABELS: Record<string, string> = {
+  missing: "Manquant",
+  submitted: "Déposé",
+  under_review: "En revue",
+  validated: "Validé",
+  requires_correction: "Correction demandée",
+  incomplete: "Incomplet",
+  rejected: "Rejeté",
+};
+
+const REQ_STATUS_CLASSES: Record<string, string> = {
+  missing: "bg-slate-100 text-slate-600",
+  submitted: "bg-sky-100 text-sky-700",
+  under_review: "bg-amber-100 text-amber-700",
+  validated: "bg-emerald-100 text-emerald-700",
+  requires_correction: "bg-red-100 text-red-700",
+  incomplete: "bg-amber-100 text-amber-700",
+  rejected: "bg-red-200 text-red-800",
+};
+
+function Phase2DocumentChecklist({
+  requirements,
+  progress,
+  expandedRequirementId,
+  reqUploadFile,
+  reqUploadNotes,
+  reqUploadBusy,
+  reqUploadError,
+  reqUploadFileRef,
+  onExpand,
+  onFileChange,
+  onNotesChange,
+  onSubmit,
+  onTemplateDownload,
+}: {
+  requirements: PortalFormalRequestRequirement[];
+  progress: { totalTracked: number; submitted: number; validated: number; missing: number };
+  expandedRequirementId: string | null;
+  reqUploadFile: File | null;
+  reqUploadNotes: string;
+  reqUploadBusy: boolean;
+  reqUploadError: string;
+  reqUploadFileRef: React.RefObject<HTMLInputElement | null>;
+  onExpand: (id: string) => void;
+  onFileChange: (file: File | null) => void;
+  onNotesChange: (notes: string) => void;
+  onSubmit: (requirementId: string, e: React.FormEvent) => void;
+  onTemplateDownload: (templateId: string, fileName: string) => void;
+}): React.JSX.Element {
+  return (
+    <div className="rounded-md border border-slate-200">
+      <div className="border-b border-slate-200 px-4 py-3">
+        <h3 className="text-sm font-bold text-slate-950">
+          Documents de demande formelle
+        </h3>
+        <p className="mt-1 text-xs text-slate-500">
+          {progress.totalTracked} pièce{progress.totalTracked !== 1 ? "s" : ""} suivie{progress.totalTracked !== 1 ? "s" : ""}{" "}
+          · {progress.submitted} déposée{progress.submitted !== 1 ? "s" : ""}{" "}
+          · {progress.missing} manquante{progress.missing !== 1 ? "s" : ""}
+        </p>
+      </div>
+
+      <ul className="divide-y divide-slate-100">
+        {requirements.map((req) => {
+          const isExpanded = expandedRequirementId === req.requirementId;
+          const isOmaApprovalForm = req.code === "oma_approval_form";
+          const canUpload =
+            req.status === "missing" ||
+            req.status === "requires_correction" ||
+            req.status === "incomplete" ||
+            req.isRepeatable;
+          const uploadLabel =
+            req.isRepeatable && req.submissions.length > 0
+              ? "Ajouter un document"
+              : req.status === "requires_correction" || req.status === "incomplete"
+                ? "Remplacer le document"
+                : "Téléverser";
+
+          return (
+            <li key={req.requirementId} className="px-4 py-3">
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-sm font-medium text-slate-900">
+                      {req.label}
+                    </span>
+                    {req.formCode ? (
+                      <span className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs text-slate-500">
+                        {req.formCode}
+                      </span>
+                    ) : null}
+                    {req.requirementLevel === "optional" ? (
+                      <span className="rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-500">
+                        Optionnel
+                      </span>
+                    ) : req.requirementLevel === "conditional" ? (
+                      <span className="rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-500">
+                        Conditionnel
+                      </span>
+                    ) : null}
+                  </div>
+                  <div className="mt-1 flex flex-wrap items-center gap-2">
+                    <span
+                      className={[
+                        "rounded px-2 py-0.5 text-xs font-semibold",
+                        REQ_STATUS_CLASSES[req.status] ?? "bg-slate-100 text-slate-600",
+                      ].join(" ")}
+                    >
+                      {!isOmaApprovalForm && req.status === "submitted"
+                        ? "Déposé — disponible pour consultation"
+                        : REQ_STATUS_LABELS[req.status] ?? req.status}
+                    </span>
+                    {req.submissions.length > 0 && (
+                      <span className="text-xs text-slate-400">
+                        {req.submissions.length} dépôt{req.submissions.length !== 1 ? "s" : ""}
+                      </span>
+                    )}
+                  </div>
+                  {/* Correction / incomplete note — only for the reviewable form */}
+                  {isOmaApprovalForm &&
+                  (req.status === "requires_correction" || req.status === "incomplete") ? (
+                    <div className="mt-1.5 rounded bg-amber-50 px-2 py-1.5 text-xs text-amber-800">
+                      {req.status === "requires_correction"
+                        ? "La DN a demandé une correction."
+                        : "La DN a indiqué que ce formulaire est incomplet."}
+                      {req.submissions[0]?.reviewComment ? (
+                        <span className="block mt-0.5 font-medium">
+                          Note : {req.submissions[0].reviewComment}
+                        </span>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </div>
+
+                <div className="flex shrink-0 flex-wrap gap-2">
+                  {req.template ? (
+                    <button
+                      type="button"
+                      className="btn btn-secondary py-1 text-xs"
+                      onClick={() =>
+                        onTemplateDownload(req.template!.templateId, req.template!.fileName)
+                      }
+                    >
+                      <Download size={12} aria-hidden="true" />
+                      Télécharger le formulaire
+                    </button>
+                  ) : null}
+
+                  {canUpload && req.status !== "validated" && req.status !== "under_review" ? (
+                    <button
+                      type="button"
+                      className="btn btn-primary py-1 text-xs"
+                      onClick={() => onExpand(req.requirementId)}
+                    >
+                      <Upload size={12} aria-hidden="true" />
+                      {isExpanded ? (
+                        <>
+                          Annuler <ChevronUp size={12} aria-hidden="true" />
+                        </>
+                      ) : (
+                        <>
+                          {uploadLabel} <ChevronDown size={12} aria-hidden="true" />
+                        </>
+                      )}
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+
+              {isExpanded ? (
+                <form
+                  className="mt-3 grid gap-3 rounded-md border border-slate-200 p-3"
+                  onSubmit={(e) => onSubmit(req.requirementId, e)}
+                >
+                  {reqUploadError ? (
+                    <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">
+                      {reqUploadError}
+                    </div>
+                  ) : null}
+
+                  <div className="field">
+                    <label htmlFor={`req-file-${req.requirementId}`}>
+                      {req.template ? "Formulaire rempli" : "Document"}{" "}
+                      <span aria-hidden="true">*</span>
+                    </label>
+                    <input
+                      id={`req-file-${req.requirementId}`}
+                      ref={reqUploadFileRef}
+                      className="control"
+                      type="file"
+                      accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
+                      required
+                      disabled={reqUploadBusy}
+                      onChange={(e) => onFileChange(e.target.files?.[0] ?? null)}
+                    />
+                    <p className="mt-1 text-xs font-medium text-slate-500">
+                      PDF, JPG ou PNG - taille maximale 10 Mo.
+                    </p>
+                  </div>
+
+                  <div className="field">
+                    <label htmlFor={`req-notes-${req.requirementId}`}>
+                      Notes optionnelles
+                    </label>
+                    <textarea
+                      id={`req-notes-${req.requirementId}`}
+                      className="control min-h-16"
+                      value={reqUploadNotes}
+                      onChange={(e) => onNotesChange(e.target.value)}
+                      maxLength={1000}
+                      disabled={reqUploadBusy}
+                    />
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      className="btn btn-primary w-fit"
+                      type="submit"
+                      disabled={reqUploadBusy || !reqUploadFile}
+                    >
+                      <Upload size={14} aria-hidden="true" />
+                      {reqUploadBusy ? "Envoi en cours…" : "Déposer le document"}
+                    </button>
+                    <button
+                      className="btn btn-secondary w-fit"
+                      type="button"
+                      disabled={reqUploadBusy}
+                      onClick={() => onExpand(req.requirementId)}
+                    >
+                      Annuler
+                    </button>
+                  </div>
+                </form>
+              ) : null}
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
 const TABS: Array<{ key: Tab; label: string }> = [
   { key: "resume", label: "Résumé" },
   { key: "courrier", label: "Courrier initial" },
@@ -219,6 +467,13 @@ export function RequestDetailPage(): React.JSX.Element {
     useState(false);
   const [showFormalRequestUpload, setShowFormalRequestUpload] = useState(false);
 
+  const [expandedRequirementId, setExpandedRequirementId] = useState<string | null>(null);
+  const [reqUploadFile, setReqUploadFile] = useState<File | null>(null);
+  const [reqUploadNotes, setReqUploadNotes] = useState("");
+  const [reqUploadBusy, setReqUploadBusy] = useState(false);
+  const [reqUploadError, setReqUploadError] = useState("");
+  const reqUploadFileRef = useRef<HTMLInputElement>(null);
+
   const request = detail?.request;
   const isSubmitted = request
     ? request.status !== "draft" &&
@@ -226,10 +481,18 @@ export function RequestDetailPage(): React.JSX.Element {
       request.status !== "courrier_physical_declared"
     : false;
 
+  const hasFormalDocRequired =
+    dossierDetail?.formalRequest?.requirements?.some(
+      (r) =>
+        (r.requirementLevel === "expected" || r.requirementLevel === "conditional") &&
+        (r.status === "missing" || r.status === "requires_correction" || r.status === "incomplete"),
+    ) ?? false;
+
   const hasActionRequired =
     request?.status === "intake_requires_correction" ||
     dossierDetail?.preliminary.canSubmitForm === true ||
-    dossierDetail?.formalRequest?.canUploadFormalRequestCourrier === true;
+    dossierDetail?.formalRequest?.canUploadFormalRequestCourrier === true ||
+    hasFormalDocRequired;
 
   const loadDossier = useCallback(async (dossierId: string) => {
     setDossierLoading(true);
@@ -402,6 +665,46 @@ export function RequestDetailPage(): React.JSX.Element {
       setFormalRequestError(getErrorMessage(caught));
     } finally {
       setIsFormalRequestUploading(false);
+    }
+  };
+
+  const handleRequirementUpload = async (
+    requirementId: string,
+    e: React.FormEvent,
+  ) => {
+    e.preventDefault();
+    if (!request?.dossierId || !reqUploadFile) return;
+    setReqUploadBusy(true);
+    setReqUploadError("");
+    try {
+      const form = new FormData();
+      form.set("file", reqUploadFile);
+      if (reqUploadNotes.trim()) form.set("notes", reqUploadNotes.trim());
+      await uploadFormalRequestDocument(request.dossierId, requirementId, form);
+      if (reqUploadFileRef.current) reqUploadFileRef.current.value = "";
+      setReqUploadFile(null);
+      setReqUploadNotes("");
+      setExpandedRequirementId(null);
+      await loadDossier(request.dossierId);
+      toast.success("Document déposé.");
+    } catch (caught) {
+      setReqUploadError(getErrorMessage(caught));
+    } finally {
+      setReqUploadBusy(false);
+    }
+  };
+
+  const handleTemplateDownload = async (templateId: string, fileName: string) => {
+    try {
+      const blob = await downloadFormalRequestTemplate(templateId);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = fileName;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (caught) {
+      toast.error(getErrorMessage(caught));
     }
   };
 
@@ -882,6 +1185,30 @@ export function RequestDetailPage(): React.JSX.Element {
             </div>
           ) : null}
 
+          {hasFormalDocRequired &&
+          dossierDetail?.formalRequest?.hasFormalRequestCourrier &&
+          request.dossierId ? (
+            <div className="surface rounded-lg p-5">
+              <p className="text-xs font-bold uppercase text-amber-600">
+                Action requise
+              </p>
+              <h2 className="mt-1 text-base font-bold text-slate-950">
+                Documents de demande formelle à compléter
+              </h2>
+              <p className="mt-2 text-sm text-slate-600">
+                Téléchargez les formulaires fournis par la DN, complétez-les, puis téléversez les pièces demandées.
+              </p>
+              <button
+                type="button"
+                className="btn btn-primary mt-4 w-fit"
+                onClick={() => setTab("dossier")}
+              >
+                <FileText size={16} aria-hidden="true" />
+                Compléter les documents
+              </button>
+            </div>
+          ) : null}
+
           {dossierDetail?.preliminary.canSubmitForm && request.dossierId ? (
             <div className="surface rounded-lg p-5">
               <h2 className="mb-3 text-base font-bold text-slate-950">
@@ -1046,6 +1373,38 @@ export function RequestDetailPage(): React.JSX.Element {
                     {dossierDetail.formalRequest.portalLabel}
                   </p>
                 </div>
+              ) : null}
+
+              {dossierDetail.formalRequest?.formalMeeting ? (
+                <MeetingBlock
+                  label="Réunion de demande formelle"
+                  meeting={dossierDetail.formalRequest.formalMeeting}
+                />
+              ) : null}
+
+              {dossierDetail.formalRequest &&
+              dossierDetail.formalRequest.requirements.length > 0 ? (
+                <Phase2DocumentChecklist
+                  requirements={dossierDetail.formalRequest.requirements}
+                  progress={dossierDetail.formalRequest.progress}
+                  expandedRequirementId={expandedRequirementId}
+                  reqUploadFile={reqUploadFile}
+                  reqUploadNotes={reqUploadNotes}
+                  reqUploadBusy={reqUploadBusy}
+                  reqUploadError={reqUploadError}
+                  reqUploadFileRef={reqUploadFileRef}
+                  onExpand={(id) => {
+                    setExpandedRequirementId(expandedRequirementId === id ? null : id);
+                    setReqUploadFile(null);
+                    setReqUploadNotes("");
+                    setReqUploadError("");
+                    if (reqUploadFileRef.current) reqUploadFileRef.current.value = "";
+                  }}
+                  onFileChange={setReqUploadFile}
+                  onNotesChange={setReqUploadNotes}
+                  onSubmit={handleRequirementUpload}
+                  onTemplateDownload={handleTemplateDownload}
+                />
               ) : null}
 
               {dossierDetail.preliminary.firstMeeting ? (

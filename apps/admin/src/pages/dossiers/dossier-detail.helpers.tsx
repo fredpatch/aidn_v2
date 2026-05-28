@@ -29,11 +29,11 @@ export const dossierStatusLabels: Record<DossierStatus, string> = {
 };
 
 export const phaseKeyLabels: Record<OmaPhaseKey, string> = {
-  preliminary: "Phase 1 - Préliminaire",
-  formal_request: "Phase 2 - Demande formelle",
-  document_evaluation: "Phase 3 - Évaluation approfondie",
-  inspection: "Phase 4 - Inspection / R3",
-  delivery: "Phase 5 - Délivrance",
+  preliminary: "Phase - Préliminaire",
+  formal_request: "Phase - Demande formelle",
+  document_evaluation: "Phase - Évaluation approfondie",
+  inspection: "Phase - Inspection / R3",
+  delivery: "Phase - Délivrance",
 };
 
 export const phaseStatusLabels: Record<string, string> = {
@@ -188,12 +188,10 @@ export function MeetingCard({
             {meetingStatusLabels[meeting.status] ?? "Statut non reconnu"}
           </dd>
         </div>
-        {meeting.scheduledAt ? (
-          <div>
-            <dt className="inline">Date : </dt>
-            <dd className="inline">{formatDate(meeting.scheduledAt)}</dd>
-          </div>
-        ) : null}
+        <div>
+          <dt className="inline">Date prévue : </dt>
+          <dd className="inline">{formatDate(meeting.scheduledAt)}</dd>
+        </div>
         {meeting.heldAt ? (
           <div>
             <dt className="inline">Tenue le : </dt>

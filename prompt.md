@@ -145,197 +145,186 @@ YYYY-MM-DD-<phase-name>-correction.md
 
 # CURRENT OBJECTIVE
 
-# OMA-FORMAL-9C0 — Phase 2 UI Alignment Cleanup
+OMA-FORMAL-17 — Block Phase 2 closure until all required postulant documents are deposited
 
-You are working inside the existing `AIDN_V2` repository.
+Update Phase 2 closure rule after PO clarification.
 
-## Current validated state
+Current accepted state:
 
-OMA-FORMAL-9C is complete.
+- OMA-FORMAL-16 moved Phase 2 document details/review to the Documents tab.
+- Phases OMA tab now shows a compact summary and links to Documents.
+- Only `oma_approval_form` / `DN-AIR-R2-3-F-E-010` is reviewable by DN.
+- Other Phase 2 documents are consultation-only.
+- Current closure dialog still allows “Clôturer avec réserves” when documents are missing.
 
-Phase 2 now has the guided “Prochaine action” card, similar to Phase 1:
+New PO rule:
 
-- waiting states for postulant / Courriers officiels / DG return / DG decision;
-- action buttons for réunion formelle;
-- report upload;
-- phase closure when allowed.
+- Phase 2 must not close until all required/expected documents from the postulant are deposited in AIDN.
+- The previous “partial closure / clôture avec réserves” behavior must be removed.
+- DN can close Phase 2 only when:
+  1. formal request courrier exists;
+  2. DG evidence is recorded;
+  3. formal meeting is held;
+  4. formal meeting report is uploaded;
+  5. all required/expected Phase 2 postulant documents are deposited;
+  6. `DN-AIR-R2-3-F-E-010` / `oma_approval_form` is not unresolved.
 
-Current issue:
-The Phase 2 workspace still feels different from Phase 1 and is visually too long.
+Important:
 
-Redundant blocks:
+- Consultation-only documents do not need validation.
+- They only need to be deposited / available for consultation.
+- `oma_approval_form` is the only document with DN decision semantics.
+- If `oma_approval_form` is `requires_correction` or `incomplete`, Phase 2 must not close.
+- If `oma_approval_form` is deposited but still not validated, planning must confirm whether closure should be blocked or allowed. Default recommendation: block until validated, because it is the only document requiring DN decision.
 
-- `Circuit officiel` block duplicates the left “Progression phase active”.
-- `Recevabilité et clôture` block also duplicates the same progression checklist.
-- Header/status layout differs from Phase préliminaire.
+Before implementation:
 
----
+1. Follow cache-first protocol from `prompt.md`.
+2. Read:
+   - `exploration-cache/manifest.json`
+   - `exploration-cache/QUICK-REFERENCE.md`
+   - `exploration-cache/tasks/current-task.md`
+   - OMA-FORMAL-12 summary
+   - OMA-FORMAL-15 summary
+   - OMA-FORMAL-16 summary
+3. Inspect:
+   - `apps/api/src/modules/oma-phases/formal-request.service.ts`
+   - `apps/admin/src/pages/dossiers/formal-request-dialogs.tsx`
+   - `apps/admin/src/pages/dossiers/FormalRequestPhaseWorkspace.tsx`
+   - `apps/admin/src/pages/dossiers/DossierDocumentsTab.tsx`
+   - `apps/admin/src/lib/api/dossiers.api.ts`
 
-## Objective
+Planning first:
 
-Clean the Phase 2 admin workspace so it visually follows the Phase préliminaire pattern.
+- Return a short planning report before implementation.
+- Confirm current `canClosePhase` logic.
+- Confirm current `closeFormalRequestPhase` guards.
+- Confirm how missing Phase 2 requirements are computed.
+- Confirm how `oma_approval_form` status is computed.
+- Propose the minimal correction.
+- Do not implement until approved.
 
-Keep the guided action card.
-Remove duplicated checklist blocks from the right panel.
-Make the right panel shorter and more operational.
+Implementation goal after approval:
 
-Frontend/admin only.
+## Backend
 
-Do not change backend.
-Do not change portal.
-Do not change Courriers officiels.
-Do not change meeting/closure business rules.
-Do not remove the left progression checklist.
+Update `canClosePhase` and `closeFormalRequestPhase` to require document deposit completeness.
 
----
+Closure conditions:
 
-## Explore first
+```txt
+formalRequestCourrierId exists
+DG evidence ready
+formal meeting held
+formalMeetingReportDocumentId exists
+all required/expected non-gate Phase 2 requirements have at least one active submission
+oma_approval_form status is validated
 
-Read cache first:
+Active submission excludes:
 
-- `exploration-cache/manifest.json`
-- `exploration-cache/QUICK-REFERENCE.md`
-- `exploration-cache/03-frontend/ADMIN_APP_MAP.md`
-- `exploration-cache/tasks/current-task.md`
-- latest OMA-FORMAL 9B2 and 9C summaries
+replaced
+archived
+rejected
 
-Then inspect:
+Treat as not acceptable for closure:
 
-- `apps/admin/src/pages/dossiers/FormalRequestPhaseWorkspace.tsx`
-- `apps/admin/src/pages/dossiers/PreliminaryPhaseWorkspace.tsx`
-- `apps/admin/src/pages/dossiers/formal-request-progress.helpers.ts`
-- `apps/admin/src/pages/dossiers/DossierPhasesTab.tsx`
+missing
+requires_correction
+incomplete
+rejected
 
----
+For consultation-only documents:
 
-## Required changes
+submitted, under_review, or validated should count as deposited/available.
+Validation is not required.
 
-### 1. Align Phase 2 header with Phase 1
+For oma_approval_form:
 
-Phase 2 header should look closer to Phase préliminaire.
+require validated.
 
-Use the same style/order as much as possible:
+Remove support for closure payload fields if no longer useful:
 
-Phase 2 — Demande formelle
+completeness
+comment
 
-Statut demande formelle
-Phase statut
-Démarrée le
-Clôturée le
-Circuit officiel
-Retour DG
+Or keep as ignored/backward-compatible only if removing causes unnecessary churn.
 
-Keep “Circuit officiel” as a metadata field if useful, but not as a full block.
+Backend error messages should be specific:
 
-Expected values:
+Toutes les pièces requises de la demande formelle doivent être déposées avant la clôture.
 
-Circuit officiel:
+For the reviewable form:
 
-- Non mis en circuit
-- Mis en circuit
-- Retour scanné
-- Décision enregistrée
+Le formulaire DN-AIR-R2-3-F-E-010 doit être validé avant la clôture.
 
-Do not create a separate large section for it.
+Do not reintroduce:
 
-2. Remove/hide Circuit officiel block
+closure courrier requirement;
+DG decision approved requirement;
+validation requirement for every document.
+Frontend
 
-Remove the large workflow section titled:
+Update Phase 2 close dialog.
 
-Circuit officiel
+Remove:
 
-Reason:
-This state is already visible in:
+“Clôturer avec réserves”
+reserves warning
+reserves comment field
+partial close language
 
-top metadata;
-left progression card;
-guided “Prochaine action” card.
+Replace with blocking guidance:
 
-Do not remove underlying status computations if they are still used by the guided card.
+If documents are missing:
 
-3. Remove/hide Recevabilité et clôture checklist block
+Clôture impossible
+Toutes les pièces requises doivent être déposées avant de clôturer la phase.
 
-Remove the large block titled:
+Show summary:
 
-Recevabilité et clôture
+14 pièces suivies · X déposées · Z manquantes
+Formulaire DN-AIR-R2-3-F-E-010 : Validé / Déposé / Correction demandée / Incomplet / Manquant
 
-Reason:
-It duplicates the left progression checklist.
+If oma_approval_form is not validated:
 
-Keep its logic only if needed for:
+Le formulaire DN-AIR-R2-3-F-E-010 doit être validé avant clôture.
 
-canClosePhase;
-guided action card;
-status computations.
+Disable close button until backend says canClosePhase === true.
 
-Do not delete backend/state logic.
+In FormalRequestPhaseWorkspace:
 
-4. Keep Courrier formel section
+keep compact document summary;
+if documents are missing, next action should guide DN to Documents tab:
+Les pièces de demande formelle doivent être complétées avant clôture.
 
-Keep it because it gives useful source/context:
+Button:
 
-Courrier formel
-Demande formelle reçue via le portail
-Source
-Date réception
+Voir les documents
+Documents tab
 
-It should remain read-only.
+No major redesign.
 
-5. Keep Réunion formelle section
+Ensure DN can clearly see:
 
-Keep it because it gives useful operational details:
-
-Réunion formelle
-Statut
-Date prévue
-Lieu
-Compte rendu
-
-This mirrors the Phase 1 meeting sections.
-
-6. Keep compact Documents de demande formelle
-
-Keep the compact version only:
-
-14 pièces suivies · 1 déposée · 0 validée
-Suivi documentaire uniquement, sans blocage automatique du circuit officiel.
-
-Do not render the full checklist here.
-
-Keep:
-
-Consulter le détail dans l’onglet Documents. 7. Keep guided Prochaine action card
-
-This is now the main workflow driver.
-
-Keep title:
-
-Prochaine action
-
-It should remain the final block on the right panel.
-
-Target right panel order
-
-Final order should be:
-
-1. Header / metadata
-2. Courrier formel
-3. Réunion formelle
-4. Documents de demande formelle
-5. Prochaine action
-
-No Circuit officiel block.
-No Recevabilité et clôture checklist block.
-
-UX rules
-Use French labels.
-Keep Phase 2 visually consistent with Phase 1.
-Do not repeat the same workflow checklist twice.
-Right panel = details + next action.
-Left panel = phase list + progression.
-No raw technical IDs.
-No extra CTAs outside guided card.
+missing documents;
+deposited consultation-only documents;
+oma_approval_form status and review actions.
+Do not change
+Portal upload checklist
+Template download behavior
+Phase 1
+DG circuit
+Formal meeting behavior
+Document upload behavior
+Consultation-only review guard
+Documents tab refactor from OMA-FORMAL-16
 Verification
+
+Run:
+
+cd apps/api
+npm run typecheck
+npm run build
 
 Run:
 
@@ -345,43 +334,21 @@ npm run build
 
 Manual checks:
 
-Phase 2 workspace loads.
-Right panel is shorter.
-Circuit officiel no longer appears as a large block.
-Recevabilité et clôture checklist no longer appears as a large block.
-Left progression card still shows phase steps.
-Top metadata still reflects circuit/return status.
-Guided “Prochaine action” card still works.
-Meeting buttons still appear in the correct states.
-Documents compact summary still appears.
-Phase 1 screen is unaffected.
-Documentation updates
+Phase 2 cannot close when required documents are missing.
+Phase 2 cannot close when oma_approval_form is missing.
+Phase 2 cannot close when oma_approval_form is requires_correction.
+Phase 2 cannot close when oma_approval_form is incomplete.
+Phase 2 can close when all required/expected docs are deposited and oma_approval_form is validated.
+Consultation-only docs do not require validation.
+No “Clôturer avec réserves” remains.
+Phase 3 unlock still works after valid closure.
+Portal checklist still works.
 
-Update:
+Documentation:
 
-exploration-cache/tasks/current-task.md
-exploration-cache/03-frontend/ADMIN_APP_MAP.md
-exploration-cache/manifest.json
-
-Create:
-
-exploration-cache/tasks/summaries/2026-05-27-oma-formal-9c0-phase-2-ui-alignment-cleanup.md
-
-Document:
-
-removed duplicate blocks;
-final right-panel order;
-Phase 1 alignment decision;
-verification results;
-TODOs.
-Return report
-
-Return:
-
-Files inspected
-Files changed
-Blocks removed
-Final Phase 2 panel structure
-Guided action card status
-Verification results
-Risks/TODOs
+Update exploration-cache/tasks/current-task.md
+Create summary:
+exploration-cache/tasks/summaries/2026-05-28-oma-formal-17-block-closure-until-documents-deposited.md
+Update Phase 2 workflow docs with the new PO rule.
+Update history when completed.
+```

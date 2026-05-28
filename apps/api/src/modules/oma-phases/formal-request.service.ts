@@ -38,6 +38,7 @@ const ACTIVE_SUBMISSION_STATUSES = new Set([
   "under_review",
   "validated",
   "requires_correction",
+  "incomplete",
 ]);
 
 /**
@@ -146,13 +147,6 @@ export const getAdminFormalRequestPhase = async (dossierId: string, actor: Actor
   const meetingHeld = formalMeeting ? String(formalMeeting.status) === "held" : false;
   const meetingReportUploaded = Boolean(phase.formalMeetingReportDocumentId);
 
-  const canClosePhase = !!(
-    phase.formalRequestCourrierId &&
-    dgEvidenceReady &&
-    meetingHeld &&
-    meetingReportUploaded
-  );
-
   // ── Build requirement list ─────────────────────────────────────────────────
 
   const requirementList = requirements.map((req) => {
@@ -180,9 +174,28 @@ export const getAdminFormalRequestPhase = async (dossierId: string, actor: Actor
         status: String(s.status),
         uploadedById: toId(s.submittedById),
         source: String(s.source),
+        reviewComment: s.reviewComment ? String(s.reviewComment) : undefined,
       })),
     };
   });
+
+  // ── Can close phase ────────────────────────────────────────────────────────
+
+  const nonGateRequiredReqs = requirementList.filter(
+    (r) => r.requirementLevel !== "gate" && r.requirementLevel !== "optional",
+  );
+  const allRequiredDeposited = nonGateRequiredReqs.every((r) => r.status !== "missing");
+  const omaFormValidated =
+    requirementList.find((r) => r.code === "oma_approval_form")?.status === "validated";
+
+  const canClosePhase = !!(
+    phase.formalRequestCourrierId &&
+    dgEvidenceReady &&
+    meetingHeld &&
+    meetingReportUploaded &&
+    allRequiredDeposited &&
+    omaFormValidated
+  );
 
   // ── Progress ──────────────────────────────────────────────────────────────
 
@@ -897,6 +910,7 @@ const ACTIVE_SUBMISSION_STATUS_SET = new Set([
   "under_review",
   "validated",
   "requires_correction",
+  "incomplete",
 ]);
 
 export const uploadFormalRequestSupportingDocument = async (
@@ -975,7 +989,10 @@ export const uploadFormalRequestSupportingDocument = async (
       .lean()) as unknown as GenericRecord | null;
 
     if (existingActive) {
-      if (String(existingActive.status) === "requires_correction") {
+      if (
+        String(existingActive.status) === "requires_correction" ||
+        String(existingActive.status) === "incomplete"
+      ) {
         submissionToReplace = existingActive;
       } else {
         throw new HttpError(409, "Un document est déjà déposé pour cette exigence.");
@@ -1263,6 +1280,54 @@ export const closeFormalRequestPhase = async (
     );
   }
 
+  // ── Document deposit completeness ─────────────────────────────────────────
+
+  const [closureReqs, closureSubs] = await Promise.all([
+    DocumentRequirementModel.find({ phaseKey: "formal_request", isActive: true }).lean(),
+    DocumentSubmissionModel.find({ dossierId: dossierObjId, phaseKey: "formal_request" }).lean(),
+  ]);
+
+  const closureRequirements = closureReqs as unknown as GenericRecord[];
+  const closureSubmissions = closureSubs as unknown as GenericRecord[];
+
+  const closureSubsByReqId = new Map<string, GenericRecord[]>();
+  for (const sub of closureSubmissions) {
+    const reqId = toId(sub.requirementId);
+    if (!reqId) continue;
+    const list = closureSubsByReqId.get(reqId) ?? [];
+    list.push(sub);
+    closureSubsByReqId.set(reqId, list);
+  }
+
+  const nonGateRequired = closureRequirements.filter(
+    (r) => String(r.requirementLevel) !== "gate" && String(r.requirementLevel) !== "optional",
+  );
+  const allDeposited = nonGateRequired.every((r) => {
+    const subs = closureSubsByReqId.get(r._id.toString()) ?? [];
+    return computeRequirementStatus(subs) !== "missing";
+  });
+
+  if (!allDeposited) {
+    throw new HttpError(
+      409,
+      "Toutes les pièces requises de la demande formelle doivent être déposées avant la clôture.",
+    );
+  }
+
+  const closureOmaApprovalFormReq = closureRequirements.find(
+    (r) => String(r.code) === "oma_approval_form",
+  );
+  if (closureOmaApprovalFormReq) {
+    const omaSubs = closureSubsByReqId.get(closureOmaApprovalFormReq._id.toString()) ?? [];
+    const omaStatus = computeRequirementStatus(omaSubs);
+    if (omaStatus !== "validated") {
+      throw new HttpError(
+        409,
+        "Le formulaire DN-AIR-R2-3-F-E-010 doit être validé avant la clôture.",
+      );
+    }
+  }
+
   // ── Close Phase 2 ─────────────────────────────────────────────────────────
 
   const now = new Date();
@@ -1339,23 +1404,26 @@ export const closeFormalRequestPhase = async (
 
 // ── OMA-FORMAL-6: DN document review ─────────────────────────────────────────
 
-const REVIEW_STATUSES = new Set(["validated", "rejected", "requires_correction"]);
+const REVIEW_STATUSES = new Set(["validated", "rejected", "requires_correction", "incomplete"]);
 
 export const reviewFormalRequestDocumentSubmission = async (
   submissionId: string,
   actor: Actor,
   payload: {
-    status: "validated" | "rejected" | "requires_correction";
+    status: "validated" | "rejected" | "requires_correction" | "incomplete";
     comment?: string;
   },
 ) => {
   ensureInternalActor(actor);
 
   if (!REVIEW_STATUSES.has(payload.status)) {
-    throw new HttpError(400, "status doit être validated, rejected ou requires_correction.");
+    throw new HttpError(400, "status doit être validated, rejected, requires_correction ou incomplete.");
   }
-  if (payload.status === "requires_correction" && !payload.comment?.trim()) {
-    throw new HttpError(400, "Un commentaire est requis lorsque la correction est demandée.");
+  if (
+    (payload.status === "requires_correction" || payload.status === "incomplete") &&
+    !payload.comment?.trim()
+  ) {
+    throw new HttpError(400, "Un commentaire est requis pour correction ou incomplet.");
   }
 
   // ── Load submission ───────────────────────────────────────────────────────
@@ -1382,6 +1450,14 @@ export const reviewFormalRequestDocumentSubmission = async (
     ).lean()) as unknown as GenericRecord | null;
     if (requirement && String(requirement.requirementLevel) === "gate") {
       throw new HttpError(409, "La demande formelle est traitée via le circuit courrier dédié.");
+    }
+    // Only the oma_approval_form requirement allows DN review decisions.
+    // All other Phase 2 requirements are consultation-only.
+    if (requirement && String(requirement.code) !== "oma_approval_form") {
+      throw new HttpError(
+        400,
+        "Cette pièce est consultative et ne nécessite pas de validation.",
+      );
     }
   }
 

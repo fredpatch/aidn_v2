@@ -12,10 +12,12 @@ export type DocumentTemplate = {
 
 export function listDocumentTemplates(filters: {
   documentType?: string;
+  phaseKey?: string;
   isActive?: boolean;
 } = {}): Promise<{ items: DocumentTemplate[] }> {
   const params = new URLSearchParams();
   if (filters.documentType) params.set('documentType', filters.documentType);
+  if (filters.phaseKey) params.set('phaseKey', filters.phaseKey);
   if (filters.isActive !== undefined) params.set('isActive', String(filters.isActive));
   const query = params.toString();
   return apiGet<{ items: DocumentTemplate[] }>(

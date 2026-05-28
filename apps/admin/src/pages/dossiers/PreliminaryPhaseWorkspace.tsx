@@ -144,26 +144,26 @@ export function PreliminaryActionPanel({
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <ul className="space-y-1.5">
+          <ul className="grid gap-2 xl:grid-cols-2">
             {evidenceEntries.map((key) => (
               <li
                 key={key}
-                className="flex flex-wrap items-center justify-between gap-2 text-sm"
+                className="flex min-h-9 items-center justify-between gap-2 rounded-md bg-muted/20 px-3 py-2 text-sm"
               >
-                <span>{EVIDENCE_LABELS[key]}</span>
+                <span className="min-w-0 truncate">{EVIDENCE_LABELS[key]}</span>
                 {phase[key] ? (
                   <Button
                     type="button"
                     size="sm"
                     variant="outline"
-                    className="h-7 text-xs"
+                    className="h-7 shrink-0 px-2 text-xs"
                     disabled={isDownloading}
                     onClick={() =>
                       void downloadEvidenceDocument(String(phase[key]))
                     }
                   >
-                    <Download className="mr-1.5 h-3 w-3" />
-                    Télécharger
+                    <Download className="h-3 w-3" />
+                    <span className="sr-only">Télécharger</span>
                   </Button>
                 ) : (
                   <span className="text-xs text-muted-foreground">
@@ -173,6 +173,10 @@ export function PreliminaryActionPanel({
               </li>
             ))}
           </ul>
+          <p className="mt-3 text-xs text-muted-foreground">
+            Liste complète et contexte documentaire disponibles dans l'onglet
+            Documents.
+          </p>
           {downloadError ? (
             <div className="mt-2">
               <ActionError message={downloadError} />
@@ -403,20 +407,24 @@ export function PreliminaryActionPanel({
       </DefinitionGrid>
 
       {/* Meetings summary */}
-      {firstMeeting ? (
-        <div className="space-y-1">
-          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            Première réunion
-          </p>
-          <MeetingCard meeting={firstMeeting} />
-        </div>
-      ) : null}
-      {preliminaryMeeting ? (
-        <div className="space-y-1">
-          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            Réunion préliminaire
-          </p>
-          <MeetingCard meeting={preliminaryMeeting} />
+      {firstMeeting || preliminaryMeeting ? (
+        <div className="grid gap-3 xl:grid-cols-2">
+          {firstMeeting ? (
+            <div className="space-y-1">
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                Première réunion
+              </p>
+              <MeetingCard meeting={firstMeeting} />
+            </div>
+          ) : null}
+          {preliminaryMeeting ? (
+            <div className="space-y-1">
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                Réunion préliminaire
+              </p>
+              <MeetingCard meeting={preliminaryMeeting} />
+            </div>
+          ) : null}
         </div>
       ) : null}
 

@@ -24,6 +24,7 @@ export function DossierDetailPage(): React.JSX.Element {
   const [detail, setDetail] = useState<AdminDossierDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
+  const [activeTab, setActiveTab] = useState("overview");
 
   const load = async () => {
     if (!id) return;
@@ -102,7 +103,7 @@ export function DossierDetailPage(): React.JSX.Element {
         </div>
       </div>
 
-      <Tabs defaultValue="overview" className="mt-4">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-4">
         <TabsList className="flex h-auto flex-wrap justify-start gap-0.5">
           <TabsTrigger value="overview">Vue d'ensemble</TabsTrigger>
           <TabsTrigger value="phases">Phases OMA</TabsTrigger>
@@ -121,10 +122,11 @@ export function DossierDetailPage(): React.JSX.Element {
             detail={detail}
             dossierId={dossier.id}
             onRefresh={() => void load()}
+            onNavigateToTab={setActiveTab}
           />
         </TabsContent>
         <TabsContent value="documents" className="mt-4">
-          <DossierDocumentsTab detail={detail} />
+          <DossierDocumentsTab detail={detail} dossierId={dossier.id} />
         </TabsContent>
         <TabsContent value="meetings" className="mt-4">
           <DossierMeetingsTab detail={detail} />

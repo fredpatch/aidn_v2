@@ -6,8 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AuthContext } from "@/contexts/AuthContext";
 import type {
   AdminFormalRequestPhaseState,
+  AdminFormalRequestRequirement,
   AdminOmaPhase,
-  FormalRequirementLevel,
   FormalSubmissionStatus,
 } from "@/lib/api/dossiers.api";
 import { hasPermission } from "@/lib/auth/permissions";
@@ -52,12 +52,6 @@ const formalStatusLabels: Record<string, string> = {
   formal_closed: "Clôturée",
 };
 
-const requirementLevelLabels: Record<FormalRequirementLevel, string> = {
-  gate: "Bloquant",
-  expected: "Attendu",
-  optional: "Optionnel",
-  conditional: "Conditionnel",
-};
 
 const submissionStatusLabels: Record<string, string> = {
   missing: "Manquant",
@@ -65,6 +59,7 @@ const submissionStatusLabels: Record<string, string> = {
   under_review: "En revue",
   validated: "Validé",
   requires_correction: "Correction demandée",
+  incomplete: "Incomplet",
   rejected: "Rejeté",
   replaced: "Remplacé",
   not_applicable: "Non applicable",
@@ -102,6 +97,17 @@ function StatusBadge({
     return <Badge variant="destructive">{label}</Badge>;
   }
 
+  if (status === "incomplete") {
+    return (
+      <Badge
+        variant="outline"
+        className="border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200"
+      >
+        {label}
+      </Badge>
+    );
+  }
+
   if (status === "submitted" || status === "under_review") {
     return <Badge variant="secondary">{label}</Badge>;
   }
@@ -131,14 +137,6 @@ function AvailabilityBadge({
   return <Badge variant="secondary">{missingLabel}</Badge>;
 }
 
-function LevelBadge({
-  level,
-}: {
-  level: FormalRequirementLevel;
-}): React.JSX.Element {
-  if (level === "gate") return <Badge variant="destructive">Bloquant</Badge>;
-  return <Badge variant="outline">{requirementLevelLabels[level] ?? level}</Badge>;
-}
 
 function DetailSection({
   title,
@@ -192,6 +190,7 @@ export function FormalRequestPhaseWorkspace({
   isLoading,
   onRefreshPhase: _onRefreshPhase,
   onStateChange,
+  onNavigateToTab,
   phaseRecord,
   state,
 }: {
@@ -201,6 +200,7 @@ export function FormalRequestPhaseWorkspace({
   onRefresh: () => void;
   onRefreshPhase: () => Promise<AdminFormalRequestPhaseState>;
   onStateChange: (state: AdminFormalRequestPhaseState) => void;
+  onNavigateToTab?: (tab: string) => void;
   phaseRecord?: AdminOmaPhase;
   state: AdminFormalRequestPhaseState | null;
 }): React.JSX.Element {
@@ -272,13 +272,8 @@ export function FormalRequestPhaseWorkspace({
   const correctionsCount = state.requirements.filter(
     (requirement) => requirement.status === "requires_correction",
   ).length;
-  const gateRequirement = state.requirements.find(
-    (requirement) => requirement.requirementLevel === "gate",
-  );
-  const correctionRequirements = state.requirements.filter(
-    (requirement) =>
-      requirement.status === "requires_correction" &&
-      requirement.requirementLevel !== "gate",
+  const omaApprovalFormReq: AdminFormalRequestRequirement | undefined = state.requirements.find(
+    (r) => r.code === "oma_approval_form",
   );
 
   let nextActionContent: React.ReactNode;
@@ -354,12 +349,27 @@ export function FormalRequestPhaseWorkspace({
       </WaitingState>
     );
   } else {
-    // Compte rendu joint — phase ready for DN closure decision
-    nextActionContent = (
-      <WaitingState>
-        Compte rendu joint. La phase peut être clôturée par la DN.
-      </WaitingState>
-    );
+    // Meeting report uploaded but canClosePhase=false — documents are the blocker
+    const hasMissingDocs = state.progress.missing > 0;
+    const omaNotValidated = omaApprovalFormReq && omaApprovalFormReq.status !== "validated";
+    if (hasMissingDocs || omaNotValidated) {
+      nextActionContent = (
+        <div className="space-y-2">
+          <p className="text-sm font-medium text-destructive">
+            Les pièces de demande formelle doivent être complétées avant clôture.
+          </p>
+          {onNavigateToTab ? (
+            <Button size="sm" variant="outline" onClick={() => onNavigateToTab("documents")}>
+              Voir les documents
+            </Button>
+          ) : null}
+        </div>
+      );
+    } else {
+      nextActionContent = (
+        <WaitingState>Compte rendu joint. La phase peut être clôturée par la DN.</WaitingState>
+      );
+    }
   }
 
   return (
@@ -487,9 +497,13 @@ export function FormalRequestPhaseWorkspace({
                         {" · "}
                         {state.progress.submitted} déposée
                         {state.progress.submitted !== 1 ? "s" : ""}
-                        {" · "}
-                        {state.progress.validated} validée
-                        {state.progress.validated !== 1 ? "s" : ""}
+                        {state.progress.missing > 0 ? (
+                          <span className="font-medium text-destructive">
+                            {" · "}
+                            {state.progress.missing} manquante
+                            {state.progress.missing !== 1 ? "s" : ""}
+                          </span>
+                        ) : null}
                         {correctionsCount > 0 ? (
                           <span className="ml-1 font-medium text-destructive">
                             {" · "}
@@ -499,51 +513,29 @@ export function FormalRequestPhaseWorkspace({
                           </span>
                         ) : null}
                       </p>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        Suivi documentaire uniquement, sans blocage automatique du
-                        circuit officiel.
-                      </p>
+                      {omaApprovalFormReq ? (
+                        <p className="mt-1.5 text-xs text-foreground">
+                          Formulaire{" "}
+                          <span className="font-mono font-medium">
+                            {omaApprovalFormReq.formCode ?? "DN-AIR-R2-3-F-E-010"}
+                          </span>
+                          {" : "}
+                          <StatusBadge status={omaApprovalFormReq.status} />
+                        </p>
+                      ) : null}
                     </div>
-
-                    {gateRequirement ? (
-                      <div className="border-b pb-3">
-                        <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                          Demande formelle
-                        </p>
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="font-medium">{gateRequirement.label}</span>
-                          <LevelBadge level={gateRequirement.requirementLevel} />
-                          <StatusBadge status={gateRequirement.status} />
-                        </div>
-                      </div>
-                    ) : null}
-
-                    {correctionRequirements.length > 0 ? (
-                      <div>
-                        <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                          Corrections demandées
-                        </p>
-                        <ul className="space-y-2">
-                          {correctionRequirements.map((requirement) => (
-                            <li
-                              key={requirement.requirementId}
-                              className="flex flex-wrap items-center gap-2"
-                            >
-                              <span>{requirement.label}</span>
-                              <StatusBadge status={requirement.status} />
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    ) : (
-                      <p className="text-muted-foreground">
-                        Aucune correction demandée pour le moment.
-                      </p>
-                    )}
-
                     <p className="text-xs text-muted-foreground">
-                      Consulter le détail dans l'onglet Documents.
+                      Le détail des pièces et les actions de consultation sont disponibles dans l'onglet Documents.
                     </p>
+                    {onNavigateToTab ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => onNavigateToTab("documents")}
+                      >
+                        Voir les documents
+                      </Button>
+                    ) : null}
                   </div>
                 </DetailSection>
               ) : null}
@@ -608,6 +600,7 @@ export function FormalRequestPhaseWorkspace({
         }}
         dossierId={dossierId}
         progress={state.progress}
+        omaApprovalFormRequirement={omaApprovalFormReq}
         onSuccess={(nextState) => {
           setOpenDialog(null);
           onStateChange(nextState);

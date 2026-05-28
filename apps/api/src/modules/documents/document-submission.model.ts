@@ -38,6 +38,7 @@ const documentSubmissionSchema = new Schema(
         "validated",
         "rejected",
         "requires_correction",
+        "incomplete",
         "replaced",
         "archived",
       ],

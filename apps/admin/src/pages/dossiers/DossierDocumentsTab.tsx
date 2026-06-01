@@ -21,7 +21,8 @@ import { hasPermission } from "@/lib/auth/permissions";
 import { ApiError } from "@/lib/api/client";
 import { openBlobInNewTab } from "@/lib/utils/blob";
 import { extractError } from "@/lib/utils/error";
-import { ActionError, preliminaryStatusLabels } from "./dossier-detail.helpers";
+import { preliminaryStatusLabels } from "./dossier-detail.labels";
+import { ActionError } from "./dossier-detail.helpers";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 

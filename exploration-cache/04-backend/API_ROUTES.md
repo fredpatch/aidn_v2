@@ -1,6 +1,6 @@
 # API Routes
 
-Last reviewed: 2026-05-21
+Last reviewed: 2026-05-29
 
 ## Implemented backend routes in repository
 
@@ -22,6 +22,7 @@ Last reviewed: 2026-05-21
 - `POST /api/v1/portal/requests/:id/physical-deposit`
 - `POST /api/v1/portal/requests/:id/submit`
 - `GET /api/v1/admin/si-users`
+- `GET /api/v1/admin/dashboard?preset=today|7d|month|year&from=&to=`
 - `GET /api/v1/admin/personnel?search=&page=&limit=`
 - `GET /api/v1/admin/internal-accounts`
 - `POST /api/v1/admin/internal-accounts/activate`
@@ -72,6 +73,9 @@ Last reviewed: 2026-05-21
 ## Route notes
 
 - Admin routes use authentication plus capability middleware.
+- `admin/dashboard` is guarded by admin-scope auth plus `REPORT_VIEW`. It returns persisted dashboard metrics, profile `dn_full` or `courrier_dg`, period stats, current workload, `phaseFocus`, `priorityActions`, recent domain activity, and `meta.unavailableMetrics=["certificates"]` while certificate backend remains unavailable.
+- DASH-2R dashboard SLA constants: preliminary 30 business days, formal request 10, document evaluation 30, inspection/demonstration 25, delivery 5.
+- DASH-2R priority actions enrich document actions with available document, requirement, phase, and dossier labels.
 - `admin/dg-circuit/tasks` is a focused operational task endpoint for DG circuit actors. It is guarded by any of `DG_CIRCUIT_HANDLE`, `COURRIER_REGISTER_PHYSICAL`, or `PRE_EVAL_DG_CIRCUIT_HANDLE`; it does not require or expose `DOSSIER_VIEW_ALL`.
 - `admin/dg-circuit/tasks/:taskId/documents/:documentId` downloads only task-linked outgoing or annotated-return documents after validating task ownership and the actor's relevant DG circuit capability.
 - `auth/internal/login` accepts `{ matricule, password }`, confirms the matricule still exists in the official personnel adapter, then validates only the local AIDN `passwordHash`.

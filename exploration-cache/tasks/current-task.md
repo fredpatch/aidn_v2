@@ -1,5 +1,160 @@
 # Current Task
 
+## Phase: DASH-2R - Dashboard UI / Runtime Correction Pass
+
+Date: 2026-05-29
+Status: **Complete - API PASS, Admin PASS**
+
+## Summary file
+
+- Implementation: `exploration-cache/tasks/summaries/2026-05-29-dash-2r-dashboard-correction-pass.md`
+- History: `exploration-cache/tasks/history/2026-05-29-dash-2r-dashboard-correction-pass.md`
+
+## Cache status
+
+- Cache read first per protocol.
+- DASH-2 dashboard is API-backed and functional.
+- DASH-2R was a narrow correction pass only.
+- `frontend-design` Swiss direction preserved: compact institutional ledger, no redesign.
+
+## Completed scope
+
+- Corrected OMA dashboard SLA expected business-day constants.
+- Corrected placeholder phase badge behavior for not-implemented phases with active dossiers.
+- Corrected unavailable certificate metric badges to show `Non disponible`.
+- Improved priority action secondary labels using backend document, requirement, phase, and dossier metadata.
+- Cleaned French labels and accents in touched dashboard code.
+- Did not add charts, exports, certificate backend, workflow actions, or new sections.
+
+## Verification
+
+- API: `npm run typecheck` PASS
+- API: `npm run build` PASS
+- Admin: `npx tsc --noEmit` PASS
+- Admin: `npm run build` PASS after outside-sandbox rerun for known Vite/Tailwind native Windows binary issue
+
+---
+
+## Phase: DASH-2 - Admin Dashboard UI Integration planning
+
+Date: 2026-05-29
+Status: **Complete - API PASS, Admin PASS**
+
+## Summary file
+
+- Planning: `exploration-cache/tasks/summaries/2026-05-29-dash-2-admin-dashboard-ui-integration-planning.md`
+- Implementation: `exploration-cache/tasks/summaries/2026-05-29-dash-2-admin-dashboard-ui-integration.md`
+- History: `exploration-cache/tasks/history/2026-05-29-dash-2-admin-dashboard-ui-integration.md`
+
+## Cache status
+
+- Cache read first per protocol.
+- DASH-1 backend route exists: `GET /api/v1/admin/dashboard`.
+- Admin dashboard still needs frontend API integration.
+- Source inspection found a DASH-2 contract gap: backend currently lacks `today`, `7d`, `year`, `phaseFocus`, and `priorityActions`, while React must not recalculate dashboard business metrics.
+- `frontend-design` skill applied with Swiss anchor: compact institutional ledger, hairline grouping, real labels/data only.
+
+## Completed scope
+
+- Added a typed admin dashboard API client.
+- Replaced mock/demo dashboard reads in `DashboardPage.tsx` with React Query against `/api/v1/admin/dashboard`.
+- Added period selector, loading/error states, profile-aware sections, phase focus, priority actions, recent activity, and certificate unavailable display.
+- Applied narrow backend dashboard contract correction only for missing presets/fields required by DASH-2.
+- Updated required cache/docs.
+
+## Verification
+
+- API: `npm run typecheck` PASS
+- API: `npm run build` PASS
+- Admin: `npx tsc --noEmit` PASS
+- Admin: `npm run build` PASS after outside-sandbox rerun for known Vite/Tailwind native Windows binary issue
+
+---
+
+## Phase: DASH-1 - Backend dashboard foundation planning
+
+Date: 2026-05-29
+Status: **Complete - API typecheck PASS, API build PASS**
+
+## Summary file
+
+- Planning: `exploration-cache/tasks/summaries/2026-05-29-dash-1-backend-dashboard-foundation.md`
+- Implementation: `exploration-cache/tasks/summaries/2026-05-29-dash-1-backend-dashboard-foundation-implementation.md`
+- History: `exploration-cache/tasks/history/2026-05-29-dash-1-backend-dashboard-foundation.md`
+
+## Cache status
+
+- Cache read first per protocol.
+- Cache confirms the existing dashboard implementation is frontend-only and mock/demo-state-backed.
+- Cache/source confirms no `GET /api/v1/admin/dashboard` route exists yet.
+- Cache/source confirms `REPORT_VIEW` exists and is granted to `admin`, `bootstrap_admin`, and `dn_supervisor`.
+- Cache/source confirms `REPORT_VIEW` was not previously granted to `dn_agent`, `dg_secretariat`, `reception`, or `bureau_courrier`; approved implementation will add it.
+- Cache confirms certificates remain backend-deferred; dashboard certificate metrics must not fabricate real certificate records.
+- Cache gap: `exploration-cache/06-workflows/OMA_FORMAL_REQUEST_WORKFLOW.md` is referenced in the prompt but missing.
+
+## Completed scope
+
+- Added backend-only dashboard service/types/helpers under `apps/api/src/modules/dashboard/`.
+- Wired `GET /api/v1/admin/dashboard` from `apps/api/src/modules/admin/admin.routes.ts`.
+- Guarded with `requirePermission(Permissions.REPORT_VIEW)`.
+- Default period is `preset=month`: first day of the current month through end of current day.
+- Use domain timestamps for recent activity.
+- Count missing expected documents only for active/currently in-progress phases.
+- Return certificate counters as `0` and set `meta.unavailableMetrics = ["certificates"]`.
+- Returned real read-only metrics from existing Mongoose models.
+- Preserved route shape and profile-aware response for all internal dashboard roles.
+- Did not touch frontend, portal, workflow mutations, seed data, or certificate backend.
+
+## Verification
+
+- API: `npm run typecheck` PASS
+- API: `npm run build` PASS
+
+---
+
+## Phase: DASHBOARD-1 - Admin dashboard implementation planning
+
+Date: 2026-05-29
+Status: **Complete - Admin TypeScript PASS, Admin build PASS**
+
+## Summary file
+
+- Planning: `exploration-cache/tasks/summaries/2026-05-29-dashboard-implementation-planning.md`
+- Implementation: `exploration-cache/tasks/summaries/2026-05-29-dashboard-implementation.md`
+- History: `exploration-cache/tasks/history/2026-05-29-dashboard-implementation.md`
+
+## Cache status
+
+- Cache confirms admin `/dashboard` exists and courrier-only users already receive a separate API-backed `CourrierDashboard`.
+- Cache confirms no general dashboard backend route exists.
+- Cache confirms AIDN mock/demo state includes `AidnDashboardSummary`, demandes, dossiers, OMA phases, documents, meetings, certificates, phase evidence, next actions, and timeline events.
+- Source inspection confirms the default admin dashboard still uses stale generic `mockDashboardData` via `useDashboard`.
+- Source inspection confirms `useAidnDashboardSummary` already exposes a richer AIDN summary from current demo state.
+
+## Completed scope
+
+- Frontend-only dashboard refresh.
+- No backend routes added.
+- Courrier-role dashboard unchanged.
+- Phase 3 not started.
+
+## Implementation
+
+1. Refocused `AdminDnDashboard` in `apps/admin/src/pages/DashboardPage.tsx` around `useAidnDashboardSummary`.
+2. Derived compact Phase 1/Phase 2 dashboard signals from existing AIDN hooks.
+3. Kept dashboard interactions as navigation links into existing work surfaces instead of adding workflow mutations.
+4. Preserved existing dashboard primitives and loading/error patterns.
+
+## Verification
+
+- Admin: `npx tsc --noEmit` PASS
+- Admin: `npm run build` failed in sandbox with known Vite/Tailwind native Windows binary issue.
+- Admin: `npm run build` PASS after outside-sandbox rerun.
+
+## Next step
+
+Run a browser pass in mock mode to confirm dashboard layout and navigation links.
+
 ## Phase: OMA-DOCS-UX-1 — Compact Documents tab with phase accordion
 
 Date: 2026-05-28

@@ -36,6 +36,8 @@ Last reviewed: 2026-05-19
 
 ## Verification note
 - This file lists available commands; run status is tracked in session note and report.
+- DASH-2 verification commands passed: API `npm run typecheck`, API `npm run build`, Admin `npx tsc --noEmit`, and Admin `npm run build` after outside-sandbox rerun for the known Vite/Tailwind native Windows binary issue. Admin build still reports the existing large chunk warning.
+- DASH-2R verification commands passed: API `npm run typecheck`, API `npm run build`, Admin `npx tsc --noEmit`, and Admin `npm run build` after outside-sandbox rerun for the known Vite/Tailwind native Windows binary issue. Browser role checks are still pending.
 - Latest PORTAL-2 API runtime check covered account request submission, admin approval, portal login, portal `/auth/me`, missing `passwordHash`, unapproved-login rejection, and internal-login rejection at the portal endpoint. Browser redirect/refresh/logout interaction still needs a manual browser pass.
 - AUTH-2A backend verification commands: `npm run typecheck`, `npm run lint`, and `npm run build` in `apps/api`.
 - AUTH-2B admin verification: `npx tsc --noEmit` and `npm run build` in `apps/admin`; `typecheck` and `lint` scripts are not defined in `apps/admin/package.json`.

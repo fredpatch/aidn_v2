@@ -2,10 +2,26 @@
 
 ## Current Phase
 
-Phase ADMIN-4-OPEN-DOSSIER-DN - open DN dossier after DG orientation: completed.
+Phase DASH-2R - Dashboard UI / runtime correction pass: completed.
 
 ## Completed Output
 
+- Phase DASH-2 replaced the admin dashboard mock/demo data with real `GET /api/v1/admin/dashboard` data:
+  - added `apps/admin/src/lib/api/dashboard.api.ts`
+  - rewrote `apps/admin/src/pages/DashboardPage.tsx`
+  - added period selector for today, 7 days, current month, and current year
+  - added profile-aware DN vs courrier/DG dashboard sections
+  - added loading skeletons and retry error state
+  - displays certificate metrics as `À venir` until certificate backend exists
+  - applied a narrow backend dashboard contract correction for presets, profile names, phase focus, and priority actions
+  - verification passed: API typecheck/build and admin typecheck/build
+- Phase DASH-2R corrected the API-backed dashboard after browser review:
+  - official OMA expected business-day durations are now 30 / 10 / 30 / 25 / 5
+  - not-implemented phases with active dossiers show `Phase ouverte` instead of `À venir`
+  - unavailable certificate metrics show `À venir` plus `Non disponible`
+  - priority document actions include more useful entity labels
+  - French dashboard labels and accents were cleaned in touched code
+  - verification passed: API typecheck/build and admin typecheck/build
 - Phase O1 created `docs/aidn-oma-revised-workflow-blueprint-v1.md`.
 - Phase O2 added explicit internal DN/Admin status and simplified postulant-facing status layers.
 - Phase O3 reworked `/dossiers/:id` into a read-only Dossier DN workspace.

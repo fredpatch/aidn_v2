@@ -1,7 +1,7 @@
 {
   "name": "aidn-exploration-cache",
   "version": "1.0.0",
-  "lastUpdated": "2026-05-28",
+  "lastUpdated": "2026-05-29",
   "entrypoints": [
     "00-control/SOURCE_OF_TRUTH.md",
     "00-control/CURRENT_STATE.md",
@@ -42,6 +42,50 @@
     "99-session-notes": "Session-level trace"
   },
   "recentExplorationCacheUpdates": [
+    {
+      "date": "2026-05-29",
+      "phase": "DASH-2R-DASHBOARD-CORRECTION-PASS",
+      "created": [
+        "exploration-cache/tasks/summaries/2026-05-29-dash-2r-dashboard-correction-pass.md",
+        "exploration-cache/tasks/history/2026-05-29-dash-2r-dashboard-correction-pass.md"
+      ],
+      "updated": [
+        "apps/api/src/modules/dashboard/dashboard.service.ts",
+        "apps/admin/src/pages/DashboardPage.tsx",
+        "TASK.md",
+        "exploration-cache/03-frontend/ADMIN_APP_MAP.md",
+        "exploration-cache/04-backend/API_ROUTES.md",
+        "exploration-cache/09-qa/BUILD_AND_TEST_COMMANDS.md",
+        "exploration-cache/tasks/current-task.md",
+        "exploration-cache/QUICK-REFERENCE.md",
+        "exploration-cache/manifest.json"
+      ],
+      "notes": "Dashboard correction pass: official SLA constants, placeholder phase badges, unavailable certificate display, priority document labels, and French label cleanup."
+    },
+    {
+      "date": "2026-05-29",
+      "phase": "DASH-2-ADMIN-DASHBOARD-UI-INTEGRATION",
+      "created": [
+        "apps/admin/src/lib/api/dashboard.api.ts",
+        "exploration-cache/tasks/summaries/2026-05-29-dash-2-admin-dashboard-ui-integration-planning.md",
+        "exploration-cache/tasks/summaries/2026-05-29-dash-2-admin-dashboard-ui-integration.md",
+        "exploration-cache/tasks/history/2026-05-29-dash-2-admin-dashboard-ui-integration.md"
+      ],
+      "updated": [
+        "apps/api/src/modules/dashboard/dashboard.types.ts",
+        "apps/api/src/modules/dashboard/dashboard.helpers.ts",
+        "apps/api/src/modules/dashboard/dashboard.service.ts",
+        "apps/admin/src/pages/DashboardPage.tsx",
+        "TASK.md",
+        "exploration-cache/03-frontend/ADMIN_APP_MAP.md",
+        "exploration-cache/04-backend/API_ROUTES.md",
+        "exploration-cache/09-qa/BUILD_AND_TEST_COMMANDS.md",
+        "exploration-cache/tasks/current-task.md",
+        "exploration-cache/QUICK-REFERENCE.md",
+        "exploration-cache/manifest.json"
+      ],
+      "notes": "API-backed admin dashboard with period selector, DN/courrier profiles, phase focus, priority actions, recent activity, and certificate unavailable display. Narrow backend contract correction for DASH-2 response shape."
+    },
     {
       "date": "2026-05-28",
       "phase": "OMA-DOCS-UX-1-DOCUMENTS-PHASE-ACCORDION",

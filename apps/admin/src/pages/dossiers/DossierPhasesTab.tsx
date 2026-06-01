@@ -9,11 +9,10 @@ import {
   type OmaPhaseKey,
 } from "@/lib/api/dossiers.api";
 import { extractError } from "@/lib/utils/error";
+import { PHASE_ORDER, phaseKeyLabels } from "./dossier-detail.labels";
 import {
-  PHASE_ORDER,
   PhaseStatusBadge,
   Section,
-  phaseKeyLabels,
 } from "./dossier-detail.helpers";
 import { FormalRequestPhaseChecklist } from "./FormalRequestPhaseChecklist";
 import { FormalRequestPhaseWorkspace } from "./FormalRequestPhaseWorkspace";

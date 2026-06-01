@@ -22,9 +22,8 @@ import {
   Note,
   PhaseStatusBadge,
   WaitingState,
-  formatDate,
-  preliminaryStatusLabels,
 } from "./dossier-detail.helpers";
+import { formatDate, preliminaryStatusLabels } from "./dossier-detail.labels";
 import {
   ClosePreliminaryDialog,
   InviteMeetingDialog,

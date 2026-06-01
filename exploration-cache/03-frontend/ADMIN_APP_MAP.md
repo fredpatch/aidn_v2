@@ -1,10 +1,21 @@
 # Admin App Map
 
-Last reviewed: 2026-05-28
+Last reviewed: 2026-05-29
 Source files inspected: `apps/admin/src/App.tsx`, `apps/admin/src/contexts/AuthContext.tsx`, `apps/admin/src/lib/api/*.ts`, `apps/admin/src/pages/*Page.tsx`, `apps/admin/src/config/nav.tsx`
 
 ## Confirmed facts
 - Admin frontend uses React/Vite with routes in `apps/admin/src/App.tsx`.
+- `/dashboard` is API-backed as of DASH-2:
+  - Calls `GET /api/v1/admin/dashboard?preset=`.
+  - Uses React Query key `["admin-dashboard", preset, from, to]`.
+  - Default preset is `month`.
+  - Period selector supports Aujourd'hui, 7 jours, Mois en cours, and Année.
+  - Renders profile-aware DN vs courrier/DG sections from backend `profile`.
+  - Shows certificate metrics as `À venir` when `meta.unavailableMetrics` includes `certificates`.
+  - DASH-2R correction: unavailable certificate cards show badge `Non disponible`, not `Normal`.
+  - DASH-2R correction: not-implemented phases show `À venir` only when `currentDossiers === 0`; otherwise they show `Phase ouverte`.
+  - DASH-2R correction: priority document actions surface backend entity labels more visibly.
+  - Does not use mock dashboard data, charts, exports, or frontend-side business metric recalculation.
 - API mode is controlled by `VITE_DATA_MODE`; mock mode must remain available.
 - API client reads `VITE_API_BASE_URL` and sends requests with `credentials: "include"` for HttpOnly cookie auth.
 - API client reads `aidn_admin_csrf` and sends `X-CSRF-Token` on unsafe requests when the cookie exists.

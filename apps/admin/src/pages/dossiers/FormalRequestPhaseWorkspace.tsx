@@ -19,8 +19,8 @@ import {
   Note,
   PhaseStatusBadge,
   WaitingState,
-  formatDate,
 } from "./dossier-detail.helpers";
+import { formatDate } from "./dossier-detail.labels";
 import {
   getFormalRequestVisibility,
   hasFormalDgDecision,

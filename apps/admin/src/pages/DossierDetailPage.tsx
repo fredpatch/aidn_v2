@@ -10,7 +10,7 @@ import {
   dossierStatusLabels,
   dossierTypeLabels,
   formatDate,
-} from "./dossiers/dossier-detail.helpers";
+} from "./dossiers/dossier-detail.labels";
 import { DossierCertificatTab } from "./dossiers/DossierCertificatTab";
 import { DossierCourriersTab } from "./dossiers/DossierCourriersTab";
 import { DossierDocumentsTab } from "./dossiers/DossierDocumentsTab";

@@ -1,6 +1,6 @@
 # Quick Reference
 
-Last updated: 2026-05-28
+Last updated: 2026-05-29
 
 ## OMA-1H Hardening Audit Notes (2026-05-22)
 
@@ -43,6 +43,44 @@ Last updated: 2026-05-28
 - `rejected` is treated as a re-upload-needed blocking status for portal UX.
 
 ## Current Objective Notes
+
+- DASH-2R dashboard correction pass implemented:
+  - Summary: `exploration-cache/tasks/summaries/2026-05-29-dash-2r-dashboard-correction-pass.md`.
+  - Official SLA constants corrected to 30 / 10 / 30 / 25 / 5 business days.
+  - Placeholder phase badges now show `Phase ouverte` when a not-implemented phase has active dossiers.
+  - Certificate unavailable cards show `À venir` and `Non disponible`.
+  - Priority document actions use richer backend labels.
+  - Verification: API typecheck/build PASS; admin typecheck/build PASS after known outside-sandbox rerun.
+
+- DASH-2 admin dashboard UI integration implemented:
+  - Summary: `exploration-cache/tasks/summaries/2026-05-29-dash-2-admin-dashboard-ui-integration.md`.
+  - Planning: `exploration-cache/tasks/summaries/2026-05-29-dash-2-admin-dashboard-ui-integration-planning.md`.
+  - Added `apps/admin/src/lib/api/dashboard.api.ts`.
+  - `DashboardPage.tsx` now uses `GET /api/v1/admin/dashboard` through React Query.
+  - Backend dashboard contract now supports presets `today`, `7d`, `month`, `year`, and `custom`, profile values `dn_full` / `courrier_dg`, `phaseFocus`, and `priorityActions`.
+  - Certificate metrics display `À venir` when unavailable.
+  - Verification: API typecheck/build PASS; admin typecheck/build PASS after known outside-sandbox rerun.
+
+- DASH-1 backend dashboard foundation planning complete:
+  - Summary: `exploration-cache/tasks/summaries/2026-05-29-dash-1-backend-dashboard-foundation.md`.
+  - Implementation: `exploration-cache/tasks/summaries/2026-05-29-dash-1-backend-dashboard-foundation-implementation.md`.
+  - Endpoint implemented: `GET /api/v1/admin/dashboard`, guarded by `REPORT_VIEW`.
+  - `REPORT_VIEW` added to `dn_agent`, `dg_secretariat`, `reception`, and `bureau_courrier`.
+  - Default period is `preset=month`: first day of current month through end of current day.
+  - Recent activity uses domain timestamps, not audit logs.
+  - Missing expected document counts apply only to active/currently in-progress phases.
+  - Missing cache document: `exploration-cache/06-workflows/OMA_FORMAL_REQUEST_WORKFLOW.md`.
+  - Certificate metrics must remain zero/unavailable until the real certificate backend exists, with `meta.unavailableMetrics = ["certificates"]`.
+  - API verification: `npm run typecheck` PASS, `npm run build` PASS.
+
+- DASHBOARD-1 planning complete:
+  - Summary: `exploration-cache/tasks/summaries/2026-05-29-dashboard-implementation-planning.md`.
+  - Implementation: `exploration-cache/tasks/summaries/2026-05-29-dashboard-implementation.md`.
+  - Default admin dashboard now uses AIDN demo-state hooks instead of generic stale `mockDashboardData`.
+  - Courrier-only dashboard is already separate and API-backed through `listDgCircuitTasks`; keep it unchanged.
+  - AIDN demo state already exposes richer dashboard material through `useAidnDashboardSummary` plus existing AIDN hooks for dossiers, phases, documents, meetings, certificates, next actions, and timeline.
+  - No general backend dashboard summary route exists; dashboard remains frontend-only and mock/demo-state-backed.
+  - Dashboard links into existing surfaces instead of adding mutations: `/dossiers`, `/workflow-oma`, `/reunions`, `/documents`.
 
 - OMA-FORMAL-9B0 implemented:
   - Summary: `exploration-cache/tasks/summaries/2026-05-27-oma-formal-9b0-phase-2-actor-responsibility-fix.md`.

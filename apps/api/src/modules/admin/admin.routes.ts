@@ -68,6 +68,7 @@ import {
   downloadDgCircuitTaskDocument,
   listDgCircuitTasks,
 } from "../dg-circuit/dg-circuit.service.js";
+import { getAdminDashboardSummary } from "../dashboard/dashboard.service.js";
 import {
   activateInternalAccount,
   listInternalAccounts,
@@ -135,6 +136,24 @@ const requireDgCircuitTaskAccess = requireAnyPermission([
   Permissions.COURRIER_REGISTER_PHYSICAL,
   Permissions.PRE_EVAL_DG_CIRCUIT_HANDLE,
 ]);
+
+adminRouter.get(
+  "/dashboard",
+  requirePermission(Permissions.REPORT_VIEW),
+  asyncHandler(async (req, res) => {
+    res.json(
+      await getAdminDashboardSummary(
+        {
+          preset:
+            typeof req.query.preset === "string" ? req.query.preset : undefined,
+          from: typeof req.query.from === "string" ? req.query.from : undefined,
+          to: typeof req.query.to === "string" ? req.query.to : undefined,
+        },
+        req.user!,
+      ),
+    );
+  }),
+);
 
 /* Test connection to SI_ANAC Database */
 adminRouter.get(

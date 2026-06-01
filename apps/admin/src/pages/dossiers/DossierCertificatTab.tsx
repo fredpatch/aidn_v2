@@ -14,6 +14,8 @@ import {
   dossierTypeLabels,
   formatDate,
   phaseKeyLabels,
+} from "./dossier-detail.labels";
+import {
   PhaseStatusBadge,
 } from "./dossier-detail.helpers";
 

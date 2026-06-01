@@ -87,28 +87,32 @@ export const rolePermissions: Record<Role, Permission[]> = {
     Permissions.DOCUMENT_UPLOAD_INTERNAL,
     Permissions.DOCUMENT_REVIEW,
     Permissions.MEETING_MANAGE,
-    Permissions.NOTIFICATION_SEND
+    Permissions.NOTIFICATION_SEND,
+    Permissions.REPORT_VIEW
   ],
   [Roles.DG_SECRETARIAT]: [
     Permissions.REQUEST_VIEW_ALL,
     Permissions.DG_CIRCUIT_HANDLE,
     Permissions.COURRIER_REGISTER_PHYSICAL,
     Permissions.PRE_EVAL_DG_CIRCUIT_HANDLE,
-    Permissions.PRE_EVAL_DG_RETURN_CONSULT
+    Permissions.PRE_EVAL_DG_RETURN_CONSULT,
+    Permissions.REPORT_VIEW
   ],
   [Roles.RECEPTION]: [
     Permissions.REQUEST_VIEW_ALL,
     Permissions.COURRIER_REGISTER_PHYSICAL,
     Permissions.DG_CIRCUIT_HANDLE,
     Permissions.PRE_EVAL_DG_CIRCUIT_HANDLE,
-    Permissions.PRE_EVAL_DG_RETURN_CONSULT
+    Permissions.PRE_EVAL_DG_RETURN_CONSULT,
+    Permissions.REPORT_VIEW
   ],
   [Roles.BUREAU_COURRIER]: [
     Permissions.REQUEST_VIEW_ALL,
     Permissions.COURRIER_REGISTER_PHYSICAL,
     Permissions.DG_CIRCUIT_HANDLE,
     Permissions.PRE_EVAL_DG_CIRCUIT_HANDLE,
-    Permissions.PRE_EVAL_DG_RETURN_CONSULT
+    Permissions.PRE_EVAL_DG_RETURN_CONSULT,
+    Permissions.REPORT_VIEW
   ],
   [Roles.POSTULANT]: [
     Permissions.REQUEST_SUBMIT,

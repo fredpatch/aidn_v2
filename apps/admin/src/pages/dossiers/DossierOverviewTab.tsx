@@ -2,15 +2,17 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { AdminDossierDetail } from "@/lib/api/dossiers.api";
 import {
+  dossierStatusLabels,
+  dossierTypeLabels,
+  formatDate,
+  phaseKeyLabels,
+} from "./dossier-detail.labels";
+import {
   DefinitionGrid,
   Field,
   Note,
   PhaseStatusBadge,
   Section,
-  dossierStatusLabels,
-  dossierTypeLabels,
-  formatDate,
-  phaseKeyLabels,
 } from "./dossier-detail.helpers";
 import { getPreliminaryProgress } from "./preliminary-progress.helpers";
 

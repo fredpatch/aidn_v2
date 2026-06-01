@@ -1545,11 +1545,13 @@ export const closeFormalRequestPhase = async (
       dossierId: dossierObjId,
       phaseKey: "document_evaluation",
       status: "in_progress",
+      documentEvaluationStatus: "document_evaluation_waiting_invoice",
       startedAt: now,
       startedById: actorObjId,
     });
   } else if (docEvalPhase.status === "not_started") {
     docEvalPhase.status = "in_progress" as never;
+    docEvalPhase.documentEvaluationStatus = "document_evaluation_waiting_invoice" as never;
     if (!docEvalPhase.startedAt) docEvalPhase.startedAt = now;
     if (!docEvalPhase.startedById) docEvalPhase.startedById = actorObjId;
     await docEvalPhase.save();

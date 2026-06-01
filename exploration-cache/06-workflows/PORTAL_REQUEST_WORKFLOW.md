@@ -93,6 +93,13 @@ Last reviewed: 2026-05-21
 - `portal.request_submitted`
 - `admin.request_viewed_optional`
 
+## Phase 3 Portal Payment (OMA-EVAL-1)
+
+- `GET /api/v1/portal/dossiers/:id/phases/document-evaluation/payment` returns portal-safe payment state: `phaseStatus`, `documentEvaluationStatus`, `payment.status`, `canUploadPaymentProof`
+- `POST /api/v1/portal/dossiers/:id/phases/document-evaluation/payment-proof` uploads payment proof (multipart `file`) when invoice is available
+- Invoice download is via `paymentState.payment.invoiceDocumentId` — portal must use an existing document download endpoint (exact endpoint TBD in OMA-EVAL-6)
+- `canUploadPaymentProof` is true when `paymentStatus === "invoice_sent"` or already `"payment_proof_submitted"` (re-upload allowed)
+
 ## Deferred
 
 - DN dossier opening.

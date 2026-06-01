@@ -24,6 +24,28 @@ Source: apps/admin/src/features/aidn/types/aidn.types.ts
 - AidnDemoState in apps/admin/src/features/aidn/storage/aidn-demo-storage.ts
   - demandes, courriers, dossiers, omaPhases, documents, meetings, certificates, phaseEvidenceItems, phaseNextActions, updatedAt
 
+## New collections (OMA-EVAL-1)
+
+- `phase_payments` — PhasePayment records: dossierId, phaseId, phaseKey, paymentType, status, invoiceDocumentId, paymentProofDocumentId, invoiceUploadedById, paymentProofUploadedById, invoiceSentAt, paymentProofSubmittedAt. Unique index on {dossierId, phaseId, phaseKey, paymentType}.
+- PhasePayment.status enum: `invoice_pending` | `invoice_sent` | `payment_proof_submitted`
+- PhasePayment.paymentType enum: `study_fee` | `audit_fee` | `certificate_delivery_fee`
+- PhasePayment.phaseKey enum: `document_evaluation` | `inspection` | `delivery`
+
+## New collections (OMA-EVAL-2, extended in OMA-EVAL-3)
+
+- `document_evaluations` — DocumentEvaluation records: dossierId, phaseId (Phase 3), formalPhaseId (Phase 2), requirementId, submissionId (latest active submission), status, annotation, reviewedById, reviewedAt, correctionRequestedAt, correctionSubmissionId, correctionSubmittedAt, correctionSubmittedById. Unique index on {phaseId, requirementId}.
+- DocumentEvaluation.status enum: `pending` | `satisfaisant` | `non_satisfaisant` | `correction_submitted`
+
+## Model extensions (OMA-EVAL-3)
+
+- `Document.documentType` extended with `corrected_document`
+
+## Model extensions (OMA-EVAL-1)
+
+- `OmaPhase.documentEvaluationStatus`: new nullable sub-status for Phase 3 (`document_evaluation_waiting_invoice` | `document_evaluation_waiting_payment` | `document_evaluation_payment_proof_submitted` | `document_evaluation_study_in_progress` | `document_evaluation_waiting_corrections` | `document_evaluation_ready_to_close` | `document_evaluation_closed` | null)
+- `Document.ownerType` extended with `phase_payment`
+- `Document.documentType` extended with `study_fee_invoice` and `study_fee_payment_proof`
+
 ## Backend Mongoose collections initialized
 - `users`
 - `aidn_internal_accounts`

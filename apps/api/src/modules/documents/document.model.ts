@@ -4,7 +4,7 @@ const documentSchema = new Schema(
   {
     ownerType: {
       type: String,
-      enum: ["account_request", "request", "dossier", "phase", "meeting", "dg_review", "certificate", "document_template"],
+      enum: ["account_request", "request", "dossier", "phase", "phase_payment", "meeting", "dg_review", "certificate", "document_template"],
       required: true,
       index: true
     },
@@ -27,6 +27,9 @@ const documentSchema = new Schema(
         "meeting_report",
         "phase_closure_letter",
         "certificate_template",
+        "study_fee_invoice",
+        "study_fee_payment_proof",
+        "corrected_document",
         "other"
       ],
       required: true

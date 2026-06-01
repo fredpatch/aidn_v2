@@ -34,6 +34,11 @@ import {
   uploadFormalRequestSupportingDocument,
 } from "../oma-phases/formal-request.service.js";
 import {
+  getPortalDocumentEvaluationPaymentState,
+  uploadDocumentEvaluationCorrection,
+  uploadStudyFeePaymentProof,
+} from "../oma-phases/document-evaluation.service.js";
+import {
   createPortalRequest,
   declarePortalPhysicalDeposit,
   getPortalRequest,
@@ -274,6 +279,62 @@ portalRouter.post(
         req.file,
         {
           source: "portal_upload",
+          notes: typeof req.body.notes === "string" ? req.body.notes : undefined,
+        },
+        req.user!,
+      ),
+    );
+  }),
+);
+
+// ── Phase 3 — Évaluation approfondie: payment routes (portal) ────────────────
+
+portalRouter.get(
+  "/dossiers/:id/phases/document-evaluation/payment",
+  requireAuth({ scope: "portal" }),
+  asyncHandler(async (req, res) => {
+    res.json(
+      await getPortalDocumentEvaluationPaymentState(
+        String(req.params.id),
+        req.user!,
+      ),
+    );
+  }),
+);
+
+portalRouter.post(
+  "/dossiers/:id/phases/document-evaluation/payment-proof",
+  requireAuth({ scope: "portal" }),
+  handleCourrierUpload,
+  asyncHandler(async (req, res) => {
+    res.status(201).json(
+      await uploadStudyFeePaymentProof(
+        String(req.params.id),
+        req.file,
+        {
+          paymentReference:
+            typeof req.body.paymentReference === "string" ? req.body.paymentReference : undefined,
+          paidAt: typeof req.body.paidAt === "string" ? req.body.paidAt : undefined,
+          notes: typeof req.body.notes === "string" ? req.body.notes : undefined,
+        },
+        req.user!,
+      ),
+    );
+  }),
+);
+
+// ── Phase 3 — Évaluation approfondie: correction upload (portal) ─────────────
+
+portalRouter.post(
+  "/document-evaluations/:evaluationId/correction",
+  requireAuth({ scope: "portal" }),
+  handleCourrierUpload,
+  asyncHandler(async (req, res) => {
+    res.status(201).json(
+      await uploadDocumentEvaluationCorrection(
+        String(req.params.evaluationId),
+        req.file,
+        {
           notes: typeof req.body.notes === "string" ? req.body.notes : undefined,
         },
         req.user!,

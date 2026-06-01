@@ -70,6 +70,13 @@ import {
 } from "../dg-circuit/dg-circuit.service.js";
 import { getAdminDashboardSummary } from "../dashboard/dashboard.service.js";
 import {
+  closeDocumentEvaluationPhase,
+  getDocumentEvaluationPaymentState,
+  getDocumentEvaluations,
+  reviewDocumentEvaluation,
+  uploadStudyFeeInvoice,
+} from "../oma-phases/document-evaluation.service.js";
+import {
   activateInternalAccount,
   listInternalAccounts,
   listSiUsers,
@@ -724,6 +731,81 @@ adminRouter.post(
               : undefined,
           comment: typeof req.body.comment === "string" ? req.body.comment : undefined,
         },
+      ),
+    );
+  }),
+);
+
+// ── Phase 3 — Évaluation approfondie: payment routes ─────────────────────────
+
+adminRouter.get(
+  "/dossiers/:id/phases/document-evaluation/payment",
+  requirePermission(Permissions.PAYMENT_VIEW),
+  asyncHandler(async (req, res) => {
+    res.json(
+      await getDocumentEvaluationPaymentState(String(req.params.id), req.user!),
+    );
+  }),
+);
+
+adminRouter.post(
+  "/dossiers/:id/phases/document-evaluation/invoice",
+  requirePermission(Permissions.PAYMENT_INVOICE_UPLOAD),
+  handleOmaDocumentUpload,
+  asyncHandler(async (req, res) => {
+    res.status(201).json(
+      await uploadStudyFeeInvoice(
+        String(req.params.id),
+        req.file,
+        {
+          invoiceReference:
+            typeof req.body.invoiceReference === "string" ? req.body.invoiceReference : undefined,
+          issuedAt: typeof req.body.issuedAt === "string" ? req.body.issuedAt : undefined,
+          amount: typeof req.body.amount === "string" ? req.body.amount : undefined,
+          currency: typeof req.body.currency === "string" ? req.body.currency : undefined,
+          notes: typeof req.body.notes === "string" ? req.body.notes : undefined,
+        },
+        req.user!,
+      ),
+    );
+  }),
+);
+
+// ── Phase 3 — Évaluation approfondie: close route ─────────────────────────────
+
+adminRouter.post(
+  "/dossiers/:id/phases/document-evaluation/close",
+  requirePermission(Permissions.PHASE_CLOSE),
+  asyncHandler(async (req, res) => {
+    res.json(await closeDocumentEvaluationPhase(String(req.params.id), req.user!));
+  }),
+);
+
+// ── Phase 3 — Évaluation approfondie: evaluation routes ──────────────────────
+
+adminRouter.get(
+  "/dossiers/:id/phases/document-evaluation/evaluations",
+  requirePermission(Permissions.DOCUMENT_REVIEW),
+  asyncHandler(async (req, res) => {
+    res.json(await getDocumentEvaluations(String(req.params.id), req.user!));
+  }),
+);
+
+adminRouter.patch(
+  "/dossiers/:id/phases/document-evaluation/evaluations/:evaluationId",
+  requirePermission(Permissions.DOCUMENT_REVIEW),
+  asyncHandler(async (req, res) => {
+    res.json(
+      await reviewDocumentEvaluation(
+        String(req.params.id),
+        String(req.params.evaluationId),
+        {
+          status: typeof req.body.status === "string"
+            ? (req.body.status as "satisfaisant" | "non_satisfaisant")
+            : ("" as never),
+          annotation: typeof req.body.annotation === "string" ? req.body.annotation : undefined,
+        },
+        req.user!,
       ),
     );
   }),

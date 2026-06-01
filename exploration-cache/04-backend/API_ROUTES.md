@@ -1,6 +1,6 @@
 # API Routes
 
-Last reviewed: 2026-05-29
+Last reviewed: 2026-06-01
 
 ## Implemented backend routes in repository
 
@@ -69,6 +69,10 @@ Last reviewed: 2026-05-29
 - `POST /api/v1/admin/dossiers/:id/phases/formal-request/meeting-report` - Upload formal meeting report, DOCUMENT_UPLOAD_INTERNAL, multipart (OMA-FORMAL-4)
 - `POST /api/v1/admin/dossiers/:id/phases/formal-request/documents/:requirementId` - Upload supporting document (non-gate), DOCUMENT_UPLOAD_INTERNAL, source=physical_deposit|internal_scan (OMA-FORMAL-5)
 - `POST /api/v1/portal/dossiers/:id/phases/formal-request/documents/:requirementId` - Upload supporting document, portal postulant, ownership-scoped, source=portal_upload (OMA-FORMAL-5)
+- `GET /api/v1/admin/dossiers/:id/phases/document-evaluation/payment` - Admin Phase 3 payment state, PAYMENT_VIEW (OMA-EVAL-1)
+- `POST /api/v1/admin/dossiers/:id/phases/document-evaluation/invoice` - S5/admin uploads study fee invoice, PAYMENT_INVOICE_UPLOAD, multipart file (OMA-EVAL-1)
+- `GET /api/v1/portal/dossiers/:id/phases/document-evaluation/payment` - Portal Phase 3 payment state, portal ownership-scoped (OMA-EVAL-1)
+- `POST /api/v1/portal/dossiers/:id/phases/document-evaluation/payment-proof` - Postulant uploads payment proof, portal ownership-scoped, multipart file (OMA-EVAL-1)
 
 ## Route notes
 
@@ -163,6 +167,51 @@ Last reviewed: 2026-05-29
 - Repeatable requirements allow multiple submissions.
 - Supporting doc uploads do NOT mutate formalRequestStatus, canSendToDg, canInviteFormalMeeting, canClosePhase.
 - `Document.documentType` is conservatively set to "other" for supporting docs; semantic link is via `DocumentSubmission.requirementId`.
+- Phase 3 payment routes use `PAYMENT_VIEW` (read) and `PAYMENT_INVOICE_UPLOAD` (write) permissions introduced in OMA-EVAL-1.
+- `s5_agent` role introduced: has `DOSSIER_VIEW_ALL`, `DOCUMENT_UPLOAD_INTERNAL`, `PAYMENT_INVOICE_UPLOAD`, `PAYMENT_VIEW`, `REPORT_VIEW`.
+- `reception` role gains `PAYMENT_INVOICE_UPLOAD` and `PAYMENT_VIEW`.
+- `dn_agent` and `dn_supervisor` gain `PAYMENT_VIEW`.
+- Phase 3 admin invoice upload endpoint auto-creates `PhasePayment` for study_fee if not yet present; blocks re-upload once payment proof is submitted.
+- Portal payment proof upload requires invoice to exist first (409 otherwise); re-upload (overwrite) is allowed.
+- `canStartDocumentEvaluation = invoiceDocumentId && paymentProofDocumentId` — no payment validation/rejection in this slice.
+- OmaPhase.documentEvaluationStatus transitions: `document_evaluation_waiting_invoice` → (after invoice upload) `document_evaluation_waiting_payment` → (after proof upload) `document_evaluation_payment_proof_submitted`.
+
+### Phase 3 evaluation routes (OMA-EVAL-2)
+
+- `GET /api/v1/admin/dossiers/:id/phases/document-evaluation/evaluations` — returns all DocumentEvaluation records for Phase 3; auto-initializes from Phase 2 submissions on first call after payment gate passed [DOCUMENT_REVIEW]
+- `PATCH /api/v1/admin/dossiers/:id/phases/document-evaluation/evaluations/:evaluationId` — review one evaluation: status=satisfaisant|non_satisfaisant, annotation required for non_satisfaisant [DOCUMENT_REVIEW]
+- Initialization is idempotent: one DocumentEvaluation per non-gate Phase 2 requirement (latest active submission); gate requirements (requirementLevel="gate") are excluded.
+- Auto-init runs when `documentEvaluationStatus` is in the PAYMENT_PASSED set (payment_proof_submitted or later).
+- After init, `documentEvaluationStatus` advances to `document_evaluation_study_in_progress` (from `payment_proof_submitted`).
+- After each review, `documentEvaluationStatus` is recomputed: any non_satisfaisant → `waiting_corrections`; all satisfaisant → `ready_to_close`; mixed pending+satisfaisant → stays `study_in_progress`.
+- Annotation is required when status=non_satisfaisant; re-review is allowed (status can change).
+- Audit events: `document_evaluation.evaluation_satisfaisant` / `document_evaluation.evaluation_non_satisfaisant`.
+
+### Phase 3 correction upload route (OMA-EVAL-3)
+
+- `POST /api/v1/portal/document-evaluations/:evaluationId/correction` — portal uploads corrected document for a non_satisfaisant evaluation [portal auth, ownership derived from evaluation.dossierId]
+- Guard: evaluation.status must be `non_satisfaisant`; annotation must exist; phase not closed; dossier must belong to postulant
+- Creates a Document (ownerType="phase", category="form", documentType="corrected_document", visibility="postulant_visible")
+- Creates a DocumentSubmission (phaseKey="document_evaluation", submittedByRole="postulant", source="portal_upload")
+- Updates evaluation: submissionId → new submission, correctionSubmissionId, correctionSubmittedAt, correctionSubmittedById, status="correction_submitted"
+- Previous annotation and reviewedById/reviewedAt are preserved (portal shows last DN annotation until re-review)
+- Calls syncEvaluationStatus: correction_submitted → study_in_progress (if no non_satisfaisant remain)
+- DN re-reviews via existing PATCH evaluations/:evaluationId endpoint (correction_submitted accepted as starting status)
+- Audit event: `document_evaluation.correction_submitted`
+- Notifies assignedDnAgentId if set; no notification if absent (audit event always written)
+- Deferred: "Ajouter ce document à l'évaluation" admin action (ad-hoc doc inclusion without requirement link)
+
+### Phase 3 close route (OMA-EVAL-4)
+
+- `POST /api/v1/admin/dossiers/:id/phases/document-evaluation/close` — close Phase 3, unlock Phase 4 [PHASE_CLOSE]
+- Guard: Phase 3 must exist and not be closed; all evaluations must be satisfaisant (0 pending/non_satisfaisant/correction_submitted); total evaluations > 0
+- Guard is server-side aggregate from DB (not trusting stored documentEvaluationStatus)
+- Sets Phase 3: status=closed, documentEvaluationStatus=document_evaluation_closed, closedAt, closedById
+- Sets dossier.status = inspection_phase
+- Creates/activates Phase 4 OmaPhase (phaseKey="inspection", status="in_progress")
+- Notifies postulant in-app
+- Audit event: document_evaluation.phase_closed
+- No closure courrier upload required — official communication handled outside AIDN
 
 ## Frontend-expected route patterns (generic/items only)
 

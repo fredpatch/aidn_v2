@@ -121,6 +121,21 @@ const omaPhaseSchema = new Schema(
     formalDgReturnedAt: { type: Date },
     formalMeetingHeldAt: { type: Date },
     formalClosedAt: { type: Date },
+    // ── Phase 3 - Évaluation approfondie ─────────────────────────────────────
+    documentEvaluationStatus: {
+      type: String,
+      enum: [
+        "document_evaluation_waiting_invoice",
+        "document_evaluation_waiting_payment",
+        "document_evaluation_payment_proof_submitted",
+        "document_evaluation_study_in_progress",
+        "document_evaluation_waiting_corrections",
+        "document_evaluation_ready_to_close",
+        "document_evaluation_closed",
+        null,
+      ],
+      default: null,
+    },
     // ── Shared lifecycle ──────────────────────────────────────────────────────
     startedAt: { type: Date },
     closedAt: { type: Date },

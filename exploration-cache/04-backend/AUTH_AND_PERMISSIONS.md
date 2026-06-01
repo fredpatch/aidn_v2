@@ -53,6 +53,16 @@ Last reviewed: 2026-05-19
 - Internal account activation is limited to users with `AIDN_USER_ACTIVATE`.
 - `dn_supervisor` no longer receives internal account activation/role-assignment capability by default.
 
+## OMA-EVAL-1 Role and Permission Changes (2026-06-01)
+
+- New permissions: `PAYMENT_INVOICE_UPLOAD`, `PAYMENT_VIEW`
+- New role: `s5_agent` — receives `DOSSIER_VIEW_ALL`, `DOCUMENT_UPLOAD_INTERNAL`, `PAYMENT_INVOICE_UPLOAD`, `PAYMENT_VIEW`, `REPORT_VIEW`
+- `reception` gains `PAYMENT_INVOICE_UPLOAD` and `PAYMENT_VIEW`
+- `dn_agent` gains `PAYMENT_VIEW`
+- `dn_supervisor` gains `PAYMENT_VIEW`
+- `admin` and `bootstrap_admin` receive all permissions automatically
+- `bureau_courrier` does NOT receive payment permissions
+
 ## Internal personnel rule
 - Internal ANAC users must come from the official personnel adapter.
 - `employee_directory` has no active-status field. The official personnel DB only confirms existence. AIDN account activity is determined by `AidnInternalAccount.status`.

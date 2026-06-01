@@ -1,7 +1,7 @@
 {
   "name": "aidn-exploration-cache",
   "version": "1.0.0",
-  "lastUpdated": "2026-05-29",
+  "lastUpdated": "2026-06-01",
   "entrypoints": [
     "00-control/SOURCE_OF_TRUTH.md",
     "00-control/CURRENT_STATE.md",
@@ -42,6 +42,96 @@
     "99-session-notes": "Session-level trace"
   },
   "recentExplorationCacheUpdates": [
+    {
+      "date": "2026-06-01",
+      "phase": "OMA-EVAL-5-PHASE3-UI-AUDIT-PLANNING",
+      "created": [
+        "exploration-cache/tasks/summaries/2026-06-01-oma-eval-5-phase-3-ui-audit-planning.md",
+        "exploration-cache/tasks/history/2026-06-01-oma-eval-5-phase-3-ui-audit-planning.md"
+      ],
+      "updated": [
+        "exploration-cache/tasks/current-task.md"
+      ],
+      "notes": "Audit of admin/portal UI patterns for Phase 3 workspace. No implementation. Confirmed DossierPhasesTab routing, UploadDocumentDialog, DialogKey pattern, openBlobInNewTab, hasPermission guard, portal inline upload forms, action-required cards. Produced full slice plan: OMA-EVAL-5A (API types), 5B (workspace), 5C (integration), 6A (portal API), 6B (portal UI), 7 (cross-tab polish)."
+    },
+    {
+      "date": "2026-06-01",
+      "phase": "OMA-EVAL-4-PHASE3-CLOSE",
+      "created": [
+        "exploration-cache/tasks/summaries/2026-06-01-oma-eval-4-phase-close-implementation.md",
+        "exploration-cache/tasks/history/2026-06-01-oma-eval-4-phase-close.md"
+      ],
+      "updated": [
+        "apps/api/src/modules/oma-phases/document-evaluation.service.ts",
+        "apps/api/src/modules/admin/admin.routes.ts",
+        "exploration-cache/04-backend/API_ROUTES.md",
+        "exploration-cache/tasks/current-task.md"
+      ],
+      "notes": "Phase 3 close: closeDocumentEvaluationPhase with server-side DB aggregate guard (no pending/non_satisfaisant/correction_submitted), Phase 4 inspection OmaPhase creation, dossier.status=inspection_phase, postulant notification, audit event. POST /close [PHASE_CLOSE]. API PASS."
+    },
+    {
+      "date": "2026-06-01",
+      "phase": "OMA-EVAL-3-CORRECTION-LOOP",
+      "created": [
+        "exploration-cache/tasks/summaries/2026-06-01-oma-eval-3-correction-loop-implementation.md",
+        "exploration-cache/tasks/history/2026-06-01-oma-eval-3-correction-loop.md"
+      ],
+      "updated": [
+        "apps/api/src/modules/document-evaluations/document-evaluation.model.ts",
+        "apps/api/src/modules/documents/document.model.ts",
+        "apps/api/src/modules/oma-phases/document-evaluation.service.ts",
+        "apps/api/src/modules/portal/portal.routes.ts",
+        "exploration-cache/04-backend/API_ROUTES.md",
+        "exploration-cache/05-data/DATA_MODELS.md",
+        "exploration-cache/tasks/current-task.md"
+      ],
+      "notes": "Correction loop: correction_submitted status + correctionRequestedAt/submittedAt/submittedById fields on DocumentEvaluation; corrected_document documentType; uploadDocumentEvaluationCorrection service; POST /portal/document-evaluations/:evaluationId/correction. syncEvaluationStatus updated for correction_submitted. API PASS."
+    },
+    {
+      "date": "2026-06-01",
+      "phase": "OMA-EVAL-2-DOCUMENT-EVALUATION",
+      "created": [
+        "apps/api/src/modules/document-evaluations/document-evaluation.model.ts",
+        "exploration-cache/tasks/summaries/2026-06-01-oma-eval-2-document-evaluation-implementation.md",
+        "exploration-cache/tasks/history/2026-06-01-oma-eval-2-document-evaluation.md"
+      ],
+      "updated": [
+        "apps/api/src/modules/oma-phases/document-evaluation.service.ts",
+        "apps/api/src/modules/admin/admin.routes.ts",
+        "exploration-cache/04-backend/API_ROUTES.md",
+        "exploration-cache/05-data/DATA_MODELS.md",
+        "exploration-cache/tasks/current-task.md"
+      ],
+      "notes": "Document evaluation: DocumentEvaluationModel (document_evaluations), auto-init from Phase 2 submissions (idempotent, payment-gated, gate requirements excluded), getDocumentEvaluations (GET + auto-init), reviewDocumentEvaluation (PATCH satisfaisant/non_satisfaisant + annotation + docEvalStatus sync). API PASS."
+    },
+    {
+      "date": "2026-06-01",
+      "phase": "OMA-EVAL-1-PAYMENT-GATE",
+      "created": [
+        "apps/api/src/modules/payments/phase-payment.model.ts",
+        "apps/api/src/modules/oma-phases/document-evaluation.service.ts",
+        "exploration-cache/06-workflows/OMA_DOCUMENT_EVALUATION_WORKFLOW.md",
+        "exploration-cache/tasks/summaries/2026-06-01-oma-eval-0-phase-3-audit-planning.md",
+        "exploration-cache/tasks/summaries/2026-06-01-oma-eval-1-payment-gate-implementation.md",
+        "exploration-cache/tasks/history/2026-06-01-oma-eval-0-phase-3-audit-planning.md",
+        "exploration-cache/tasks/history/2026-06-01-oma-eval-1-payment-gate.md"
+      ],
+      "updated": [
+        "apps/api/src/shared/permissions/permissions.ts",
+        "apps/api/src/modules/documents/document.model.ts",
+        "apps/api/src/modules/oma-phases/oma-phase.model.ts",
+        "apps/api/src/modules/oma-phases/formal-request.service.ts",
+        "apps/api/src/modules/admin/admin.routes.ts",
+        "apps/api/src/modules/portal/portal.routes.ts",
+        "exploration-cache/04-backend/API_ROUTES.md",
+        "exploration-cache/04-backend/AUTH_AND_PERMISSIONS.md",
+        "exploration-cache/05-data/DATA_MODELS.md",
+        "exploration-cache/06-workflows/PORTAL_REQUEST_WORKFLOW.md",
+        "exploration-cache/tasks/current-task.md",
+        "exploration-cache/manifest.json"
+      ],
+      "notes": "Phase 3 payment gate: PhasePaymentModel, document-evaluation.service, s5_agent role, PAYMENT_INVOICE_UPLOAD/PAYMENT_VIEW permissions, OmaPhase.documentEvaluationStatus, admin invoice upload + read, portal payment state + proof upload. API PASS."
+    },
     {
       "date": "2026-05-29",
       "phase": "DASH-2R-DASHBOARD-CORRECTION-PASS",

@@ -27,6 +27,8 @@ export const Permissions = {
   DOCUMENT_DELETE: "DOCUMENT_DELETE",
   MEETING_MANAGE: "MEETING_MANAGE",
   NOTIFICATION_SEND: "NOTIFICATION_SEND",
+  PAYMENT_INVOICE_UPLOAD: "PAYMENT_INVOICE_UPLOAD",
+  PAYMENT_VIEW: "PAYMENT_VIEW",
   REPORT_VIEW: "REPORT_VIEW",
   REPORT_EXPORT: "REPORT_EXPORT",
   AUDIT_VIEW: "AUDIT_VIEW",
@@ -43,6 +45,7 @@ export const Roles = {
   DG_SECRETARIAT: "dg_secretariat",
   RECEPTION: "reception",
   BUREAU_COURRIER: "bureau_courrier",
+  S5_AGENT: "s5_agent",
   POSTULANT: "postulant"
 } as const;
 
@@ -73,6 +76,7 @@ export const rolePermissions: Record<Role, Permission[]> = {
     Permissions.DOCUMENT_PUBLISH,
     Permissions.MEETING_MANAGE,
     Permissions.NOTIFICATION_SEND,
+    Permissions.PAYMENT_VIEW,
     Permissions.REPORT_VIEW,
     Permissions.AUDIT_VIEW
   ],
@@ -88,6 +92,7 @@ export const rolePermissions: Record<Role, Permission[]> = {
     Permissions.DOCUMENT_REVIEW,
     Permissions.MEETING_MANAGE,
     Permissions.NOTIFICATION_SEND,
+    Permissions.PAYMENT_VIEW,
     Permissions.REPORT_VIEW
   ],
   [Roles.DG_SECRETARIAT]: [
@@ -104,6 +109,8 @@ export const rolePermissions: Record<Role, Permission[]> = {
     Permissions.DG_CIRCUIT_HANDLE,
     Permissions.PRE_EVAL_DG_CIRCUIT_HANDLE,
     Permissions.PRE_EVAL_DG_RETURN_CONSULT,
+    Permissions.PAYMENT_INVOICE_UPLOAD,
+    Permissions.PAYMENT_VIEW,
     Permissions.REPORT_VIEW
   ],
   [Roles.BUREAU_COURRIER]: [
@@ -112,6 +119,13 @@ export const rolePermissions: Record<Role, Permission[]> = {
     Permissions.DG_CIRCUIT_HANDLE,
     Permissions.PRE_EVAL_DG_CIRCUIT_HANDLE,
     Permissions.PRE_EVAL_DG_RETURN_CONSULT,
+    Permissions.REPORT_VIEW
+  ],
+  [Roles.S5_AGENT]: [
+    Permissions.DOSSIER_VIEW_ALL,
+    Permissions.DOCUMENT_UPLOAD_INTERNAL,
+    Permissions.PAYMENT_INVOICE_UPLOAD,
+    Permissions.PAYMENT_VIEW,
     Permissions.REPORT_VIEW
   ],
   [Roles.POSTULANT]: [

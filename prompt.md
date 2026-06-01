@@ -145,260 +145,449 @@ YYYY-MM-DD-<phase-name>-correction.md
 
 # CURRENT OBJECTIVE
 
-# DASH-2R — Dashboard UI / Runtime Correction Pass
+# OMA-EVAL-5 — Phase 3 UI Audit & Planning
 
 You are working inside the existing `AIDN_V2` repository.
 
-## Context
+## Objective
 
-DASH-1 backend and DASH-2 admin UI are complete.
+Audit existing admin/portal UI patterns and produce a step-by-step implementation plan for the Phase 3 UI:
 
-The dashboard now loads real data from:
+```txt
+Phase 3 — Évaluation approfondie des documents
+```
 
-```http
-GET /api/v1/admin/dashboard
+Do not implement yet.
 
-A browser check showed the dashboard is functional and visually usable, but a few correction items are needed before moving to reports or new features.
+This pass must inspect existing UI patterns, API client structure, and reusable components, then return a planning report.
 
-Do not redesign the dashboard.
-Do not add charts.
-Do not add exports.
-Do not implement certificate backend.
-Do not add new workflow actions.
-Keep this as a correction pass.
+---
 
-Issues to fix
-1. Fix OMA SLA expected business-day constants
+## Current validated backend state
 
-The dashboard currently shows incorrect expected durations:
+OMA-EVAL-1 to OMA-EVAL-4 are complete.
 
-Phase préliminaire: 20
-Demande formelle: 30
-Évaluation documentaire: 45
-Inspection: 30
-Délivrance: 15
+Backend supports:
 
-Correct official expected durations are:
+```txt
+- Phase 3 payment gate
+- S5/admin invoice upload
+- Portal payment proof upload
+- DN/S5 payment state consultation
+- DocumentEvaluation records
+- DN review: satisfaisant / non_satisfaisant + annotation
+- Portal correction upload
+- DN re-review
+- Phase 3 close
+- Phase 4 unlock
+```
 
-Phase 1 — Phase préliminaire: 30 jours ouvrés
-Phase 2 — Demande formelle: 10 jours ouvrés
-Phase 3 — Évaluation documentaire: 30 jours ouvrés
-Phase 4 — Inspection / démonstration: 25 jours ouvrés
-Phase 5 — Délivrance: 5 jours ouvrés
+No Phase 3 UI exists yet.
 
-Fix this in the backend dashboard constants/helper, not in React.
+---
 
-Expected UI result:
+## Business behavior to reflect in UI
 
-Délai prévu : 30 jours ouvrés
-Délai prévu : 10 jours ouvrés
-Délai prévu : 30 jours ouvrés
-Délai prévu : 25 jours ouvrés
-Délai prévu : 5 jours ouvrés
-2. Improve placeholder phase badge logic
+Phase 3 flow:
 
-Current issue:
+```txt
+1. Phase 3 starts after Phase 2 closes
+2. S5 uploads invoice for study fees
+3. Postulant uploads payment proof
+4. DN can start document evaluation
+5. DN reviews documents from Phase 2:
+   - satisfaisant
+   - non_satisfaisant + annotation
+6. Postulant uploads corrected document when requested
+7. DN re-reviews correction
+8. When all blocking documents are satisfaisant, DN closes Phase 3
+9. Phase 4 is unlocked
+```
 
-Évaluation documentaire
-Dossiers actuels : 1
-Badge : À venir
+Important:
 
-This is contradictory because the phase has active records.
+```txt
+No Phase III closure courrier upload.
+Closure is button-based.
+Official communication remains outside AIDN / Outlook.
+AIDN sends in-app notification.
+```
 
-Update UI badge behavior:
+---
 
-implemented = true
-→ Actif
+## Cache-first protocol
 
-implemented = false AND currentDossiers === 0
-→ À venir
+Start by reading:
 
-implemented = false AND currentDossiers > 0
-→ Phase ouverte
-
-Optional alternative label:
-
-Structure partielle
-
-Preferred label:
-
-Phase ouverte
-
-Do not hide placeholder phases.
-
-3. Improve unavailable certificate metrics
-
-Current issue:
-
-Certificats délivrés: À venir + badge Normal
-Certificats prêts: À venir + badge Normal
-
-When meta.unavailableMetrics contains "certificates":
-
-show value as À venir;
-badge should be Non disponible;
-use muted/neutral styling;
-do not show Normal.
-
-Affected cards:
-
-Certificats délivrés
-Certificats prêts
-Certificats signés/cachetés if displayed
-
-Do not remove certificate cards.
-
-4. Improve priority action labels for documents
-
-Current issue:
-
-Many actions appear as repeated generic labels:
-
-Document à vérifier
-Document à vérifier
-Document à vérifier
-
-Expected display:
-
-Document à vérifier
-Demande formelle
-28/05/2026 10:19
-
-If backend already provides entityLabel, make it more visible in UI.
-
-If backend does not provide a useful document/entity label, update backend priority action generation to include a better entityLabel, using available fields such as:
-
-document title
-document fileName
-requirement label
-phase label
-dossier number
-
-Do not calculate business priority in React; only improve labels.
-
-5. Clean French labels / accents
-
-Fix visible labels in touched dashboard code:
-
-A imprimer DG → À imprimer DG
-En attente retour DG → En attente du retour DG
-Reunions à venir → Réunions à venir
-Certificats delivrés → Certificats délivrés
-A venir → À venir
-A suivre → À suivre
-
-Also verify:
-
-Mois en cours
-Année
-Dossiers non assignés
-Documents à vérifier
-Corrections postulant
-Phases en retard
-Activité récente
-
-Use proper French accents.
-
-Files to inspect
-apps/api/src/modules/dashboard/dashboard.helpers.ts
-apps/api/src/modules/dashboard/dashboard.service.ts
-apps/api/src/modules/dashboard/dashboard.types.ts
-apps/admin/src/pages/DashboardPage.tsx
-apps/admin/src/lib/api/dashboard.api.ts
-
-Also inspect existing UI badge/card primitives if needed.
-
-Backend changes allowed
-
-Allowed only for:
-
-SLA constants
-priorityActions entityLabel/metadata
-
-Do not change endpoint route or response structure unless required for safer labels.
-
-Frontend changes allowed
-
-Allowed only for:
-
-phase badge logic
-certificate unavailable display
-labels/accents
-priority action presentation
-small spacing/readability fixes
-
-Do not add new sections.
-
-Verification commands
-
-Run if backend touched:
-
-cd apps/api
-npm run typecheck
-npm run build
-
-Run for admin:
-
-cd apps/admin
-npx tsc --noEmit
-npm run build
-
-If build hits the known Vite/Tailwind native Windows binary issue, document it and rerun outside sandbox if that is the existing project convention.
-
-Manual browser checks
-
-Check dashboard with DN profile:
-
-1. SLA values match official values.
-2. Phase 3–5 show À venir only when no active dossier exists.
-3. Any not-implemented phase with currentDossiers > 0 shows Phase ouverte.
-4. Certificate cards show À venir + Non disponible, not Normal.
-5. Priority actions show useful secondary labels.
-6. French accents are correct.
-7. Period selector still works.
-8. No mock data appears.
-
-Check courrier/DG profile:
-
-1. Courrier/DG dashboard still renders.
-2. DN-only sections remain hidden.
-3. Labels are accented correctly.
-4. No permission regression.
-Documentation updates
-
-Update:
-
-TASK.md
-exploration-cache/03-frontend/ADMIN_APP_MAP.md
-exploration-cache/04-backend/API_ROUTES.md
-exploration-cache/09-qa/BUILD_AND_TEST_COMMANDS.md
-exploration-cache/tasks/current-task.md
+```txt
+prompt.md
 exploration-cache/manifest.json
+exploration-cache/QUICK-REFERENCE.md
+exploration-cache/tasks/current-task.md
+exploration-cache/tasks/summaries/2026-06-01-oma-eval-1-payment-gate-implementation.md
+exploration-cache/tasks/summaries/2026-06-01-oma-eval-2-document-evaluation-implementation.md
+exploration-cache/tasks/summaries/2026-06-01-oma-eval-3-correction-loop-implementation.md
+exploration-cache/tasks/summaries/2026-06-01-oma-eval-4-phase-close-implementation.md
+exploration-cache/03-frontend/ADMIN_APP_MAP.md
+exploration-cache/03-frontend/PORTAL_APP_MAP.md
+exploration-cache/04-backend/API_ROUTES.md
+exploration-cache/05-data/DATA_MODELS.md
+exploration-cache/06-workflows/OMA_DOCUMENT_EVALUATION_WORKFLOW.md
+exploration-cache/09-qa/BUILD_AND_TEST_COMMANDS.md
+```
 
-Create:
+If a file is missing, report:
 
-exploration-cache/tasks/summaries/2026-05-29-dash-2r-dashboard-correction-pass.md
+```txt
+CACHE GAP: <missing path>
+```
 
-Document:
+---
 
-SLA constants corrected;
-phase badge logic corrected;
-certificate unavailable display corrected;
-priority action labels improved;
-French labels cleaned;
-verification commands.
-Expected implementation report
+## Source areas to inspect
+
+### Admin UI
+
+Inspect narrowly:
+
+```txt
+apps/admin/src/pages/DossierDetailPage.tsx
+apps/admin/src/pages/dossiers/
+apps/admin/src/lib/api/dossiers.api.ts
+apps/admin/src/lib/api/client.ts
+apps/admin/src/lib/utils/blob.ts
+apps/admin/src/lib/utils/error.ts
+apps/admin/src/pages/dossiers/components/UploadDocumentDialog.tsx
+```
+
+Look for:
+
+```txt
+- Phase workspace pattern
+- Phase 1/2 guided action cards
+- payment/download/upload UI patterns
+- close phase button pattern
+- error/loading handling
+- document download/open behavior
+- toast behavior
+- badge/status helpers
+- tab integration
+```
+
+### Portal UI
+
+Inspect narrowly:
+
+```txt
+apps/portal/src/pages/RequestDetailPage.tsx
+apps/portal/src/lib/api/portal.api.ts
+apps/portal/src/components/
+apps/portal/src/lib/api/http.ts
+```
+
+Look for:
+
+```txt
+- existing payment proof upload pattern
+- correction upload pattern
+- document download pattern
+- status display pattern
+- notification/action required wording
+- phase block/card structure
+```
+
+### Optional design/prototype input
+
+If useful, prepare a Claude/Cursor design prompt for a static prototype only.
+
+Do not implement design yet.
+
+The prototype should visualize:
+
+```txt
+Admin Phase 3 workspace:
+- left progression column
+- right guided action card
+- S5/payment block
+- evaluation board
+- document preview/download actions
+- satisfaisant / non_satisfaisant review control
+- annotation textarea
+- close phase action
+
+Portal Phase 3 block:
+- invoice download
+- payment proof upload
+- correction required list
+- annotation display
+- correction upload action
+```
+
+---
+
+## Required planning report
 
 Return:
 
-Files modified.
-SLA constants corrected.
-Phase badge behavior.
-Certificate unavailable behavior.
-Priority action label behavior.
-French label cleanup.
-Verification commands run.
-Browser/manual checks run or not run.
-Known risks/TODOs.
-Next recommended slice.
+```txt
+1. CACHE STATUS
+2. Existing reusable admin UI patterns
+3. Existing reusable portal UI patterns
+4. API client gaps
+5. Component gaps
+6. Proposed admin Phase 3 workspace UX
+7. Proposed portal Phase 3 UX
+8. Proposed API client additions
+9. Proposed component structure
+10. Recommended implementation slices
+11. Risks / open questions
+12. Next step
+```
+
+---
+
+## Admin UX target
+
+Admin Phase 3 should follow the same structure as Phase 1/2:
+
+```txt
+Left:
+- Phase progression
+- Paiement frais d’étude
+- Évaluation documentaire
+- Corrections en attente
+- Clôture
+
+Right:
+- Guided action card
+- Current required action
+- Payment details
+- Evaluation board
+```
+
+Recommended sections:
+
+```txt
+1. État de la phase
+2. Paiement des frais d’étude
+3. Documents à évaluer
+4. Corrections demandées
+5. Clôture de la phase
+```
+
+French UI labels:
+
+```txt
+Facture des frais d’étude
+Preuve de paiement
+Paiement reçu
+Démarrer l’évaluation
+Documents à évaluer
+Satisfaisant
+Non satisfaisant
+Annotation DN
+Correction demandée
+Correction reçue
+Clôturer la phase III
+```
+
+---
+
+## Admin expected actions
+
+Admin/DN/S5 actions depend on permissions:
+
+```txt
+PAYMENT_INVOICE_UPLOAD:
+- upload invoice
+
+PAYMENT_VIEW:
+- view invoice/proof state
+- download invoice/proof
+
+DOCUMENT_REVIEW:
+- start study
+- mark document satisfaisant
+- mark document non_satisfaisant with annotation
+
+PHASE_CLOSE:
+- close Phase 3 when ready
+```
+
+Do not assume all users can do all actions.
+
+---
+
+## Portal UX target
+
+Portal Phase 3 should stay simple.
+
+Recommended sections:
+
+```txt
+1. Facture
+2. Paiement
+3. Évaluation des documents
+4. Corrections demandées
+```
+
+Portal labels:
+
+```txt
+Facture disponible
+Télécharger la facture
+Déposer la preuve de paiement
+Preuve de paiement envoyée
+Document satisfaisant
+Correction demandée
+Annotation de la DN
+Déposer le document corrigé
+Correction envoyée
+Phase III clôturée
+```
+
+Portal must not show internal DN technical noise.
+
+---
+
+## Required implementation split to validate
+
+Do not implement in this pass, but evaluate this split:
+
+```txt
+OMA-EVAL-5A — Admin API client/types:
+- add document-evaluation payment/evaluation/close methods
+- add types for payment state, evaluations, progress
+
+OMA-EVAL-5B — Admin Phase 3 workspace:
+- DocumentEvaluationPhaseWorkspace.tsx
+- payment state block
+- evaluation board
+- review dialogs/forms
+- close phase action
+
+OMA-EVAL-5C — Admin dossier integration:
+- render Phase 3 workspace in DossierPhasesTab / phase router
+- update Documents tab if needed
+- update Historique tab if simple
+
+OMA-EVAL-6A — Portal API client/types:
+- payment state
+- payment proof upload
+- correction upload
+- invoice/document download
+
+OMA-EVAL-6B — Portal Phase 3 UI:
+- invoice download
+- proof upload
+- correction list
+- annotation display
+- correction upload
+
+OMA-EVAL-7 — UX polish/cross-tab:
+- Documents tab Phase 3 section
+- Historique events
+- Dashboard priority actions if needed
+```
+
+---
+
+## Prototype/design deliverable
+
+If planning finds UI ambiguity, include a separate prompt titled:
+
+```txt
+Claude Design Prompt — Phase 3 Workspace Prototype
+```
+
+The design prompt should request a static visual/prototype only.
+
+It must not request implementation.
+
+It should ask for:
+
+```txt
+- Swiss-style compact institutional layout
+- French labels
+- desktop-first admin workspace
+- portal simplified block
+- no fake business rules
+- clear state variants:
+  1. waiting invoice
+  2. waiting payment proof
+  3. study in progress
+  4. corrections waiting
+  5. ready to close
+  6. closed
+```
+
+---
+
+## Cache updates
+
+Update:
+
+```txt
+exploration-cache/tasks/current-task.md
+```
+
+Create summary:
+
+```txt
+exploration-cache/tasks/summaries/2026-06-01-oma-eval-5-phase-3-ui-audit-planning.md
+```
+
+Create/update history:
+
+```txt
+exploration-cache/tasks/history/2026-06-01-oma-eval-5-phase-3-ui-audit-planning.md
+```
+
+Only update `manifest.json` if current cache convention requires planning-pass manifest updates.
+
+Summary must include:
+
+```txt
+Objective
+Cache files read
+Source files inspected
+Files changed
+Key decisions
+Implementation details, if any
+Verification commands run
+Manual checks
+Known risks / TODOs
+Next step
+```
+
+---
+
+## Verification
+
+No build required unless files are changed beyond cache.
+
+If source files are inspected only, report:
+
+```txt
+Verification commands run: not run — audit/planning only
+Manual checks: not run — no implementation
+```
+
+---
+
+## Return report
+
+Return:
+
+```txt
+1. Cache status
+2. Files inspected
+3. Existing patterns found
+4. UI gaps
+5. API client gaps
+6. Admin Phase 3 UX plan
+7. Portal Phase 3 UX plan
+8. Component/API split
+9. Prototype/design prompt if useful
+10. Recommended next implementation slice
 ```

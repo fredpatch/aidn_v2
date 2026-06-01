@@ -1,5 +1,78 @@
 # Current Task
 
+## Phase: OMA-EVAL-5 — Phase 3 UI Audit & Planning
+
+Date: 2026-06-01
+Status: **Complete — audit/planning only**
+
+## Summary file
+
+- Planning: `exploration-cache/tasks/summaries/2026-06-01-oma-eval-5-phase-3-ui-audit-planning.md`
+- History: `exploration-cache/tasks/history/2026-06-01-oma-eval-5-phase-3-ui-audit-planning.md`
+
+## Key findings
+
+- Phase workspace pattern: `DossierPhasesTab` routes to workspace component per phaseKey; need `DocumentEvaluationPhaseWorkspace.tsx`
+- API gaps: zero Phase 3 methods in `dossiers.api.ts` or `portal.api.ts`
+- Reusable: `UploadDocumentDialog`, `hasPermission`, `openBlobInNewTab`, `DefinitionGrid`/`Field`, `DialogKey` pattern, `extractError`, `PhaseStatusBadge`, `WaitingState`, `ActionError`
+- Portal: inline forms, `portalPostForm`, action-required cards, `RequestStatusBadge`
+- OPEN: portal Phase 3 block location (RequestDetailPage or new dossier page)
+- OPEN: Phase 3 document download admin endpoint scope (phase_payment ownerType may need dedicated handler)
+
+## Next step
+
+Implement **OMA-EVAL-5A** (admin API client + types):
+- Types: DocumentEvaluationStatus, PhasePaymentStatus, AdminDocEvalPaymentState, AdminDocEvalEvaluation, AdminDocEvalState, AdminDocEvalProgress, AdminDocEvalCloseResult
+- Methods: getDocumentEvaluationPaymentState, uploadStudyFeeInvoice, getDocumentEvaluations, reviewDocumentEvaluation, closeDocumentEvaluationPhase
+
+Then **OMA-EVAL-5B** (admin workspace component).
+
+## Phase: OMA-EVAL-4 — Backend Phase 3 Close + Unlock Phase 4
+
+Date: 2026-06-01
+Status: **Complete — API typecheck PASS, build PASS**
+
+## Summary file
+
+- Implementation: `exploration-cache/tasks/summaries/2026-06-01-oma-eval-4-phase-close-implementation.md`
+- History: `exploration-cache/tasks/history/2026-06-01-oma-eval-4-phase-close.md`
+
+## Files changed
+
+- MOD: `apps/api/src/modules/oma-phases/document-evaluation.service.ts` — added closeDocumentEvaluationPhase
+- MOD: `apps/api/src/modules/admin/admin.routes.ts` — added POST close route + import
+
+## Next step
+
+Implement **OMA-EVAL-5** (admin Phase 3 workspace UI):
+- `DocumentEvaluationPhaseWorkspace.tsx` component
+- Payment state display + invoice download link
+- Evaluation list with satisfaisant/non_satisfaisant review controls
+- Correction submission indicator
+- Phase close button (guards: ready_to_close)
+
+## Phase: OMA-EVAL-3 — Backend Correction Upload Loop
+
+Date: 2026-06-01
+Status: **Complete — API typecheck PASS, build PASS**
+
+## Phase: OMA-EVAL-2 — Backend Document Evaluation
+
+Date: 2026-06-01
+Status: **Complete — API typecheck PASS, build PASS**
+
+## Phase: OMA-EVAL-1 — Backend Payment Gate
+
+Date: 2026-06-01
+Status: **Complete — API typecheck PASS, lint PASS, build PASS**
+
+## Phase: OMA-EVAL-0 — Phase 3 Audit + Implementation Plan
+
+Date: 2026-06-01
+Status: **Complete — planning only**
+
+---
+
 ## Phase: DASH-2R - Dashboard UI / Runtime Correction Pass
 
 Date: 2026-05-29

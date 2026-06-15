@@ -530,28 +530,40 @@ export const getDocumentEvaluations = async (
     .sort({ createdAt: 1 })
     .lean();
 
-  // Bulk-load requirements and submissions for join
+  // Bulk-load requirements, submissions, and correction submissions for join
   const reqIds = evaluations
     .map((e) => e.requirementId)
     .filter(Boolean) as Types.ObjectId[];
   const subIds = evaluations
     .map((e) => e.submissionId)
     .filter(Boolean) as Types.ObjectId[];
+  const corrSubIds = evaluations
+    .map((e) => e.correctionSubmissionId)
+    .filter(Boolean) as Types.ObjectId[];
 
-  const [requirements, submissions] = await Promise.all([
+  const [requirements, submissions, correctionSubmissions] = await Promise.all([
     DocumentRequirementModel.find({ _id: { $in: reqIds } }).lean(),
     DocumentSubmissionModel.find({ _id: { $in: subIds } }).lean(),
+    corrSubIds.length > 0
+      ? DocumentSubmissionModel.find({ _id: { $in: corrSubIds } })
+          .select("_id documentId")
+          .lean()
+      : Promise.resolve([]),
   ]);
 
   const reqMap = new Map(requirements.map((r) => [r._id.toString(), r]));
   const subMap = new Map(submissions.map((s) => [s._id.toString(), s]));
+  const corrSubMap = new Map(correctionSubmissions.map((s) => [s._id.toString(), s]));
 
   const serialized = evaluations.map((ev) => {
     const req = reqMap.get(ev.requirementId?.toString() ?? "");
     const sub = subMap.get(ev.submissionId?.toString() ?? "");
+    const corrSubIdStr = (ev.correctionSubmissionId as unknown as Types.ObjectId | null | undefined)
+      ?.toString() ?? "";
+    const corrSub = corrSubIdStr ? (corrSubMap.get(corrSubIdStr) ?? null) : null;
     return {
       id: ev._id.toString(),
-      status: String(ev.status) as "pending" | "satisfaisant" | "non_satisfaisant",
+      status: String(ev.status) as "pending" | "satisfaisant" | "non_satisfaisant" | "correction_submitted",
       annotation: ev.annotation ?? null,
       reviewedById: toId(ev.reviewedById as unknown as GenericRecord | null | undefined),
       reviewedAt: toIso(ev.reviewedAt as unknown as GenericRecord | null | undefined),
@@ -574,6 +586,11 @@ export const getDocumentEvaluations = async (
       correctionSubmissionId: toId(
         ev.correctionSubmissionId as unknown as GenericRecord | null | undefined,
       ),
+      correctionDocument: corrSub
+        ? { documentId: (corrSub as unknown as GenericRecord).documentId
+            ? String((corrSub as unknown as GenericRecord).documentId)
+            : null }
+        : null,
     };
   });
 
@@ -943,5 +960,129 @@ export const uploadDocumentEvaluationCorrection = async (
       id: submission._id.toString(),
       status: "submitted" as const,
     },
+  };
+};
+
+// ── OMA-EVAL-6B: Portal — get Phase 3 state (payment + evaluations) ───────────
+
+export const getPortalDocumentEvaluationState = async (
+  dossierId: string,
+  actor: Actor,
+) => {
+  const { dossier } = await getOwnedDossier(dossierId, actor);
+  const dossierObjId = dossier._id as Types.ObjectId;
+
+  // Load Phase 3 without throwing on closed — portal reads closed state too
+  const phase = await OmaPhaseModel.findOne({
+    dossierId: dossierObjId,
+    phaseKey: "document_evaluation",
+  }).lean();
+
+  if (!phase) {
+    throw new HttpError(404, "Phase d'évaluation approfondie non disponible.");
+  }
+
+  const phaseObjId = phase._id as Types.ObjectId;
+  const docEvalStatus = String((phase as unknown as GenericRecord).documentEvaluationStatus ?? "");
+  const phaseClosed = String(phase.status) === "closed";
+
+  // Load payment (no auto-create — portal is read-only for payment init)
+  const payment = await PhasePaymentModel.findOne({
+    dossierId: dossierObjId,
+    phaseKey: "document_evaluation",
+    paymentType: "study_fee",
+  }).lean() as unknown as GenericRecord | null;
+
+  const paymentStatus = payment
+    ? (String(payment.status) as "invoice_pending" | "invoice_sent" | "payment_proof_submitted")
+    : "invoice_pending";
+
+  const canUploadPaymentProof =
+    !phaseClosed &&
+    (paymentStatus === "invoice_sent" || paymentStatus === "payment_proof_submitted");
+
+  // Load evaluations only after payment gate is passed
+  type PortalEvalEntry = {
+    evaluationId: string;
+    requirementLabel: string;
+    requirementCode: string | null;
+    formCode: string | null;
+    status: "pending" | "satisfaisant" | "non_satisfaisant" | "correction_submitted";
+    annotation: string | null;
+    correctionRequestedAt: string | null;
+    correctionSubmittedAt: string | null;
+    canUploadCorrection: boolean;
+  };
+
+  let evaluations: PortalEvalEntry[] = [];
+  let progress = {
+    total: 0,
+    pending: 0,
+    satisfaisant: 0,
+    nonSatisfaisant: 0,
+    correctionSubmitted: 0,
+  };
+
+  if (PAYMENT_PASSED_STATUSES.has(docEvalStatus)) {
+    const rawEvaluations = await DocumentEvaluationModel.find({ phaseId: phaseObjId })
+      .sort({ createdAt: 1 })
+      .lean();
+
+    const reqIds = rawEvaluations
+      .map((e) => e.requirementId)
+      .filter(Boolean) as Types.ObjectId[];
+    const requirements = await DocumentRequirementModel.find({
+      _id: { $in: reqIds },
+    }).lean();
+    const reqMap = new Map(requirements.map((r) => [r._id.toString(), r]));
+
+    evaluations = rawEvaluations.map((ev) => {
+      const req = reqMap.get(ev.requirementId?.toString() ?? "");
+      const status = String(ev.status) as PortalEvalEntry["status"];
+      const annotation = (ev.annotation as string | null | undefined) ?? null;
+      const canUploadCorrection =
+        !phaseClosed && status === "non_satisfaisant" && Boolean(annotation);
+
+      return {
+        evaluationId: ev._id.toString(),
+        requirementLabel: req ? String(req.label) : "Document évalué",
+        requirementCode: req ? String(req.code) : null,
+        formCode: req?.formCode ? String(req.formCode) : null,
+        status,
+        annotation,
+        correctionRequestedAt:
+          toIso(ev.correctionRequestedAt as unknown as GenericRecord | null | undefined) ?? null,
+        correctionSubmittedAt:
+          toIso(ev.correctionSubmittedAt as unknown as GenericRecord | null | undefined) ?? null,
+        canUploadCorrection,
+      };
+    });
+
+    progress = {
+      total: evaluations.length,
+      pending: evaluations.filter((e) => e.status === "pending").length,
+      satisfaisant: evaluations.filter((e) => e.status === "satisfaisant").length,
+      nonSatisfaisant: evaluations.filter((e) => e.status === "non_satisfaisant").length,
+      correctionSubmitted: evaluations.filter((e) => e.status === "correction_submitted").length,
+    };
+  }
+
+  return {
+    phase: {
+      id: phaseObjId.toString(),
+      phaseKey: "document_evaluation" as const,
+      status: String(phase.status),
+      documentEvaluationStatus: docEvalStatus || null,
+    },
+    payment: {
+      status: paymentStatus,
+      invoiceDocumentId: payment ? toId(payment.invoiceDocumentId) : null,
+      paymentProofDocumentId: payment ? toId(payment.paymentProofDocumentId) : null,
+      invoiceSentAt: payment ? toIso(payment.invoiceSentAt) : null,
+      paymentProofSubmittedAt: payment ? toIso(payment.paymentProofSubmittedAt) : null,
+    },
+    canUploadPaymentProof,
+    evaluations,
+    progress,
   };
 };

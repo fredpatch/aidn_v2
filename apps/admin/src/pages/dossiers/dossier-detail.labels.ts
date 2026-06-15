@@ -74,6 +74,29 @@ export const PHASE_ORDER: OmaPhaseKey[] = [
   "delivery",
 ];
 
+export const documentEvaluationStatusLabels: Record<string, string> = {
+  document_evaluation_waiting_invoice: "En attente de facture",
+  document_evaluation_waiting_payment: "En attente du paiement",
+  document_evaluation_payment_proof_submitted: "Preuve de paiement reçue",
+  document_evaluation_study_in_progress: "Évaluation en cours",
+  document_evaluation_waiting_corrections: "Corrections demandées",
+  document_evaluation_ready_to_close: "Prête à clôturer",
+  document_evaluation_closed: "Phase III clôturée",
+};
+
+export const phasePaymentStatusLabels: Record<string, string> = {
+  invoice_pending: "Facture en attente",
+  invoice_sent: "Facture envoyée",
+  payment_proof_submitted: "Preuve de paiement reçue",
+};
+
+export const documentEvaluationReviewStatusLabels: Record<string, string> = {
+  pending: "En attente d'évaluation",
+  satisfaisant: "Satisfaisant",
+  non_satisfaisant: "Non satisfaisant",
+  correction_submitted: "Correction reçue",
+};
+
 export function formatDate(value?: string): string {
   if (!value) return "Non renseigné";
   return new Intl.DateTimeFormat("fr-FR", { dateStyle: "medium" }).format(

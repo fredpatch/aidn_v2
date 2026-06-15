@@ -10,6 +10,7 @@ import { CourriersPage } from "./pages/CourriersPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { DocumentsPage } from "./pages/DocumentsPage";
 import { DgCircuitPage } from "./pages/DgCircuitPage";
+import { FacturationS5Page } from "./pages/FacturationS5Page";
 import { DossierDetailPage } from "./pages/DossierDetailPage";
 import { DossiersPage } from "./pages/DossiersPage";
 import { InternalAccountsPage } from "./pages/InternalAccountsPage";
@@ -78,6 +79,11 @@ export function App(): React.JSX.Element {
       <Route element={<ProtectedRoute permissions={["DG_CIRCUIT_HANDLE", "COURRIER_REGISTER_PHYSICAL", "PRE_EVAL_DG_CIRCUIT_HANDLE"]} />}>
         <Route element={<AdminLayout />}>
           <Route path="/circuit-dg" element={<DgCircuitPage />} />
+        </Route>
+      </Route>
+      <Route element={<ProtectedRoute permissions={["PAYMENT_VIEW"]} />}>
+        <Route element={<AdminLayout />}>
+          <Route path="/facturation-s5" element={<FacturationS5Page />} />
         </Route>
       </Route>
       <Route element={<ProtectedRoute permissions={["DOSSIER_VIEW_ALL"]} />}>

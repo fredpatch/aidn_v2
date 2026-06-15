@@ -77,6 +77,10 @@ import {
   uploadStudyFeeInvoice,
 } from "../oma-phases/document-evaluation.service.js";
 import {
+  listPhasePaymentTasks,
+  type PhasePaymentTaskFilters,
+} from "../payments/phase-payment.service.js";
+import {
   activateInternalAccount,
   listInternalAccounts,
   listSiUsers,
@@ -778,6 +782,30 @@ adminRouter.post(
   requirePermission(Permissions.PHASE_CLOSE),
   asyncHandler(async (req, res) => {
     res.json(await closeDocumentEvaluationPhase(String(req.params.id), req.user!));
+  }),
+);
+
+// ── Payments — S5 facturation queue ──────────────────────────────────────────
+
+adminRouter.get(
+  "/payments/phase-payments",
+  requirePermission(Permissions.PAYMENT_VIEW),
+  asyncHandler(async (req, res) => {
+    const filters: PhasePaymentTaskFilters = {
+      status:
+        typeof req.query.status === "string"
+          ? (req.query.status as PhasePaymentTaskFilters["status"])
+          : undefined,
+      phaseKey:
+        typeof req.query.phaseKey === "string"
+          ? (req.query.phaseKey as PhasePaymentTaskFilters["phaseKey"])
+          : undefined,
+      paymentType:
+        typeof req.query.paymentType === "string"
+          ? (req.query.paymentType as PhasePaymentTaskFilters["paymentType"])
+          : undefined,
+    };
+    res.json(await listPhasePaymentTasks(filters, req.user!));
   }),
 );
 

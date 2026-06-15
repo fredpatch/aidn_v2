@@ -1,5 +1,195 @@
 # Current Task
 
+## Phase: OMA-EVAL-6D — Portal Phase 3 Action Block
+
+Date: 2026-06-01
+Status: **Complete — portal tsc 0 errors**
+
+## Files changed
+
+- NEW: `apps/portal/src/components/Phase3DocumentEvaluationBlock.tsx`
+- MOD: `apps/portal/src/pages/RequestDetailPage.tsx` (import + block in Dossier tab)
+
+## Phase 3 full chain complete: OMA-EVAL-1 → OMA-EVAL-6D ✅
+
+## Next step
+
+**OMA-EVAL-7** — Cross-tab polish (deferred) — OR commit + push current work
+
+---
+
+## Phase: OMA-EVAL-6B — Backend Portal Phase 3 Read State + Download Support
+
+Date: 2026-06-01
+Status: **Complete — API typecheck PASS, API build PASS**
+
+## Files changed
+
+- MOD: `apps/api/src/modules/oma-phases/document-evaluation.service.ts` — `getPortalDocumentEvaluationState` added
+- MOD: `apps/api/src/modules/oma-phases/oma-phase.service.ts` — `downloadPortalDossierDocument` Phase 3 branches
+- MOD: `apps/api/src/modules/portal/portal.routes.ts` — import + GET `/dossiers/:id/phases/document-evaluation`
+
+---
+
+## Phase: OMA-EVAL-S5-3 — Full Facturation S5 Workspace UI
+
+Date: 2026-06-01
+Status: **Complete — tsc 0 errors**
+
+## Files changed
+
+Modified: `apps/admin/src/pages/FacturationS5Page.tsx` (placeholder → full workspace)
+
+---
+
+## Phase: OMA-EVAL-S5-2 — Frontend API Client + Route/Nav
+
+Date: 2026-06-01
+Status: **Complete — tsc 0 errors**
+
+## Files changed
+
+New: `apps/admin/src/lib/api/payments.api.ts`, `apps/admin/src/pages/FacturationS5Page.tsx`
+Modified: `apps/admin/src/App.tsx` (import + route), `apps/admin/src/config/nav.tsx` (Receipt import + entry)
+
+---
+
+## Phase: OMA-EVAL-S5-1 — Backend S5 Payment Task List Endpoint
+
+Date: 2026-06-01
+Status: **Complete — typecheck 0 errors**
+
+## Summary file
+
+- Implementation: `exploration-cache/tasks/summaries/2026-06-01-oma-eval-s5-1-payment-task-list-endpoint.md`
+
+## Files changed
+
+New: `apps/api/src/modules/payments/phase-payment.service.ts`
+Modified: `apps/api/src/modules/admin/admin.routes.ts` (import + GET /payments/phase-payments route)
+
+## Key design
+
+- OmaPhase-first query to capture phases with no PhasePayment (synthesize invoice_pending)
+- Counts computed before status filter (tab badge accuracy)
+- Sort: invoice_pending first, then invoice_sent, then payment_proof_submitted
+
+## Next step
+
+**OMA-EVAL-S5-2** — Frontend API client types + nav/route:
+- `PhasePaymentTask`, `PhasePaymentTaskList` types
+- `listPhasePaymentTasks(filters?)` method
+- Route `/facturation-s5` in App.tsx
+- Nav entry in nav.tsx
+
+---
+
+## Phase: OMA-EVAL-S5-0 — S5 Payment Workspace Audit & Planning
+
+Date: 2026-06-01
+Status: **Complete — planning only**
+
+## Summary file
+
+- Planning: `exploration-cache/tasks/summaries/2026-06-01-oma-eval-s5-0-internal-payment-workspace-planning.md`
+
+## Key findings
+
+- `DgCircuitPage` is the canonical two-panel workspace pattern to clone
+- `SplitView columns="[2fr_3fr]"` — simple CSS grid
+- Route pattern: `ProtectedRoute permissions={["PAYMENT_VIEW"]}` (any-of)
+- Nav: add to "Traitement" group in `nav.tsx`
+- **Backend gap**: no payment list endpoint; S5-1 must create one
+- Reusable: `UploadInvoiceDialog`, `downloadDossierDocument`, `SkeletonCard`, `EmptyState`
+
+## Next step
+
+**OMA-EVAL-S5-1** — backend `listPhasePaymentTasks` service + `GET /api/v1/admin/payments/phase-payments` route
+
+---
+
+## Phase: OMA-EVAL-5B — Admin Phase 3 Workspace UI
+
+Date: 2026-06-01
+Status: **Complete — tsc 0 errors (admin + api), wired in DossierPhasesTab**
+
+## Summary file
+
+- Implementation: `exploration-cache/tasks/summaries/2026-06-01-oma-eval-5b-admin-phase-3-workspace.md`
+
+## Files changed
+
+New: `document-evaluation-progress.helpers.ts`, `document-evaluation-dialogs.tsx`, `DocumentEvaluationPhaseWorkspace.tsx`
+Modified: `dossier-detail.labels.ts` (3 label maps), `DossierPhasesTab.tsx` (doc_eval case wired), `dossiers.api.ts` (correctionDocument type), `document-evaluation.service.ts` (correctionDocument in response)
+
+## Next step
+
+**OMA-EVAL-6A** — Portal Phase 3 API client + types in `portal.api.ts`
+
+---
+
+## Phase: OMA-EVAL-5A-1 — Backend Phase 3 Document Download Fix
+
+Date: 2026-06-01
+Status: **Complete — typecheck 0 errors**
+
+## Summary file
+
+- Implementation: `exploration-cache/tasks/summaries/2026-06-01-oma-eval-5a-1-phase-3-document-download-backend-fix.md`
+- History: `exploration-cache/tasks/history/2026-06-01-oma-eval-5a-1-phase-3-document-download-backend-fix.md`
+
+## Files changed
+
+- `apps/api/src/modules/oma-phases/oma-phase.service.ts`
+  - Added `PhasePaymentModel` import
+  - Extended `downloadAdminDossierDocument` with Phase 3 authorization branches
+
+## Authorization waterfall (final state)
+
+1. Phase 1 preliminary evidence fields → allow
+2. Phase 2 formal_request submission → allow
+3. Phase 3a PhasePayment invoiceDocumentId/paymentProofDocumentId → allow
+4. Phase 3b document_evaluation submission → allow
+5. Otherwise → 403
+
+## Next step
+
+**OMA-EVAL-5B** — Admin Phase 3 workspace component. Download support now unblocked.
+
+---
+
+## Phase: OMA-EVAL-5A — Admin Phase 3 API Client + Types
+
+Date: 2026-06-01
+Status: **Complete — tsc 0 errors**
+
+## Summary file
+
+- Implementation: `exploration-cache/tasks/summaries/2026-06-01-oma-eval-5a-admin-api-client-types.md`
+- History: `exploration-cache/tasks/history/2026-06-01-oma-eval-5a-admin-api-client-types.md`
+
+## Files changed
+
+- `apps/admin/src/lib/api/dossiers.api.ts` — 14 types + 5 methods added, `apiPatch` imported
+
+## Key decisions
+
+- Backend enum values: French (`satisfaisant`, `non_satisfaisant`, `pending`, `correction_submitted`)
+- `reviewDocumentEvaluation` → `AdminDocumentEvaluationReviewResult` (single eval + phase, not full list)
+- `downloadDossierDocument` does NOT cover Phase 3 docs — documented as TODO in dossiers.api.ts
+
+## Open risks
+
+- R3: Phase 3 document download needs backend extension (phase_payment + phase ownerTypes not covered)
+
+## Next step
+
+**OMA-EVAL-5B** — Admin Phase 3 workspace component:
+- `document-evaluation-progress.helpers.ts` — visibility + progress state machine
+- `document-evaluation-dialogs.tsx` — UploadInvoiceDialog, ReviewDocumentDialog, ClosePhaseDialog
+- `DocumentEvaluationPhaseWorkspace.tsx` — full 5-section workspace
+- `dossier-detail.labels.ts` — `documentEvaluationStatusLabels` map
+
 ## Phase: OMA-EVAL-5 — Phase 3 UI Audit & Planning
 
 Date: 2026-06-01
@@ -9,23 +199,6 @@ Status: **Complete — audit/planning only**
 
 - Planning: `exploration-cache/tasks/summaries/2026-06-01-oma-eval-5-phase-3-ui-audit-planning.md`
 - History: `exploration-cache/tasks/history/2026-06-01-oma-eval-5-phase-3-ui-audit-planning.md`
-
-## Key findings
-
-- Phase workspace pattern: `DossierPhasesTab` routes to workspace component per phaseKey; need `DocumentEvaluationPhaseWorkspace.tsx`
-- API gaps: zero Phase 3 methods in `dossiers.api.ts` or `portal.api.ts`
-- Reusable: `UploadDocumentDialog`, `hasPermission`, `openBlobInNewTab`, `DefinitionGrid`/`Field`, `DialogKey` pattern, `extractError`, `PhaseStatusBadge`, `WaitingState`, `ActionError`
-- Portal: inline forms, `portalPostForm`, action-required cards, `RequestStatusBadge`
-- OPEN: portal Phase 3 block location (RequestDetailPage or new dossier page)
-- OPEN: Phase 3 document download admin endpoint scope (phase_payment ownerType may need dedicated handler)
-
-## Next step
-
-Implement **OMA-EVAL-5A** (admin API client + types):
-- Types: DocumentEvaluationStatus, PhasePaymentStatus, AdminDocEvalPaymentState, AdminDocEvalEvaluation, AdminDocEvalState, AdminDocEvalProgress, AdminDocEvalCloseResult
-- Methods: getDocumentEvaluationPaymentState, uploadStudyFeeInvoice, getDocumentEvaluations, reviewDocumentEvaluation, closeDocumentEvaluationPhase
-
-Then **OMA-EVAL-5B** (admin workspace component).
 
 ## Phase: OMA-EVAL-4 — Backend Phase 3 Close + Unlock Phase 4
 

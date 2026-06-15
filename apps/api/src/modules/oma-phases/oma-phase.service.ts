@@ -20,6 +20,7 @@ import { OmaPhaseModel } from "./oma-phase.model.js";
 import { RequestModel } from "../requests/request.model.js";
 import { UserModel } from "../users/user.model.js";
 import { NotificationModel } from "../notifications/notification.model.js";
+import { PhasePaymentModel } from "../payments/phase-payment.model.js";
 
 type Actor = { id: string; role: string; userType: "internal" | "postulant" };
 type GenericRecord = Record<string, unknown> & { _id: Types.ObjectId };
@@ -1071,8 +1072,34 @@ export const downloadAdminDossierDocument = async (
     })
       .select("_id")
       .lean();
+
     if (!formalSubmission) {
-      throw new HttpError(403, "Document non accessible");
+      // Allow Phase 3 payment document downloads (invoice / payment proof).
+      const phasePayment = await PhasePaymentModel.findOne({
+        dossierId: dossierObjectId,
+        $or: [
+          { invoiceDocumentId: docObjectId },
+          { paymentProofDocumentId: docObjectId },
+        ],
+      })
+        .select("_id")
+        .lean();
+
+      if (!phasePayment) {
+        // Allow Phase 3 correction document downloads via document_evaluation submission.
+        const docEvalSubmission = await DocumentSubmissionModel.findOne({
+          dossierId: dossierObjectId,
+          documentId: docObjectId,
+          phaseKey: "document_evaluation",
+          status: { $nin: ["replaced", "archived"] },
+        })
+          .select("_id")
+          .lean();
+
+        if (!docEvalSubmission) {
+          throw new HttpError(403, "Document non accessible");
+        }
+      }
     }
   }
 
@@ -1368,7 +1395,32 @@ export const downloadPortalDossierDocument = async (
       .map((id) => id!.toString());
 
     if (!allowedOwnerIds.includes(doc.ownerId.toString())) {
-      throw new HttpError(403, "Document non accessible");
+      // Phase 3: PhasePayment invoice / payment proof
+      const phasePayment = await PhasePaymentModel.findOne({
+        dossierId: dossierObjectId,
+        $or: [
+          { invoiceDocumentId: docObjectId },
+          { paymentProofDocumentId: docObjectId },
+        ],
+      })
+        .select("_id")
+        .lean();
+
+      if (!phasePayment) {
+        // Phase 3: correction submission document uploaded by this postulant
+        const correctionSubmission = await DocumentSubmissionModel.findOne({
+          dossierId: dossierObjectId,
+          documentId: docObjectId,
+          phaseKey: "document_evaluation",
+          status: { $nin: ["replaced", "archived"] },
+        })
+          .select("_id")
+          .lean();
+
+        if (!correctionSubmission) {
+          throw new HttpError(403, "Document non accessible");
+        }
+      }
     }
   }
 

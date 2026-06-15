@@ -1,4 +1,4 @@
-import { apiGet, apiGetBlob, apiPost, apiPostForm } from './client';
+import { apiGet, apiGetBlob, apiPatch, apiPost, apiPostForm } from './client';
 
 export type DossierType =
   | 'oma_approval'
@@ -483,3 +483,167 @@ export function adminReviewFormalRequestDocument(
     payload,
   );
 }
+
+// ─── Phase 3 — Évaluation approfondie des documents ──────────────────────────
+
+export type DocumentEvaluationStatus =
+  | "pending"
+  | "satisfaisant"
+  | "non_satisfaisant"
+  | "correction_submitted";
+
+export type DocumentEvaluationPhaseStatus =
+  | "document_evaluation_waiting_invoice"
+  | "document_evaluation_waiting_payment"
+  | "document_evaluation_payment_proof_submitted"
+  | "document_evaluation_study_in_progress"
+  | "document_evaluation_waiting_corrections"
+  | "document_evaluation_ready_to_close"
+  | "document_evaluation_closed";
+
+export type PhasePaymentStatus =
+  | "invoice_pending"
+  | "invoice_sent"
+  | "payment_proof_submitted";
+
+export type AdminDocumentEvaluationPhase = {
+  id: string;
+  phaseKey: "document_evaluation";
+  status: string;
+  documentEvaluationStatus: DocumentEvaluationPhaseStatus | null;
+  startedAt?: string | null;
+  closedAt?: string | null;
+};
+
+export type AdminDocumentEvaluationPayment = {
+  id?: string;
+  paymentType: string;
+  status: PhasePaymentStatus;
+  invoiceDocumentId?: string | null;
+  paymentProofDocumentId?: string | null;
+  invoiceSentAt?: string | null;
+  paymentProofSubmittedAt?: string | null;
+};
+
+export type AdminDocumentEvaluationPaymentState = {
+  phase: AdminDocumentEvaluationPhase;
+  payment: AdminDocumentEvaluationPayment;
+  canStartDocumentEvaluation: boolean;
+};
+
+export type AdminDocumentEvaluationRequirement = {
+  code: string;
+  label: string;
+  requirementLevel: string;
+  documentType: string;
+};
+
+export type AdminDocumentEvaluationSubmission = {
+  documentId: string | null;
+  status: string;
+};
+
+export type AdminDocumentEvaluationItem = {
+  id: string;
+  status: DocumentEvaluationStatus;
+  annotation?: string | null;
+  reviewedById?: string | null;
+  reviewedAt?: string | null;
+  requirementId?: string | null;
+  submissionId?: string | null;
+  correctionSubmissionId?: string | null;
+  correctionDocument?: { documentId: string | null } | null;
+  requirement: AdminDocumentEvaluationRequirement | null;
+  submission: AdminDocumentEvaluationSubmission | null;
+};
+
+export type AdminDocumentEvaluationProgress = {
+  total: number;
+  pending: number;
+  satisfaisant: number;
+  nonSatisfaisant: number;
+};
+
+export type AdminDocumentEvaluationState = {
+  phase: AdminDocumentEvaluationPhase;
+  evaluations: AdminDocumentEvaluationItem[];
+  progress: AdminDocumentEvaluationProgress;
+};
+
+export type AdminDocumentEvaluationReviewPayload = {
+  status: "satisfaisant" | "non_satisfaisant";
+  annotation?: string;
+};
+
+export type AdminDocumentEvaluationReviewResult = {
+  id: string;
+  status: DocumentEvaluationStatus;
+  annotation: string | null;
+  reviewedById: string;
+  reviewedAt: string;
+  phase: AdminDocumentEvaluationPhase;
+};
+
+export type AdminDocumentEvaluationCloseResult = {
+  phase: AdminDocumentEvaluationPhase & { closedAt: string };
+  nextPhase: {
+    id: string;
+    phaseKey: "inspection";
+    status: string;
+  };
+  dossier: {
+    id: string;
+    status: "inspection_phase";
+  };
+};
+
+export function getDocumentEvaluationPaymentState(
+  dossierId: string,
+): Promise<AdminDocumentEvaluationPaymentState> {
+  return apiGet<AdminDocumentEvaluationPaymentState>(
+    `/api/v1/admin/dossiers/${dossierId}/phases/document-evaluation/payment`,
+  );
+}
+
+export function uploadStudyFeeInvoice(
+  dossierId: string,
+  formData: FormData,
+): Promise<AdminDocumentEvaluationPaymentState> {
+  return apiPostForm<AdminDocumentEvaluationPaymentState>(
+    `/api/v1/admin/dossiers/${dossierId}/phases/document-evaluation/invoice`,
+    formData,
+  );
+}
+
+export function getDocumentEvaluations(
+  dossierId: string,
+): Promise<AdminDocumentEvaluationState> {
+  return apiGet<AdminDocumentEvaluationState>(
+    `/api/v1/admin/dossiers/${dossierId}/phases/document-evaluation/evaluations`,
+  );
+}
+
+export function reviewDocumentEvaluation(
+  dossierId: string,
+  evaluationId: string,
+  payload: AdminDocumentEvaluationReviewPayload,
+): Promise<AdminDocumentEvaluationReviewResult> {
+  return apiPatch<AdminDocumentEvaluationReviewResult>(
+    `/api/v1/admin/dossiers/${dossierId}/phases/document-evaluation/evaluations/${evaluationId}`,
+    payload,
+  );
+}
+
+export function closeDocumentEvaluationPhase(
+  dossierId: string,
+): Promise<AdminDocumentEvaluationCloseResult> {
+  return apiPost<AdminDocumentEvaluationCloseResult>(
+    `/api/v1/admin/dossiers/${dossierId}/phases/document-evaluation/close`,
+    {},
+  );
+}
+
+// TODO(OMA-EVAL-5B): downloadAdminDossierDocument only covers Phase 1+2 documents.
+// Phase 3 invoice/proof (ownerType=phase_payment) and correction docs (ownerType=phase)
+// will return 403. A new admin download endpoint or an extension to the existing one
+// is required before the Phase 3 workspace can serve document downloads.

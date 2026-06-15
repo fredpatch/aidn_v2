@@ -16,6 +16,7 @@ import type { FormEvent } from "react";
 import { Link, useParams } from "react-router-dom";
 import { toast } from "sonner";
 
+import { Phase3DocumentEvaluationBlock } from "../components/Phase3DocumentEvaluationBlock";
 import { RequestStatusBadge } from "../components/RequestStatusBadge";
 import {
   getRequestTypeLabel,
@@ -101,6 +102,128 @@ const portalStatusGuidance: Record<string, string> = {
 
 type CourrierMode = "portal_upload" | "physical_deposit";
 
+// ── Process timeline ─────────────────────────────────────────────────────────
+
+type ProcessStep = {
+  id: string;
+  label: string;
+  subtitle?: string;
+  state: "done" | "active" | "locked";
+};
+
+function buildProcessSteps(
+  request: PortalRequest,
+  isSubmitted: boolean,
+  dossierDetail: PortalDossierDetail | null,
+): ProcessStep[] {
+  const hasDossier = !!request.dossierId;
+  const prelimClosed =
+    dossierDetail?.preliminary.status === "preliminary_closed";
+  const formalClosed =
+    dossierDetail?.formalRequest?.portalLabel ===
+    "Phase de demande formelle clôturée";
+  const dossierStatus = dossierDetail?.dossier?.status ?? "";
+  const phase3Done = ["inspection_phase", "delivery_phase", "closed"].includes(
+    dossierStatus,
+  );
+  const phase3Active = dossierStatus === "document_evaluation_phase";
+
+  return [
+    {
+      id: "soumission",
+      label: "Demande soumise",
+      subtitle: isSubmitted
+        ? "Votre demande a été reçue par l'ANAC."
+        : "En cours de saisie.",
+      state: isSubmitted ? "done" : "active",
+    },
+    {
+      id: "orientation",
+      label: "Orientation et ouverture du dossier",
+      subtitle: hasDossier
+        ? "Dossier ouvert à la Direction de la Navigabilité."
+        : undefined,
+      state: hasDossier ? "done" : isSubmitted ? "active" : "locked",
+    },
+    {
+      id: "preliminaire",
+      label: "Phase préliminaire",
+      subtitle: prelimClosed ? "Phase préliminaire clôturée." : undefined,
+      state: prelimClosed ? "done" : hasDossier ? "active" : "locked",
+    },
+    {
+      id: "formelle",
+      label: "Phase de demande formelle",
+      subtitle: formalClosed ? "Phase de demande formelle clôturée." : undefined,
+      state: formalClosed
+        ? "done"
+        : prelimClosed
+          ? "active"
+          : "locked",
+    },
+    {
+      id: "evaluation",
+      label: "Phase III — Évaluation approfondie",
+      subtitle: phase3Done ? "Évaluation approfondie finalisée." : undefined,
+      state: phase3Done ? "done" : phase3Active || formalClosed ? "active" : "locked",
+    },
+  ];
+}
+
+function ProcessTimeline({
+  request,
+  isSubmitted,
+  dossierDetail,
+}: {
+  request: PortalRequest;
+  isSubmitted: boolean;
+  dossierDetail: PortalDossierDetail | null;
+}): React.JSX.Element {
+  const steps = buildProcessSteps(request, isSubmitted, dossierDetail);
+  return (
+    <ol className="flex flex-col gap-2">
+      {steps.map((step) => (
+        <li key={step.id} className="process-step">
+          {/* Dot */}
+          <div className="mt-0.5 flex w-5 flex-shrink-0 flex-col items-center">
+            {step.state === "done" ? (
+              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500">
+                <CheckCircle2 size={12} className="text-white" aria-hidden="true" />
+              </span>
+            ) : step.state === "active" ? (
+              <span className="flex h-5 w-5 items-center justify-center rounded-full border-2 border-slate-900 bg-white">
+                <span className="h-2 w-2 rounded-full bg-slate-900" />
+              </span>
+            ) : (
+              <span className="flex h-5 w-5 items-center justify-center rounded-full border-2 border-slate-200 bg-white" />
+            )}
+          </div>
+          {/* Content */}
+          <div className="pb-4 min-w-0">
+            <p
+              className={[
+                "text-sm font-medium",
+                step.state === "done"
+                  ? "text-emerald-700"
+                  : step.state === "active"
+                    ? "text-slate-900"
+                    : "text-slate-400",
+              ].join(" ")}
+            >
+              {step.label}
+            </p>
+            {step.subtitle ? (
+              <p className="mt-0.5 text-xs text-slate-500">{step.subtitle}</p>
+            ) : null}
+          </div>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+// ── Request detail ────────────────────────────────────────────────────────────
+
 type RequestDetail = {
   request: PortalRequest;
   courrier?: PortalCourrier;
@@ -128,20 +251,6 @@ function getErrorMessage(caught: unknown): string {
     : "Une erreur est survenue. Veuillez réessayer.";
 }
 
-function InfoBlock({
-  label,
-  value,
-}: {
-  label: string;
-  value: string;
-}): React.JSX.Element {
-  return (
-    <article className="surface rounded-lg p-4">
-      <p className="text-xs font-bold uppercase text-slate-500">{label}</p>
-      <p className="mt-1 text-sm font-semibold text-slate-950">{value}</p>
-    </article>
-  );
-}
 
 function MeetingBlock({
   label,
@@ -498,6 +607,9 @@ export function RequestDetailPage(): React.JSX.Element {
   const [dossierLoading, setDossierLoading] = useState(false);
   const [dossierError, setDossierError] = useState("");
   const [downloadError, setDownloadError] = useState("");
+  const [dossierSubTab, setDossierSubTab] = useState<
+    "overview" | "phase1" | "phase2" | "phase3"
+  >("phase1");
 
   const preEvalFileRef = useRef<HTMLInputElement>(null);
   const formalRequestFileRef = useRef<HTMLInputElement>(null);
@@ -552,6 +664,21 @@ export function RequestDetailPage(): React.JSX.Element {
       setDossierLoading(false);
     }
   }, []);
+
+  // Auto-select the sub-tab for the current active phase
+  useEffect(() => {
+    if (!dossierDetail) return;
+    const s = dossierDetail.dossier.status;
+    if (
+      ["document_evaluation_phase", "inspection_phase", "delivery_phase", "closed"].includes(s)
+    ) {
+      setDossierSubTab("phase3");
+    } else if (s === "formal_request_phase") {
+      setDossierSubTab("phase2");
+    } else {
+      setDossierSubTab("phase1");
+    }
+  }, [dossierDetail]);
 
   const loadRequest = useCallback(async () => {
     if (!id) return;
@@ -819,18 +946,17 @@ export function RequestDetailPage(): React.JSX.Element {
           <ArrowLeft size={16} aria-hidden="true" />
           Mes demandes
         </Link>
-        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-          <div>
-            <h1 className="page-title">Détail de la demande</h1>
-            <p className="page-subtitle">
-              <RequestTypeLabel type={request.requestType} /> -{" "}
-              {request.subject}
-            </p>
+        <div>
+          <div className="flex flex-wrap items-center gap-2.5">
+            <h1 className="page-title">
+              <RequestTypeLabel type={request.requestType} />
+            </h1>
+            <RequestStatusBadge
+              status={request.status}
+              label={request.portalStatusLabel}
+            />
           </div>
-          <RequestStatusBadge
-            status={request.status}
-            label={request.portalStatusLabel}
-          />
+          <p className="page-subtitle line-clamp-1">{request.subject}</p>
         </div>
       </div>
 
@@ -841,7 +967,7 @@ export function RequestDetailPage(): React.JSX.Element {
       ) : null}
 
       {/* Tab bar */}
-      <div className="flex gap-1 overflow-x-auto rounded-lg border border-slate-200 bg-white p-1">
+      <div className="portal-tab-bar">
         {TABS.map(({ key, label }) => {
           const isActive = tab === key;
           const needsBadge = key === "actions" && hasActionRequired;
@@ -853,12 +979,8 @@ export function RequestDetailPage(): React.JSX.Element {
               disabled={isDossierDisabled}
               onClick={() => setTab(key)}
               className={[
-                "relative flex flex-shrink-0 items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
-                isActive
-                  ? "bg-slate-950 text-white"
-                  : isDossierDisabled
-                    ? "cursor-not-allowed text-slate-300"
-                    : "text-slate-600 hover:bg-slate-100 hover:text-slate-950",
+                "portal-tab",
+                isActive ? "portal-tab-active" : "",
               ].join(" ")}
             >
               {label}
@@ -895,80 +1017,116 @@ export function RequestDetailPage(): React.JSX.Element {
             </div>
           ) : null}
 
-          <div className="grid gap-4 md:grid-cols-3">
-            <InfoBlock
-              label="Type de demande"
-              value={getRequestTypeLabel(request.requestType)}
-            />
-            <InfoBlock
-              label="Création"
-              value={formatDateTime(request.createdAt)}
-            />
-            <InfoBlock
-              label="Soumission"
-              value={formatDateTime(request.submittedAt)}
-            />
-          </div>
-
-          <form
-            className="surface grid gap-4 rounded-lg p-5"
-            onSubmit={submitBasicUpdate}
-          >
-            <div>
-              <h2 className="text-lg font-bold text-slate-950">Informations</h2>
-              <p className="mt-1 text-sm text-slate-500">
-                Les champs sont modifiables tant que la demande n'est pas
-                soumise.
-              </p>
+          <dl className="grid gap-x-8 gap-y-4 rounded-xl border border-slate-100 bg-slate-50 px-5 py-4 text-sm sm:grid-cols-3">
+            <div className="field-readonly">
+              <dt>Type de demande</dt>
+              <dd>{getRequestTypeLabel(request.requestType)}</dd>
             </div>
+            <div className="field-readonly">
+              <dt>Date de création</dt>
+              <dd>{formatDateTime(request.createdAt)}</dd>
+            </div>
+            <div className="field-readonly">
+              <dt>Date de soumission</dt>
+              <dd>{request.submittedAt ? formatDateTime(request.submittedAt) : <span className="text-slate-400">Non soumise</span>}</dd>
+            </div>
+          </dl>
 
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="field">
-                <label htmlFor="requestType">Type de demande</label>
-                <select
-                  id="requestType"
-                  className="control"
-                  value={requestType}
-                  onChange={(e) =>
-                    setRequestType(e.target.value as PortalRequestType)
-                  }
-                  disabled={isSubmitted}
+          {isSubmitted ? (
+            <div className="surface grid gap-5 rounded-xl p-5">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h2 className="text-sm font-semibold text-slate-900">
+                    Détails de la demande
+                  </h2>
+                  <p className="mt-0.5 text-xs text-slate-400">
+                    La demande soumise ne peut plus être modifiée.
+                  </p>
+                </div>
+                <button
+                  className="btn btn-secondary py-1 text-xs"
+                  type="button"
+                  onClick={() => void loadRequest()}
+                  disabled={isLoading}
                 >
-                  {requestTypeOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
+                  <RefreshCw size={12} aria-hidden="true" />
+                  Actualiser
+                </button>
               </div>
+              <dl className="grid gap-4 text-sm sm:grid-cols-2 field-readonly">
+                <div>
+                  <dt>Type de demande</dt>
+                  <dd>{getRequestTypeLabel(requestType)}</dd>
+                </div>
+                <div>
+                  <dt>Objet</dt>
+                  <dd>{subject || <span className="text-slate-400">—</span>}</dd>
+                </div>
+                {message ? (
+                  <div className="sm:col-span-2">
+                    <dt>Message complémentaire</dt>
+                    <dd className="whitespace-pre-line">{message}</dd>
+                  </div>
+                ) : null}
+              </dl>
+            </div>
+          ) : (
+            <form
+              className="surface grid gap-4 rounded-xl p-5"
+              onSubmit={submitBasicUpdate}
+            >
+              <div>
+                <h2 className="text-sm font-semibold text-slate-950">
+                  Informations
+                </h2>
+                <p className="mt-0.5 text-xs text-slate-500">
+                  Modifiables jusqu'à la soumission de la demande.
+                </p>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="field">
+                  <label htmlFor="requestType">Type de demande</label>
+                  <select
+                    id="requestType"
+                    className="control"
+                    value={requestType}
+                    onChange={(e) =>
+                      setRequestType(e.target.value as PortalRequestType)
+                    }
+                  >
+                    {requestTypeOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="field">
+                  <label htmlFor="subject">Objet de la demande</label>
+                  <input
+                    id="subject"
+                    className="control"
+                    value={subject}
+                    onChange={(e) => setSubject(e.target.value)}
+                    minLength={3}
+                    maxLength={200}
+                  />
+                </div>
+              </div>
+
               <div className="field">
-                <label htmlFor="subject">Objet de la demande</label>
-                <input
-                  id="subject"
-                  className="control"
-                  value={subject}
-                  onChange={(e) => setSubject(e.target.value)}
-                  minLength={3}
-                  maxLength={200}
-                  disabled={isSubmitted}
+                <label htmlFor="message">Message complémentaire</label>
+                <textarea
+                  id="message"
+                  className="control min-h-28"
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  maxLength={3000}
                 />
               </div>
-            </div>
 
-            <div className="field">
-              <label htmlFor="message">Message complémentaire</label>
-              <textarea
-                id="message"
-                className="control min-h-28"
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                maxLength={3000}
-                disabled={isSubmitted}
-              />
-            </div>
-
-            {!isSubmitted ? (
-              <div>
+              <div className="flex items-center gap-3">
                 <button
                   className="btn btn-secondary"
                   type="submit"
@@ -977,20 +1135,17 @@ export function RequestDetailPage(): React.JSX.Element {
                   <Save size={16} aria-hidden="true" />
                   {busyAction === "update" ? "Enregistrement…" : "Enregistrer"}
                 </button>
+                <button
+                  className="btn btn-secondary"
+                  type="button"
+                  onClick={() => void loadRequest()}
+                >
+                  <RefreshCw size={14} aria-hidden="true" />
+                  Actualiser
+                </button>
               </div>
-            ) : null}
-          </form>
-
-          <div className="flex justify-end">
-            <button
-              className="btn btn-secondary"
-              type="button"
-              onClick={() => void loadRequest()}
-            >
-              <RefreshCw size={16} aria-hidden="true" />
-              Actualiser
-            </button>
-          </div>
+            </form>
+          )}
         </div>
       ) : null}
 
@@ -1124,10 +1279,23 @@ export function RequestDetailPage(): React.JSX.Element {
 
       {/* Actions requises tab */}
       {tab === "actions" ? (
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-6">
+          {/* Process timeline */}
+          <div className="surface rounded-xl p-5">
+            <h2 className="mb-4 text-sm font-semibold text-slate-700">
+              Progression de votre dossier
+            </h2>
+            <ProcessTimeline
+              request={request}
+              isSubmitted={isSubmitted}
+              dossierDetail={dossierDetail}
+            />
+          </div>
+
+          <div className="flex flex-col gap-4">
           {request.status === "intake_requires_correction" ? (
-            <div className="surface rounded-lg p-5">
-              <h2 className="text-base font-bold text-amber-800">
+            <div className="surface rounded-xl p-5">
+              <h2 className="text-sm font-semibold text-amber-800">
                 Correction requise
               </h2>
               <p className="mt-2 text-sm text-slate-600">
@@ -1351,174 +1519,320 @@ export function RequestDetailPage(): React.JSX.Element {
           ) : null}
 
           {!hasActionRequired ? (
-            <div className="surface rounded-lg p-8 text-center">
+            <p className="flex items-center gap-2 text-sm text-slate-500">
               <CheckCircle2
-                size={28}
-                className="mx-auto mb-3 text-emerald-500"
+                size={14}
+                className="flex-shrink-0 text-emerald-500"
                 aria-hidden="true"
               />
-              <p className="font-semibold text-slate-700">
-                Aucune action requise pour le moment.
-              </p>
-              <p className="mt-1 text-sm text-slate-500">
-                Vous serez notifié si une action de votre part est nécessaire.
-              </p>
-            </div>
+              Aucune action requise de votre part pour le moment. Vous serez
+              notifié si une action est nécessaire.
+            </p>
           ) : null}
+          </div>
         </div>
       ) : null}
 
       {/* Dossier tab */}
       {tab === "dossier" && request.dossierId ? (
-        <div className="surface grid gap-4 rounded-lg p-5">
-          <div className="flex items-center gap-2">
-            <FolderOpen size={18} className="text-sky-600" aria-hidden="true" />
-            <h2 className="text-lg font-bold text-slate-950">
-              Votre dossier de certification
-            </h2>
-          </div>
-
-          {dossierLoading ? (
-            <p className="text-sm text-slate-500">Chargement du dossier DN…</p>
-          ) : dossierError ? (
-            <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">
-              {dossierError}
-            </div>
-          ) : dossierDetail ? (
-            <>
-              <div className="grid gap-3 md:grid-cols-2">
-                <InfoBlock
-                  label="Référence dossier"
-                  value={dossierDetail.dossier.dossierNumber}
-                />
-                <InfoBlock
-                  label="Type de certification"
-                  value={
-                    dossierTypeLabels[dossierDetail.dossier.dossierType] ??
-                    dossierDetail.dossier.dossierType
-                  }
-                />
-              </div>
-
-              {dossierDetail.preliminary.status === "preliminary_closed" ? (
-                <div className="flex items-start gap-3 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm">
-                  <CheckCircle2
-                    size={18}
-                    className="mt-0.5 shrink-0 text-emerald-600"
-                    aria-hidden="true"
-                  />
-                  <div>
-                    <p className="font-semibold text-emerald-800">
-                      Phase préliminaire terminée
-                    </p>
-                    <p className="mt-1 text-emerald-700">
-                      Votre dossier passe à la phase de demande formelle.
-                    </p>
-                  </div>
-                </div>
-              ) : (
-                <div className="rounded-md border border-sky-200 bg-sky-50 px-4 py-3 text-sm">
-                  <p className="font-semibold text-sky-800">
-                    {dossierDetail.preliminary.portalLabel}
-                  </p>
-                </div>
-              )}
-
+        <div className="surface overflow-hidden rounded-xl">
+          {/* Sub-tab bar */}
+          {dossierDetail ? (
+            <div className="sub-tab-bar">
+              <button
+                type="button"
+                className={`sub-tab ${dossierSubTab === "overview" ? "sub-tab-active" : ""}`}
+                onClick={() => setDossierSubTab("overview")}
+              >
+                <FolderOpen size={13} aria-hidden="true" />
+                Dossier
+              </button>
+              <button
+                type="button"
+                className={[
+                  "sub-tab",
+                  dossierSubTab === "phase1" ? "sub-tab-active" : "",
+                  dossierDetail.preliminary.status === "preliminary_closed"
+                    ? "sub-tab-done"
+                    : "",
+                ].join(" ")}
+                onClick={() => setDossierSubTab("phase1")}
+              >
+                Phase I — Préliminaire
+              </button>
               {dossierDetail.formalRequest ? (
-                <div className="rounded-md border border-sky-200 bg-sky-50 px-4 py-3 text-sm">
-                  <p className="font-semibold text-sky-800">
-                    {dossierDetail.formalRequest.portalLabel}
-                  </p>
-                </div>
-              ) : null}
-
-              {dossierDetail.formalRequest?.formalMeeting ? (
-                <MeetingBlock
-                  label="Réunion de demande formelle"
-                  meeting={dossierDetail.formalRequest.formalMeeting}
-                />
-              ) : null}
-
-              {dossierDetail.formalRequest &&
-              dossierDetail.formalRequest.requirements.length > 0 ? (
-                <Phase2DocumentChecklist
-                  requirements={dossierDetail.formalRequest.requirements}
-                  progress={dossierDetail.formalRequest.progress}
-                  expandedRequirementId={expandedRequirementId}
-                  reqUploadFile={reqUploadFile}
-                  reqUploadNotes={reqUploadNotes}
-                  reqUploadBusy={reqUploadBusy}
-                  reqUploadError={reqUploadError}
-                  reqUploadFileRef={reqUploadFileRef}
-                  onExpand={(id) => {
-                    setExpandedRequirementId(
-                      expandedRequirementId === id ? null : id,
-                    );
-                    setReqUploadFile(null);
-                    setReqUploadNotes("");
-                    setReqUploadError("");
-                    if (reqUploadFileRef.current)
-                      reqUploadFileRef.current.value = "";
-                  }}
-                  onFileChange={setReqUploadFile}
-                  onNotesChange={setReqUploadNotes}
-                  onSubmit={handleRequirementUpload}
-                  onTemplateDownload={handleTemplateDownload}
-                />
-              ) : null}
-
-              {dossierDetail.preliminary.firstMeeting ? (
-                <MeetingBlock
-                  label="Première réunion de contact"
-                  meeting={dossierDetail.preliminary.firstMeeting}
-                />
-              ) : null}
-
-              {dossierDetail.preliminary.preliminaryMeeting ? (
-                <MeetingBlock
-                  label="Réunion préliminaire"
-                  meeting={dossierDetail.preliminary.preliminaryMeeting}
-                />
-              ) : null}
-
-              {downloadError ? (
-                <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">
-                  {downloadError}
-                </div>
-              ) : null}
-
-              {dossierDetail.preliminary.firstMeetingReportDocumentId ? (
                 <button
                   type="button"
-                  className="btn btn-secondary w-fit"
-                  onClick={() =>
-                    void handleDownload(
-                      dossierDetail.preliminary.firstMeetingReportDocumentId!,
-                      "compte-rendu-premiere-reunion.pdf",
-                    )
-                  }
+                  className={[
+                    "sub-tab",
+                    dossierSubTab === "phase2" ? "sub-tab-active" : "",
+                    dossierDetail.formalRequest.portalLabel ===
+                    "Phase de demande formelle clôturée"
+                      ? "sub-tab-done"
+                      : "",
+                  ].join(" ")}
+                  onClick={() => setDossierSubTab("phase2")}
                 >
-                  <Download size={14} aria-hidden="true" />
-                  Télécharger le compte rendu - Première réunion
+                  Phase II — Demande formelle
                 </button>
               ) : null}
-
-              <div className="flex items-center justify-between gap-3 text-xs text-slate-400">
-                <span>
-                  Ouvert le {formatDate(dossierDetail.dossier.openedAt)}
-                </span>
+              {["document_evaluation_phase", "inspection_phase", "delivery_phase", "closed"].includes(
+                dossierDetail.dossier.status,
+              ) ? (
                 <button
                   type="button"
-                  className="btn btn-secondary"
-                  onClick={() => void loadDossier(request.dossierId!)}
-                  disabled={dossierLoading}
+                  className={`sub-tab ${dossierSubTab === "phase3" ? "sub-tab-active" : ""}`}
+                  onClick={() => setDossierSubTab("phase3")}
                 >
-                  <RefreshCw size={14} aria-hidden="true" />
-                  Actualiser
+                  Phase III — Évaluation
                 </button>
-              </div>
-            </>
+              ) : null}
+            </div>
           ) : null}
+
+          {/* Sub-tab content */}
+          <div className="p-5">
+            {dossierLoading ? (
+              <p className="text-sm text-slate-500">
+                Chargement du dossier DN…
+              </p>
+            ) : dossierError ? (
+              <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">
+                {dossierError}
+              </div>
+            ) : dossierDetail ? (
+              <>
+                {/* ── Overview sub-tab ──────────────────────────────────── */}
+                {dossierSubTab === "overview" ? (
+                  <div className="grid gap-5">
+                    <dl className="grid gap-x-8 gap-y-4 text-sm sm:grid-cols-3 field-readonly">
+                      <div>
+                        <dt>Référence dossier</dt>
+                        <dd className="font-mono">
+                          {dossierDetail.dossier.dossierNumber}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt>Type de certification</dt>
+                        <dd>
+                          {dossierTypeLabels[dossierDetail.dossier.dossierType] ??
+                            dossierDetail.dossier.dossierType}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt>Ouvert le</dt>
+                        <dd>{formatDate(dossierDetail.dossier.openedAt)}</dd>
+                      </div>
+                    </dl>
+
+                    {/* Compact phase progress strip */}
+                    <div className="grid gap-2 rounded-xl border border-slate-100 bg-slate-50 p-4 sm:grid-cols-3">
+                      {[
+                        {
+                          label: "Phase I — Préliminaire",
+                          done: dossierDetail.preliminary.status === "preliminary_closed",
+                          active: dossierDetail.preliminary.status !== "preliminary_closed",
+                        },
+                        {
+                          label: "Phase II — Demande formelle",
+                          done:
+                            dossierDetail.formalRequest?.portalLabel ===
+                            "Phase de demande formelle clôturée",
+                          active:
+                            !!dossierDetail.formalRequest &&
+                            dossierDetail.formalRequest.portalLabel !==
+                              "Phase de demande formelle clôturée",
+                        },
+                        {
+                          label: "Phase III — Évaluation",
+                          done: ["inspection_phase", "delivery_phase", "closed"].includes(
+                            dossierDetail.dossier.status,
+                          ),
+                          active:
+                            dossierDetail.dossier.status === "document_evaluation_phase",
+                        },
+                      ].map((phase) => (
+                        <div
+                          key={phase.label}
+                          className={[
+                            "rounded-lg px-3 py-2 text-xs font-medium",
+                            phase.done
+                              ? "bg-emerald-50 text-emerald-700"
+                              : phase.active
+                                ? "bg-sky-50 text-sky-800"
+                                : "bg-white text-slate-400",
+                          ].join(" ")}
+                        >
+                          {phase.done ? (
+                            <span className="mr-1.5">✓</span>
+                          ) : phase.active ? (
+                            <span className="mr-1.5">→</span>
+                          ) : (
+                            <span className="mr-1.5 opacity-0">·</span>
+                          )}
+                          {phase.label}
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="flex justify-end">
+                      <button
+                        type="button"
+                        className="btn btn-secondary py-1 text-xs"
+                        onClick={() => void loadDossier(request.dossierId!)}
+                        disabled={dossierLoading}
+                      >
+                        <RefreshCw size={12} aria-hidden="true" />
+                        Actualiser
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+
+                {/* ── Phase I sub-tab ───────────────────────────────────── */}
+                {dossierSubTab === "phase1" ? (
+                  <div className="grid gap-4">
+                    {dossierDetail.preliminary.status === "preliminary_closed" ? (
+                      <div className="flex items-center gap-2.5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm">
+                        <CheckCircle2
+                          size={16}
+                          className="flex-shrink-0 text-emerald-600"
+                          aria-hidden="true"
+                        />
+                        <p className="font-semibold text-emerald-800">
+                          Phase préliminaire clôturée
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm">
+                        <p className="font-semibold text-sky-800">
+                          {dossierDetail.preliminary.portalLabel}
+                        </p>
+                      </div>
+                    )}
+
+                    {dossierDetail.preliminary.firstMeeting ? (
+                      <MeetingBlock
+                        label="Première réunion de contact"
+                        meeting={dossierDetail.preliminary.firstMeeting}
+                      />
+                    ) : null}
+
+                    {dossierDetail.preliminary.preliminaryMeeting ? (
+                      <MeetingBlock
+                        label="Réunion préliminaire"
+                        meeting={dossierDetail.preliminary.preliminaryMeeting}
+                      />
+                    ) : null}
+
+                    {downloadError ? (
+                      <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">
+                        {downloadError}
+                      </div>
+                    ) : null}
+
+                    {dossierDetail.preliminary.firstMeetingReportDocumentId ? (
+                      <div>
+                        <button
+                          type="button"
+                          className="btn btn-secondary w-fit"
+                          onClick={() =>
+                            void handleDownload(
+                              dossierDetail.preliminary.firstMeetingReportDocumentId!,
+                              "compte-rendu-premiere-reunion.pdf",
+                            )
+                          }
+                        >
+                          <Download size={14} aria-hidden="true" />
+                          Télécharger le compte rendu — Première réunion
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+
+                {/* ── Phase II sub-tab ──────────────────────────────────── */}
+                {dossierSubTab === "phase2" ? (
+                  <div className="grid gap-4">
+                    {dossierDetail.formalRequest ? (
+                      <>
+                        <div
+                          className={[
+                            "rounded-xl border px-4 py-3 text-sm",
+                            dossierDetail.formalRequest.portalLabel ===
+                            "Phase de demande formelle clôturée"
+                              ? "border-emerald-200 bg-emerald-50"
+                              : "border-sky-200 bg-sky-50",
+                          ].join(" ")}
+                        >
+                          <p
+                            className={
+                              dossierDetail.formalRequest.portalLabel ===
+                              "Phase de demande formelle clôturée"
+                                ? "font-semibold text-emerald-800"
+                                : "font-semibold text-sky-800"
+                            }
+                          >
+                            {dossierDetail.formalRequest.portalLabel}
+                          </p>
+                        </div>
+
+                        {dossierDetail.formalRequest.formalMeeting ? (
+                          <MeetingBlock
+                            label="Réunion de demande formelle"
+                            meeting={dossierDetail.formalRequest.formalMeeting}
+                          />
+                        ) : null}
+
+                        {dossierDetail.formalRequest.requirements.length > 0 ? (
+                          <>
+                            {downloadError ? (
+                              <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">
+                                {downloadError}
+                              </div>
+                            ) : null}
+                            <Phase2DocumentChecklist
+                              requirements={dossierDetail.formalRequest.requirements}
+                              progress={dossierDetail.formalRequest.progress}
+                              expandedRequirementId={expandedRequirementId}
+                              reqUploadFile={reqUploadFile}
+                              reqUploadNotes={reqUploadNotes}
+                              reqUploadBusy={reqUploadBusy}
+                              reqUploadError={reqUploadError}
+                              reqUploadFileRef={reqUploadFileRef}
+                              onExpand={(id) => {
+                                setExpandedRequirementId(
+                                  expandedRequirementId === id ? null : id,
+                                );
+                                setReqUploadFile(null);
+                                setReqUploadNotes("");
+                                setReqUploadError("");
+                                if (reqUploadFileRef.current)
+                                  reqUploadFileRef.current.value = "";
+                              }}
+                              onFileChange={setReqUploadFile}
+                              onNotesChange={setReqUploadNotes}
+                              onSubmit={handleRequirementUpload}
+                              onTemplateDownload={handleTemplateDownload}
+                            />
+                          </>
+                        ) : null}
+                      </>
+                    ) : (
+                      <p className="text-sm text-slate-500">
+                        La Phase II débutera après la clôture de la Phase I.
+                      </p>
+                    )}
+                  </div>
+                ) : null}
+
+                {/* ── Phase III sub-tab ─────────────────────────────────── */}
+                {dossierSubTab === "phase3" ? (
+                  <Phase3DocumentEvaluationBlock dossierId={request.dossierId!} />
+                ) : null}
+              </>
+            ) : null}
+          </div>
         </div>
       ) : null}
 

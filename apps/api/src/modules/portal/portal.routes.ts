@@ -35,6 +35,7 @@ import {
 } from "../oma-phases/formal-request.service.js";
 import {
   getPortalDocumentEvaluationPaymentState,
+  getPortalDocumentEvaluationState,
   uploadDocumentEvaluationCorrection,
   uploadStudyFeePaymentProof,
 } from "../oma-phases/document-evaluation.service.js";
@@ -288,6 +289,19 @@ portalRouter.post(
 );
 
 // ── Phase 3 — Évaluation approfondie: payment routes (portal) ────────────────
+
+portalRouter.get(
+  "/dossiers/:id/phases/document-evaluation",
+  requireAuth({ scope: "portal" }),
+  asyncHandler(async (req, res) => {
+    res.json(
+      await getPortalDocumentEvaluationState(
+        String(req.params.id),
+        req.user!,
+      ),
+    );
+  }),
+);
 
 portalRouter.get(
   "/dossiers/:id/phases/document-evaluation/payment",

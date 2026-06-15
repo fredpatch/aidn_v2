@@ -12,32 +12,22 @@ import { usePortalAuth } from "../lib/auth/PortalAuthContext";
 import { portalRoutes } from "../lib/routes";
 
 const navItems = [
-  {
-    label: "Tableau de bord",
-    to: portalRoutes.dashboard,
-    icon: Home,
-  },
-  {
-    label: "Mes demandes",
-    to: portalRoutes.requests,
-    icon: ClipboardList,
-  },
-  {
-    label: "Actions requises",
-    to: portalRoutes.requests,
-    icon: ListChecks,
-  },
-  {
-    label: "Rendez-vous",
-    to: portalRoutes.rendezVous,
-    icon: CalendarDays,
-  },
-  {
-    label: "Notifications",
-    to: portalRoutes.notifications,
-    icon: Bell,
-  },
+  { label: "Tableau de bord", to: portalRoutes.dashboard, icon: Home },
+  { label: "Mes demandes", to: portalRoutes.requests, icon: ClipboardList },
+  { label: "Actions requises", to: portalRoutes.requests, icon: ListChecks },
+  { label: "Rendez-vous", to: portalRoutes.rendezVous, icon: CalendarDays },
+  { label: "Notifications", to: portalRoutes.notifications, icon: Bell },
 ];
+
+function getInitials(name?: string): string {
+  if (!name) return "?";
+  return name
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0].toUpperCase())
+    .join("");
+}
 
 export function PortalSidebar(): React.JSX.Element {
   const { logout, user } = usePortalAuth();
@@ -49,42 +39,57 @@ export function PortalSidebar(): React.JSX.Element {
   };
 
   return (
-    <aside className="surface h-fit rounded-lg p-3">
-      <nav className="flex flex-col gap-1">
+    <aside className="surface h-fit rounded-xl p-3">
+      {/* User chip */}
+      {user ? (
+        <div className="mb-3 flex items-center gap-2.5 rounded-lg bg-slate-50 px-3 py-2.5">
+          <span
+            className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-slate-900 text-xs font-bold text-white"
+            aria-hidden="true"
+          >
+            {getInitials(user.fullName)}
+          </span>
+          <span className="min-w-0">
+            <span className="block truncate text-sm font-semibold text-slate-900">
+              {user.fullName}
+            </span>
+            <span className="block truncate text-xs text-slate-500">
+              {user.email}
+            </span>
+          </span>
+        </div>
+      ) : null}
+
+      <nav className="flex flex-col gap-0.5">
         {navItems.map((item) => {
           const Icon = item.icon;
-
           return (
             <NavLink
               key={item.label}
               to={item.to}
               className={({ isActive }) =>
-                `flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium ${
+                [
+                  "flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
                   isActive
-                    ? "bg-slate-950 text-white"
-                    : "text-slate-600 hover:bg-slate-100 hover:text-slate-950"
-                }`
+                    ? "border-l-[3px] border-slate-900 bg-slate-50 pl-[9px] text-slate-900"
+                    : "text-slate-600 hover:bg-slate-50 hover:text-slate-900",
+                ].join(" ")
               }
             >
-              <Icon size={16} aria-hidden="true" />
+              <Icon size={15} aria-hidden="true" />
               {item.label}
             </NavLink>
           );
         })}
       </nav>
-      <div className="mt-4 border-t border-slate-200 pt-3">
-        <p className="px-3 text-xs font-semibold uppercase text-slate-500">
-          Bienvenue
-        </p>
-        <p className="truncate px-3 text-sm font-bold text-slate-950">
-          {user?.fullName}
-        </p>
+
+      <div className="mt-3 border-t border-slate-100 pt-3">
         <button
           type="button"
-          className="mt-2 flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-950"
-          onClick={handleLogout}
+          className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm font-medium text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-700"
+          onClick={() => void handleLogout()}
         >
-          <LogOut size={16} aria-hidden="true" />
+          <LogOut size={15} aria-hidden="true" />
           Se déconnecter
         </button>
       </div>

@@ -14,6 +14,7 @@ import {
   PhaseStatusBadge,
   Section,
 } from "./dossier-detail.helpers";
+import { DocumentEvaluationPhaseWorkspace } from "./DocumentEvaluationPhaseWorkspace";
 import { FormalRequestPhaseChecklist } from "./FormalRequestPhaseChecklist";
 import { FormalRequestPhaseWorkspace } from "./FormalRequestPhaseWorkspace";
 import { PreliminaryActionPanel } from "./PreliminaryPhaseWorkspace";
@@ -287,6 +288,12 @@ export function DossierPhasesTab({
         onNavigateToTab={onNavigateToTab}
         phaseRecord={byKey.get("formal_request")}
         state={formalState}
+      />
+    ) : selectedKey === "document_evaluation" ? (
+      <DocumentEvaluationPhaseWorkspace
+        dossierId={dossierId}
+        phaseRecord={byKey.get("document_evaluation")}
+        onRefresh={onRefresh}
       />
     ) : (
       <PhaseWorkspacePlaceholder

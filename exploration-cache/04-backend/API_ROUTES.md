@@ -71,6 +71,7 @@ Last reviewed: 2026-06-01
 - `POST /api/v1/portal/dossiers/:id/phases/formal-request/documents/:requirementId` - Upload supporting document, portal postulant, ownership-scoped, source=portal_upload (OMA-FORMAL-5)
 - `GET /api/v1/admin/dossiers/:id/phases/document-evaluation/payment` - Admin Phase 3 payment state, PAYMENT_VIEW (OMA-EVAL-1)
 - `POST /api/v1/admin/dossiers/:id/phases/document-evaluation/invoice` - S5/admin uploads study fee invoice, PAYMENT_INVOICE_UPLOAD, multipart file (OMA-EVAL-1)
+- `GET /api/v1/portal/dossiers/:id/phases/document-evaluation` - Portal Phase 3 full state (payment + evaluations), portal ownership-scoped (OMA-EVAL-6B)
 - `GET /api/v1/portal/dossiers/:id/phases/document-evaluation/payment` - Portal Phase 3 payment state, portal ownership-scoped (OMA-EVAL-1)
 - `POST /api/v1/portal/dossiers/:id/phases/document-evaluation/payment-proof` - Postulant uploads payment proof, portal ownership-scoped, multipart file (OMA-EVAL-1)
 

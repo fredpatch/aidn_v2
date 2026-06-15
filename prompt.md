@@ -145,72 +145,64 @@ YYYY-MM-DD-<phase-name>-correction.md
 
 # CURRENT OBJECTIVE
 
-# OMA-EVAL-5 — Phase 3 UI Audit & Planning
+# OMA-EVAL-6D — Portal Phase 3 Action Block
 
 You are working inside the existing `AIDN_V2` repository.
 
 ## Objective
 
-Audit existing admin/portal UI patterns and produce a step-by-step implementation plan for the Phase 3 UI:
+Implement the small postulant-facing Phase 3 block inside the portal Dossier tab.
+
+This is **not** a payment portal.
+
+The block should allow the postulant to:
 
 ```txt
-Phase 3 — Évaluation approfondie des documents
+- see invoice availability
+- download the invoice
+- upload proof of payment
+- see proof submitted state
+- see document evaluation statuses
+- read DN annotations when correction is requested
+- upload corrected documents
 ```
 
-Do not implement yet.
-
-This pass must inspect existing UI patterns, API client structure, and reusable components, then return a planning report.
+Do not implement S5/internal UI.
+Do not implement online payment.
+Do not implement payment validation/rejection.
+Do not create a new portal route unless absolutely necessary.
+Do not redesign the whole portal dossier page.
 
 ---
 
-## Current validated backend state
+## Current validated state
 
-OMA-EVAL-1 to OMA-EVAL-4 are complete.
-
-Backend supports:
+Backend:
 
 ```txt
-- Phase 3 payment gate
-- S5/admin invoice upload
-- Portal payment proof upload
-- DN/S5 payment state consultation
-- DocumentEvaluation records
-- DN review: satisfaisant / non_satisfaisant + annotation
-- Portal correction upload
-- DN re-review
-- Phase 3 close
-- Phase 4 unlock
+OMA-EVAL-6B complete:
+GET /portal/dossiers/:id/phases/document-evaluation
+POST /portal/dossiers/:id/phases/document-evaluation/payment-proof
+POST /portal/document-evaluations/:evaluationId/correction
+GET /portal/dossiers/:id/documents/:documentId supports Phase 3 docs
 ```
 
-No Phase 3 UI exists yet.
-
----
-
-## Business behavior to reflect in UI
-
-Phase 3 flow:
+Frontend API:
 
 ```txt
-1. Phase 3 starts after Phase 2 closes
-2. S5 uploads invoice for study fees
-3. Postulant uploads payment proof
-4. DN can start document evaluation
-5. DN reviews documents from Phase 2:
-   - satisfaisant
-   - non_satisfaisant + annotation
-6. Postulant uploads corrected document when requested
-7. DN re-reviews correction
-8. When all blocking documents are satisfaisant, DN closes Phase 3
-9. Phase 4 is unlocked
+OMA-EVAL-6C complete:
+getPortalPhase3State
+uploadPortalPaymentProof
+uploadPortalDocumentEvaluationCorrection
+downloadPortalDossierDocument
 ```
 
-Important:
+Portal location decision:
 
 ```txt
-No Phase III closure courrier upload.
-Closure is button-based.
-Official communication remains outside AIDN / Outlook.
-AIDN sends in-app notification.
+RequestDetailPage.tsx
+→ Dossier tab
+→ append Phase 3 block after Phase 2 block
 ```
 
 ---
@@ -224,301 +216,381 @@ prompt.md
 exploration-cache/manifest.json
 exploration-cache/QUICK-REFERENCE.md
 exploration-cache/tasks/current-task.md
-exploration-cache/tasks/summaries/2026-06-01-oma-eval-1-payment-gate-implementation.md
-exploration-cache/tasks/summaries/2026-06-01-oma-eval-2-document-evaluation-implementation.md
-exploration-cache/tasks/summaries/2026-06-01-oma-eval-3-correction-loop-implementation.md
-exploration-cache/tasks/summaries/2026-06-01-oma-eval-4-phase-close-implementation.md
-exploration-cache/03-frontend/ADMIN_APP_MAP.md
+exploration-cache/tasks/summaries/2026-06-01-oma-eval-6a-portal-phase-3-api-readiness-audit.md
+exploration-cache/tasks/summaries/2026-06-01-oma-eval-6b-portal-phase-3-backend-read-download.md
+exploration-cache/tasks/summaries/2026-06-01-oma-eval-6c-portal-phase-3-api-client-types.md
 exploration-cache/03-frontend/PORTAL_APP_MAP.md
-exploration-cache/04-backend/API_ROUTES.md
-exploration-cache/05-data/DATA_MODELS.md
-exploration-cache/06-workflows/OMA_DOCUMENT_EVALUATION_WORKFLOW.md
+exploration-cache/06-workflows/PORTAL_REQUEST_WORKFLOW.md
 exploration-cache/09-qa/BUILD_AND_TEST_COMMANDS.md
 ```
 
-If a file is missing, report:
+If a summary file is missing, use the current session report and state:
 
 ```txt
-CACHE GAP: <missing path>
+CACHE GAP: <missing summary path>
 ```
 
 ---
 
-## Source areas to inspect
-
-### Admin UI
-
-Inspect narrowly:
-
-```txt
-apps/admin/src/pages/DossierDetailPage.tsx
-apps/admin/src/pages/dossiers/
-apps/admin/src/lib/api/dossiers.api.ts
-apps/admin/src/lib/api/client.ts
-apps/admin/src/lib/utils/blob.ts
-apps/admin/src/lib/utils/error.ts
-apps/admin/src/pages/dossiers/components/UploadDocumentDialog.tsx
-```
-
-Look for:
-
-```txt
-- Phase workspace pattern
-- Phase 1/2 guided action cards
-- payment/download/upload UI patterns
-- close phase button pattern
-- error/loading handling
-- document download/open behavior
-- toast behavior
-- badge/status helpers
-- tab integration
-```
-
-### Portal UI
-
-Inspect narrowly:
+## Files to inspect
 
 ```txt
 apps/portal/src/pages/RequestDetailPage.tsx
 apps/portal/src/lib/api/portal.api.ts
-apps/portal/src/components/
 apps/portal/src/lib/api/http.ts
+apps/portal/src/components/RequestStatusBadge.tsx
+apps/portal/src/components/EmptyState.tsx
+apps/portal/src/styles.css
 ```
 
 Look for:
 
 ```txt
-- existing payment proof upload pattern
-- correction upload pattern
-- document download pattern
-- status display pattern
-- notification/action required wording
-- phase block/card structure
-```
-
-### Optional design/prototype input
-
-If useful, prepare a Claude/Cursor design prompt for a static prototype only.
-
-Do not implement design yet.
-
-The prototype should visualize:
-
-```txt
-Admin Phase 3 workspace:
-- left progression column
-- right guided action card
-- S5/payment block
-- evaluation board
-- document preview/download actions
-- satisfaisant / non_satisfaisant review control
-- annotation textarea
-- close phase action
-
-Portal Phase 3 block:
-- invoice download
-- payment proof upload
-- correction required list
-- annotation display
-- correction upload action
+- Dossier tab rendering
+- Phase 1/2 block structure
+- existing upload form pattern
+- existing document download pattern
+- toast/error pattern
+- status badge styles
 ```
 
 ---
 
-## Required planning report
+## Required implementation
 
-Return:
+Modify:
 
 ```txt
-1. CACHE STATUS
-2. Existing reusable admin UI patterns
-3. Existing reusable portal UI patterns
-4. API client gaps
-5. Component gaps
-6. Proposed admin Phase 3 workspace UX
-7. Proposed portal Phase 3 UX
-8. Proposed API client additions
-9. Proposed component structure
-10. Recommended implementation slices
-11. Risks / open questions
-12. Next step
+apps/portal/src/pages/RequestDetailPage.tsx
+```
+
+Create local helper/component if needed:
+
+```txt
+Phase3DocumentEvaluationBlock
+```
+
+Prefer local component first unless file becomes too large.
+
+If already too large, create:
+
+```txt
+apps/portal/src/components/Phase3DocumentEvaluationBlock.tsx
 ```
 
 ---
 
-## Admin UX target
+## Data loading
 
-Admin Phase 3 should follow the same structure as Phase 1/2:
+When Dossier tab is active and dossier exists:
 
 ```txt
-Left:
-- Phase progression
-- Paiement frais d’étude
-- Évaluation documentaire
-- Corrections en attente
-- Clôture
-
-Right:
-- Guided action card
-- Current required action
-- Payment details
-- Evaluation board
+call getPortalPhase3State(dossierId)
 ```
 
-Recommended sections:
+Recommended behavior:
 
 ```txt
-1. État de la phase
-2. Paiement des frais d’étude
-3. Documents à évaluer
-4. Corrections demandées
-5. Clôture de la phase
+- load separately from existing dossier detail
+- store phase3State, phase3Loading, phase3Error
+- if Phase 3 endpoint returns 404 because phase not opened, hide block gracefully
 ```
 
-French UI labels:
+Do not block the rest of the dossier tab if Phase 3 state fails.
+
+After payment proof upload or correction upload:
 
 ```txt
-Facture des frais d’étude
-Preuve de paiement
-Paiement reçu
-Démarrer l’évaluation
-Documents à évaluer
-Satisfaisant
-Non satisfaisant
-Annotation DN
-Correction demandée
-Correction reçue
-Clôturer la phase III
+reload phase3State
 ```
 
 ---
 
-## Admin expected actions
+## UI block placement
 
-Admin/DN/S5 actions depend on permissions:
+In Dossier tab:
 
 ```txt
-PAYMENT_INVOICE_UPLOAD:
-- upload invoice
-
-PAYMENT_VIEW:
-- view invoice/proof state
-- download invoice/proof
-
-DOCUMENT_REVIEW:
-- start study
-- mark document satisfaisant
-- mark document non_satisfaisant with annotation
-
-PHASE_CLOSE:
-- close Phase 3 when ready
+Phase 1 block
+Phase 2 block
+Phase 3 block ← add here
 ```
 
-Do not assume all users can do all actions.
+Only render Phase 3 block when:
+
+```txt
+- phase3State exists
+- OR dossier status indicates document_evaluation_phase / inspection_phase / delivery_phase / closed
+```
+
+If endpoint 404s, do not show scary error. Phase 3 may not exist yet.
 
 ---
 
-## Portal UX target
+## Section layout
 
-Portal Phase 3 should stay simple.
-
-Recommended sections:
+### Header
 
 ```txt
-1. Facture
-2. Paiement
-3. Évaluation des documents
-4. Corrections demandées
+Phase III — Évaluation approfondie
 ```
 
-Portal labels:
+Subtitle:
+
+```txt
+Suivi de la facture, du paiement et des corrections documentaires.
+```
+
+Status badge from:
+
+```txt
+phase.documentEvaluationStatus
+```
+
+Labels:
+
+```txt
+document_evaluation_waiting_invoice → En attente de facture
+document_evaluation_waiting_payment → En attente du paiement
+document_evaluation_payment_proof_submitted → Preuve de paiement envoyée
+document_evaluation_study_in_progress → Évaluation en cours
+document_evaluation_waiting_corrections → Corrections demandées
+document_evaluation_ready_to_close → Évaluation finalisée
+document_evaluation_closed → Phase III clôturée
+```
+
+---
+
+## Section 1 — Facture
+
+If no invoice:
+
+```txt
+En attente de la facture ANAC.
+```
+
+If invoice exists:
 
 ```txt
 Facture disponible
-Télécharger la facture
+[ Télécharger la facture ]
+```
+
+Download:
+
+```ts
+downloadPortalDossierDocument(dossierId, invoiceDocumentId);
+```
+
+Use filename:
+
+```txt
+facture-frais-etude.pdf
+```
+
+---
+
+## Section 2 — Paiement
+
+If no invoice:
+
+```txt
+Le dépôt de la preuve sera disponible après réception de la facture.
+```
+
+If invoice exists and no proof:
+
+Show action-required card:
+
+```txt
+Action requise
 Déposer la preuve de paiement
+Téléversez la quittance ou preuve de paiement des frais d’étude.
+[Choisir un fichier] [Envoyer]
+```
+
+Upload:
+
+```txt
+multipart/form-data
+file
+notes optional
+```
+
+Call:
+
+```ts
+uploadPortalPaymentProof(dossierId, formData);
+```
+
+If proof exists:
+
+```txt
 Preuve de paiement envoyée
-Document satisfaisant
+```
+
+Optional download proof button:
+
+```txt
+Télécharger la preuve déposée
+```
+
+Use `downloadPortalDossierDocument`.
+
+---
+
+## Section 3 — Évaluation des documents
+
+If `evaluations.length === 0`:
+
+Show muted message:
+
+```txt
+L’évaluation documentaire commencera après réception de la preuve de paiement.
+```
+
+If evaluations exist:
+
+Render compact list.
+
+Each item:
+
+```txt
+- requirementLabel
+- formCode or requirementCode if present
+- status badge
+- annotation block if annotation exists
+```
+
+Status labels:
+
+```txt
+pending → En cours d’examen
+satisfaisant → Satisfaisant
+non_satisfaisant → Correction demandée
+correction_submitted → Correction envoyée
+```
+
+---
+
+## Section 4 — Corrections demandées
+
+For each evaluation where:
+
+```ts
+canUploadCorrection === true;
+```
+
+Show action-required card:
+
+```txt
 Correction demandée
-Annotation de la DN
-Déposer le document corrigé
-Correction envoyée
-Phase III clôturée
+<requirementLabel>
+Annotation DN:
+<annotation>
+[Déposer le document corrigé]
 ```
 
-Portal must not show internal DN technical noise.
+Inline upload form:
+
+```txt
+file
+notes optional
+```
+
+Call:
+
+```ts
+uploadPortalDocumentEvaluationCorrection(evaluationId, formData);
+```
+
+After success:
+
+```txt
+toast.success("Correction envoyée.")
+reload phase3State
+```
+
+For `correction_submitted`:
+
+```txt
+Correction envoyée — en attente de revue DN.
+```
+
+No duplicate upload unless backend allows status back to `non_satisfaisant`.
 
 ---
 
-## Required implementation split to validate
+## Upload constraints
 
-Do not implement in this pass, but evaluate this split:
+Use existing portal upload style:
 
 ```txt
-OMA-EVAL-5A — Admin API client/types:
-- add document-evaluation payment/evaluation/close methods
-- add types for payment state, evaluations, progress
+accept=".pdf,.jpg,.jpeg,.png"
+```
 
-OMA-EVAL-5B — Admin Phase 3 workspace:
-- DocumentEvaluationPhaseWorkspace.tsx
-- payment state block
-- evaluation board
-- review dialogs/forms
-- close phase action
+Handle:
 
-OMA-EVAL-5C — Admin dossier integration:
-- render Phase 3 workspace in DossierPhasesTab / phase router
-- update Documents tab if needed
-- update Historique tab if simple
-
-OMA-EVAL-6A — Portal API client/types:
-- payment state
-- payment proof upload
-- correction upload
-- invoice/document download
-
-OMA-EVAL-6B — Portal Phase 3 UI:
-- invoice download
-- proof upload
-- correction list
-- annotation display
-- correction upload
-
-OMA-EVAL-7 — UX polish/cross-tab:
-- Documents tab Phase 3 section
-- Historique events
-- Dashboard priority actions if needed
+```txt
+loading state per upload action
+inline error message
+reset file input after success
 ```
 
 ---
 
-## Prototype/design deliverable
+## Download behavior
 
-If planning finds UI ambiguity, include a separate prompt titled:
+Use existing portal download pattern:
 
 ```txt
-Claude Design Prompt — Phase 3 Workspace Prototype
+portalGetBlob → object URL → <a download> click
 ```
 
-The design prompt should request a static visual/prototype only.
+If `downloadPortalDossierDocument` already handles this, use it.
 
-It must not request implementation.
+If it only returns Blob, create local helper:
 
-It should ask for:
+```ts
+downloadAndSave(blob, fileName);
+```
+
+Do not introduce new dependency.
+
+---
+
+## Error behavior
+
+Use existing patterns:
 
 ```txt
-- Swiss-style compact institutional layout
-- French labels
-- desktop-first admin workspace
-- portal simplified block
-- no fake business rules
-- clear state variants:
-  1. waiting invoice
-  2. waiting payment proof
-  3. study in progress
-  4. corrections waiting
-  5. ready to close
-  6. closed
+toast.success
+toast.error or inline red alert
+```
+
+Rules:
+
+```txt
+- 404 for Phase 3 state: hide block / show nothing
+- other Phase 3 state error: compact warning inside dossier tab
+- upload failure: inline error in the upload card
+- download failure: toast/error message
+```
+
+---
+
+## Scope boundaries
+
+Do not implement:
+
+```txt
+- online payment
+- S5 workspace
+- admin evaluation controls
+- correction history
+- Phase 4 portal block
+- route/page split
+- dashboard integration
 ```
 
 ---
@@ -529,48 +601,50 @@ Update:
 
 ```txt
 exploration-cache/tasks/current-task.md
+exploration-cache/03-frontend/PORTAL_APP_MAP.md
+exploration-cache/06-workflows/PORTAL_REQUEST_WORKFLOW.md
 ```
 
 Create summary:
 
 ```txt
-exploration-cache/tasks/summaries/2026-06-01-oma-eval-5-phase-3-ui-audit-planning.md
+exploration-cache/tasks/summaries/2026-06-01-oma-eval-6d-portal-phase-3-action-block.md
 ```
 
 Create/update history:
 
 ```txt
-exploration-cache/tasks/history/2026-06-01-oma-eval-5-phase-3-ui-audit-planning.md
+exploration-cache/tasks/history/2026-06-01-oma-eval-6d-portal-phase-3-action-block.md
 ```
 
-Only update `manifest.json` if current cache convention requires planning-pass manifest updates.
-
-Summary must include:
-
-```txt
-Objective
-Cache files read
-Source files inspected
-Files changed
-Key decisions
-Implementation details, if any
-Verification commands run
-Manual checks
-Known risks / TODOs
-Next step
-```
+Update manifest if current convention requires it.
 
 ---
 
 ## Verification
 
-No build required unless files are changed beyond cache.
+Run:
 
-If source files are inspected only, report:
+```bash
+cd apps/portal
+npx tsc --noEmit
+npm run build
+```
+
+Manual checks if dev server available:
 
 ```txt
-Verification commands run: not run — audit/planning only
-Manual checks: not run — no implementation
+1. Dossier tab loads without Phase 3
+2. Phase 3 block appears when phase exists
+3. Waiting invoice state renders
+4. Invoice download works
+5. Payment proof upload appears only when invoice exists and no proof exists
+6. Payment proof upload refreshes block
+7. Evaluations list appears after payment gate
+8. non_satisfaisant shows annotation
+9. Correction upload appears only when canUploadCorrection=true
+10. Correction upload refreshes to correction_submitted
+11. Closed phase shows read-only state
 ```
 
 ---
@@ -581,13 +655,13 @@ Return:
 
 ```txt
 1. Cache status
-2. Files inspected
-3. Existing patterns found
-4. UI gaps
-5. API client gaps
-6. Admin Phase 3 UX plan
-7. Portal Phase 3 UX plan
-8. Component/API split
-9. Prototype/design prompt if useful
-10. Recommended next implementation slice
+2. Files changed
+3. Data loading behavior
+4. Phase 3 block behavior
+5. Upload/download behavior
+6. Error/loading behavior
+7. Verification results
+8. Manual checks
+9. Known risks/TODOs
+10. Next step
 ```

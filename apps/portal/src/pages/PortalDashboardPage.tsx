@@ -1,11 +1,18 @@
-import { Bell, CalendarDays, ClipboardList, ListChecks } from "lucide-react";
+import {
+  ArrowRight,
+  Bell,
+  CalendarDays,
+  CheckCircle2,
+  ClipboardList,
+  ListChecks,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { usePortalAuth } from "../lib/auth/PortalAuthContext";
 import {
-  listPortalNotifications,
   listPortalMeetings,
+  listPortalNotifications,
   listRequests,
   type PortalMeeting,
   type PortalRequest,
@@ -19,10 +26,10 @@ function deriveStats(
 ) {
   const now = Date.now();
   const nextMeeting = meetings.find(
-    (meeting) =>
-      meeting.scheduledAt &&
-      meeting.status !== "cancelled" &&
-      new Date(meeting.scheduledAt).getTime() >= now,
+    (m) =>
+      m.scheduledAt &&
+      m.status !== "cancelled" &&
+      new Date(m.scheduledAt).getTime() >= now,
   );
 
   return {
@@ -38,44 +45,25 @@ function deriveStats(
           hour: "2-digit",
           minute: "2-digit",
         }).format(new Date(nextMeeting.scheduledAt))
-      : "Aucun",
+      : null,
+    lastActiveRequest: requests.find((r) => r.status !== "draft") ?? null,
   };
 }
 
-export function PortalDashboardPage(): React.JSX.Element {
-  const { user } = usePortalAuth();
-  const [stats, setStats] = useState({
-    demandes: 0,
-    actionsRequises: 0,
-    notifications: 0,
-    nextMeetingLabel: "Aucun",
-  });
+type Stats = ReturnType<typeof deriveStats>;
 
-  useEffect(() => {
-    let isMounted = true;
+type KpiCard = {
+  title: string;
+  value: string | number;
+  icon: React.ElementType;
+  to: string;
+  urgent?: boolean;
+  attention?: boolean;
+  sub?: string;
+};
 
-    void Promise.all([
-      listRequests(),
-      listPortalNotifications({ status: "unread", limit: 50 }),
-      listPortalMeetings({ status: "all" }),
-    ]).then(([requestsRes, notificationsRes, meetingsRes]) => {
-      if (isMounted) {
-        setStats(
-          deriveStats(
-            requestsRes.items,
-            notificationsRes.unreadCount,
-            meetingsRes.items,
-          ),
-        );
-      }
-    });
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
-
-  const cards = [
+function buildCards(stats: Stats): KpiCard[] {
+  return [
     {
       title: "Mes demandes",
       value: stats.demandes,
@@ -87,53 +75,182 @@ export function PortalDashboardPage(): React.JSX.Element {
       value: stats.actionsRequises,
       icon: ListChecks,
       to: portalRoutes.requests,
+      urgent: stats.actionsRequises > 0,
     },
     {
-      title: "Notifications",
+      title: "Notifications non lues",
       value: stats.notifications,
       icon: Bell,
       to: portalRoutes.notifications,
+      attention: stats.notifications > 0,
     },
     {
       title: "Prochain rendez-vous",
-      value: stats.nextMeetingLabel,
+      value: stats.nextMeetingLabel ?? "Aucun",
       icon: CalendarDays,
       to: portalRoutes.rendezVous,
     },
   ];
+}
+
+export function PortalDashboardPage(): React.JSX.Element {
+  const { user } = usePortalAuth();
+  const [stats, setStats] = useState<Stats>({
+    demandes: 0,
+    actionsRequises: 0,
+    notifications: 0,
+    nextMeetingLabel: null,
+    lastActiveRequest: null,
+  });
+
+  useEffect(() => {
+    let isMounted = true;
+    void Promise.all([
+      listRequests(),
+      listPortalNotifications({ status: "unread", limit: 50 }),
+      listPortalMeetings({ status: "all" }),
+    ]).then(([requestsRes, notifRes, meetingsRes]) => {
+      if (isMounted) {
+        setStats(
+          deriveStats(requestsRes.items, notifRes.unreadCount, meetingsRes.items),
+        );
+      }
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const cards = buildCards(stats);
+  const firstName = user?.fullName?.split(" ")[0] ?? "Bienvenue";
 
   return (
-    <section className="flex flex-col gap-6">
+    <section className="flex flex-col gap-8">
+      {/* Page header */}
       <div>
-        <h1 className="page-title">Tableau de bord postulant</h1>
-        <p className="page-subtitle">Bienvenue, {user?.fullName}</p>
-        <p className="mt-1 text-sm font-medium text-slate-500">
-          Organisation liée
-          {user?.organizationId ? ` : ${user.organizationId}` : ""}
+        <p className="text-xs font-semibold uppercase tracking-widest text-slate-400">
+          Tableau de bord
+        </p>
+        <h1 className="mt-1 page-title">Bonjour, {firstName}</h1>
+        <p className="page-subtitle">
+          Retrouvez ici l'état de vos demandes et vos prochaines étapes.
         </p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-4">
+      {/* KPI grid */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {cards.map((card) => {
           const Icon = card.icon;
-
           return (
             <Link
               key={card.title}
               to={card.to}
-              className="surface rounded-lg p-5 transition-colors hover:bg-slate-100"
+              className={[
+                "kpi-card group",
+                card.urgent
+                  ? "border-amber-200 bg-amber-50 hover:bg-amber-50"
+                  : card.attention
+                    ? "border-sky-200 bg-sky-50 hover:bg-sky-50"
+                    : "",
+              ].join(" ")}
             >
-              <Icon size={20} className="text-slate-600" aria-hidden="true" />
-              <p className="mt-4 text-sm font-semibold text-slate-500">
-                {card.title}
-              </p>
-              <p className="mt-1 text-3xl font-black text-slate-950">
-                {card.value}
-              </p>
+              <div className="flex items-center justify-between">
+                <Icon
+                  size={18}
+                  className={
+                    card.urgent
+                      ? "text-amber-600"
+                      : card.attention
+                        ? "text-sky-600"
+                        : "text-slate-400"
+                  }
+                  aria-hidden="true"
+                />
+                <ArrowRight
+                  size={14}
+                  className="text-slate-300 transition-transform group-hover:translate-x-0.5 group-hover:text-slate-400"
+                  aria-hidden="true"
+                />
+              </div>
+              <div>
+                <p
+                  className={[
+                    "text-2xl font-black",
+                    card.urgent
+                      ? "text-amber-900"
+                      : card.attention
+                        ? "text-sky-900"
+                        : "text-slate-900",
+                  ].join(" ")}
+                >
+                  {card.value}
+                </p>
+                <p
+                  className={[
+                    "mt-0.5 text-xs font-medium",
+                    card.urgent
+                      ? "text-amber-700"
+                      : card.attention
+                        ? "text-sky-700"
+                        : "text-slate-500",
+                  ].join(" ")}
+                >
+                  {card.title}
+                </p>
+              </div>
             </Link>
           );
         })}
       </div>
+
+      {/* Contextual next-step banner */}
+      {stats.actionsRequises > 0 ? (
+        <div className="flex items-start gap-4 rounded-xl border border-amber-200 bg-amber-50 p-5">
+          <ListChecks
+            size={20}
+            className="mt-0.5 flex-shrink-0 text-amber-600"
+            aria-hidden="true"
+          />
+          <div className="min-w-0 flex-1">
+            <p className="font-semibold text-amber-900">
+              {stats.actionsRequises === 1
+                ? "Une action est requise de votre part"
+                : `${stats.actionsRequises} actions requises de votre part`}
+            </p>
+            <p className="mt-0.5 text-sm text-amber-700">
+              Consultez votre demande pour voir les étapes à compléter.
+            </p>
+          </div>
+          <Link
+            to={portalRoutes.requests}
+            className="btn btn-secondary flex-shrink-0 border-amber-300 bg-white text-amber-800 hover:bg-amber-100"
+          >
+            Voir
+          </Link>
+        </div>
+      ) : stats.lastActiveRequest ? (
+        <div className="flex items-start gap-4 rounded-xl border border-slate-200 bg-slate-50 p-5">
+          <CheckCircle2
+            size={20}
+            className="mt-0.5 flex-shrink-0 text-emerald-500"
+            aria-hidden="true"
+          />
+          <div className="min-w-0 flex-1">
+            <p className="font-semibold text-slate-800">
+              Aucune action requise pour le moment
+            </p>
+            <p className="mt-0.5 truncate text-sm text-slate-500">
+              {stats.lastActiveRequest.portalStatusLabel}
+            </p>
+          </div>
+          <Link
+            to={portalRoutes.requests}
+            className="btn btn-secondary flex-shrink-0"
+          >
+            Voir ma demande
+          </Link>
+        </div>
+      ) : null}
     </section>
   );
 }

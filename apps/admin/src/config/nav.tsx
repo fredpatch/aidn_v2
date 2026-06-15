@@ -5,6 +5,7 @@ import {
   FolderOpen,
   LayoutDashboard,
   MailCheck,
+  Receipt,
   Send,
   MessagesSquare,
   MonitorSmartphone,
@@ -45,6 +46,7 @@ export const NAV_GROUPS: NavGroupConfig[] = [
     items: [
       { label: 'Demandes', to: '/demandes', icon: <ScrollText className="h-4 w-4" aria-hidden="true" />, permissions: ['REQUEST_INTAKE_REVIEW'] },
       { label: 'Courriers officiels', to: '/circuit-dg', icon: <Send className="h-4 w-4" aria-hidden="true" />, permissions: ['DG_CIRCUIT_HANDLE', 'COURRIER_REGISTER_PHYSICAL', 'PRE_EVAL_DG_CIRCUIT_HANDLE'] },
+      { label: 'Facturation S5', to: '/facturation-s5', icon: <Receipt className="h-4 w-4" aria-hidden="true" />, permissions: ['PAYMENT_VIEW'] },
       { label: 'Courriers / Orientation DG', to: '/courriers', icon: <MailCheck className="h-4 w-4" aria-hidden="true" />, permissions: ['REQUEST_INTAKE_REVIEW'] },
       { label: 'Dossiers DN', to: '/dossiers', icon: <FolderOpen className="h-4 w-4" aria-hidden="true" />, permissions: ['DOSSIER_VIEW_ALL'] },
       { label: 'Workflow OMA', to: '/workflow-oma', icon: <Workflow className="h-4 w-4" aria-hidden="true" />, permissions: ['DOSSIER_VIEW_ALL'] },

@@ -25,13 +25,18 @@ export const env = {
   mongodbUri: read("MONGODB_URI", "mongodb://127.0.0.1:27017/aidn"),
   jwtPrivateKeyBase64: read("JWT_PRIVATE_KEY_BASE64"),
   jwtPublicKeyBase64: read("JWT_PUBLIC_KEY_BASE64"),
-  jwtExpiresIn: (process.env.JWT_EXPIRES_IN ?? "8h") as SignOptions["expiresIn"],
+  jwtExpiresIn: (process.env.JWT_EXPIRES_IN ??
+    "8h") as SignOptions["expiresIn"],
   corsOrigins: readCorsOrigins(),
   authCookieName: process.env.AUTH_COOKIE_NAME ?? "aidn_admin_session",
-  portalAuthCookieName: process.env.PORTAL_AUTH_COOKIE_NAME ?? "aidn_portal_session",
+  portalAuthCookieName:
+    process.env.PORTAL_AUTH_COOKIE_NAME ?? "aidn_portal_session",
   authCsrfCookieName: process.env.AUTH_CSRF_COOKIE_NAME ?? "aidn_admin_csrf",
-  portalCsrfCookieName: process.env.PORTAL_CSRF_COOKIE_NAME ?? "aidn_portal_csrf",
-  csrfHeaderName: (process.env.CSRF_HEADER_NAME ?? "x-csrf-token").toLowerCase(),
+  portalCsrfCookieName:
+    process.env.PORTAL_CSRF_COOKIE_NAME ?? "aidn_portal_csrf",
+  csrfHeaderName: (
+    process.env.CSRF_HEADER_NAME ?? "x-csrf-token"
+  ).toLowerCase(),
   publicAccountRequestRateLimitWindowMs: readPositiveInteger(
     "PUBLIC_ACCOUNT_REQUEST_RATE_LIMIT_WINDOW_MS",
     15 * 60 * 1000,
@@ -55,15 +60,16 @@ export const env = {
   bootstrapAdmin: {
     fullName: process.env.BOOTSTRAP_ADMIN_FULL_NAME ?? "Bootstrap Admin",
     email: process.env.BOOTSTRAP_ADMIN_EMAIL ?? "admin@aidn.local",
-    password: process.env.BOOTSTRAP_ADMIN_PASSWORD ?? "change-me-now"
+    password: process.env.BOOTSTRAP_ADMIN_PASSWORD ?? "change-me-now",
   },
-  officialPersonnelDbEnabled: process.env.OFFICIAL_PERSONNEL_DB_ENABLED === "true",
+  officialPersonnelDbEnabled:
+    process.env.OFFICIAL_PERSONNEL_DB_ENABLED === "true",
   mockPersonnelEnabled: process.env.MOCK_PERSONNEL_ENABLED !== "false",
-  allowDevDataReset: process.env.ALLOW_DEV_DATA_RESET === "true"
+  allowDevDataReset: process.env.ALLOW_DEV_DATA_RESET === "true",
 };
 
 function readPort(): number {
-  const rawPort = process.env.PORT ?? "4000";
+  const rawPort = process.env.PORT ?? "4400";
   const port = Number(rawPort);
 
   if (!Number.isInteger(port) || port <= 0 || port > 65535) {
@@ -102,8 +108,14 @@ function readCookieSameSite(): "lax" | "strict" | "none" {
     throw new Error("COOKIE_SAME_SITE must be one of: lax, strict, none");
   }
 
-  if (sameSite === "none" && process.env.NODE_ENV === "production" && process.env.COOKIE_SECURE !== "true") {
-    throw new Error("COOKIE_SECURE must be true in production when COOKIE_SAME_SITE=none");
+  if (
+    sameSite === "none" &&
+    process.env.NODE_ENV === "production" &&
+    process.env.COOKIE_SECURE !== "true"
+  ) {
+    throw new Error(
+      "COOKIE_SECURE must be true in production when COOKIE_SAME_SITE=none",
+    );
   }
 
   return sameSite as "lax" | "strict" | "none";

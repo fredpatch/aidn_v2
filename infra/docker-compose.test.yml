@@ -1,7 +1,7 @@
 services:
   # ─── Database ───────────────────────────────────────────────────────────────
   mongo:
-    image: mongo:7
+    image: mongo:4.4
     container_name: aidn-mongo
     restart: unless-stopped
     ports:

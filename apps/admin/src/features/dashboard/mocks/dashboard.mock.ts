@@ -149,7 +149,7 @@ export const mockDashboardData: DashboardSummary = {
     { label: 'En attente DG', count: 11, percentage: 26, badgeVariant: 'secondary' },
     { label: 'Orientée DN', count: 8, percentage: 19, badgeVariant: 'default' },
     { label: 'Dossier ouvert', count: 9, percentage: 21, badgeVariant: 'default' },
-    { label: 'Réorientée', count: 5, percentage: 12, badgeVariant: 'outline' },
+    { label: 'Annulée DG', count: 5, percentage: 12, badgeVariant: 'outline' },
     { label: 'Rejetée', count: 3, percentage: 7, badgeVariant: 'destructive' },
     { label: 'Clôturée', count: 6, percentage: 15, badgeVariant: 'outline' },
   ],

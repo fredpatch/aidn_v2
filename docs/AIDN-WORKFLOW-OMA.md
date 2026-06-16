@@ -44,7 +44,7 @@ I think with these infos we can revise the workflow, and the Prototype page flow
 
 ---
 
-AIDN OMA — Revised Workflow Blueprint v1
+AIDN OMA - Revised Workflow Blueprint v1
 
 1. Core Principle
 
@@ -61,7 +61,7 @@ physical/digital deposit
 The feasibility study confirms this direction: the postulant can initiate a request through the portal or physical deposit, the courrier remains in the official circuit, the DG decision is recorded in the app, and the Dossier DN opens only after favorable orientation.
 
 2. Main Workflow Stages
-   Stage A — Demande initiale
+   Stage A - Demande initiale
    Trigger
 
 The request starts either by:
@@ -89,7 +89,7 @@ Demande reçue
 
 No DG/DN details yet.
 
-Stage B — Courrier / DG instruction
+Stage B - Courrier / DG instruction
 Reality
 
 DG instruction remains physical. Once the courrier comes back to DN, DN scans/uploads the returned signed/visé courrier into the postulant dossier.
@@ -113,7 +113,7 @@ Demande en cours d’examen administratif
 
 This protects internal workflow details while still giving a useful status.
 
-Stage C — Dossier DN opening
+Stage C - Dossier DN opening
 Rule
 
 A Dossier DN only starts after DG instruction/orientation allows DN to proceed.
@@ -141,12 +141,12 @@ Not “Orientée DN”.
 
 The OMA workflow has five phases, and phase transition should not be modeled as a simple status change because the source says the passage from one phase to another is materialized by a formal closure courrier.
 
-Phase 1 — Phase préliminaire
-Phase 2 — Demande formelle
-Phase 3 — Évaluation approfondie des documents
-Phase 4 — Démonstration et inspection sur site
-Phase 5 — Délivrance 4. Revised Phase Flow
-Phase 1 — Phase préliminaire
+Phase 1 - Phase préliminaire
+Phase 2 - Demande formelle
+Phase 3 - Évaluation approfondie des documents
+Phase 4 - Démonstration et inspection sur site
+Phase 5 - Délivrance 4. Revised Phase Flow
+Phase 1 - Phase préliminaire
 Internal workflow
 
 1. Demande initiale reçue
@@ -182,7 +182,7 @@ Réunion à planifier
 En attente de formulaire
 Décision disponible
 Phase préliminaire clôturée
-Phase 2 — Demande formelle
+Phase 2 - Demande formelle
 Internal workflow
 
 1. Postulant soumet le dossier formel
@@ -221,7 +221,7 @@ Documents à compléter
 Réunion formelle à planifier
 Dossier formel recevable
 Phase de demande formelle clôturée
-Phase 3 — Évaluation approfondie des documents
+Phase 3 - Évaluation approfondie des documents
 Internal workflow
 
 1. S5/compta émet facture frais d’étude
@@ -253,7 +253,7 @@ Facture disponible
 Paiement attendu
 Paiement reçu
 Phase d’évaluation clôturée
-Phase 4 — Démonstration et inspection sur site
+Phase 4 - Démonstration et inspection sur site
 Internal workflow
 
 1. S5/compta émet facture audit
@@ -293,7 +293,7 @@ Avis R3 en attente
 
 That is internal.
 
-Phase 5 — Délivrance
+Phase 5 - Délivrance
 Internal workflow
 
 1. S5/compta émet facture délivrance certificat
@@ -342,7 +342,7 @@ Postulant statuses are simplified and action-oriented.
 
 The feasibility study already maps internal statuses to simpler portal labels, including “Demande reçue”, “En attente d’orientation administrative”, “Dossier en cours de traitement”, “Demande réorientée”, “Demande non retenue”, and “Dossier clôturé”.
 
-Internal statuses — DN/Admin
+Internal statuses - DN/Admin
 Demande
 Brouillon
 Soumise
@@ -383,7 +383,7 @@ En attente avis externe
 Courrier clôture attendu
 Clôturée
 Bloquée
-Postulant-facing statuses — Portal
+Postulant-facing statuses - Portal
 
 Use fewer labels.
 
@@ -448,11 +448,11 @@ The dossier detail page should become the main workspace.
 Recommended sections
 Vue d’ensemble
 Origine / Courriers DG
-Phase 1 — Préliminaire
-Phase 2 — Demande formelle
-Phase 3 — Évaluation approfondie
-Phase 4 — Inspection / R3
-Phase 5 — Délivrance
+Phase 1 - Préliminaire
+Phase 2 - Demande formelle
+Phase 3 - Évaluation approfondie
+Phase 4 - Inspection / R3
+Phase 5 - Délivrance
 Documents
 Réunions
 Certificat
@@ -507,14 +507,14 @@ We should not implement yet.
 
 Next step should be:
 
-Phase O1 — Update the prototype planning document / TASK.md with this revised blueprint
+Phase O1 - Update the prototype planning document / TASK.md with this revised blueprint
 
 Then implementation can proceed in small UI-only steps:
 
-O2 — status separation internal vs portal
-O3 — dossier detail phase workspace
-O4 — phase evidence/checklist mock layer
-O5 — certificate lifecycle correction
-O6 — reports alignment
+O2 - status separation internal vs portal
+O3 - dossier detail phase workspace
+O4 - phase evidence/checklist mock layer
+O5 - certificate lifecycle correction
+O6 - reports alignment
 
 This keeps the workflow disciplined and prevents us from jumping into backend or premature models.

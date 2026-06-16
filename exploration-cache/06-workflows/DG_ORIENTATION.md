@@ -1,7 +1,7 @@
 # DG Orientation
 
 ## Current implementation
-- Courrier records keep DG decision field (pending/oriented_to_dn/redirected/rejected).
+- Courrier records keep DG decision field (pending/oriented_to_dn/redirected/rejected), but `redirected` is legacy/deferred compatibility and is not part of the MVP UI path.
 - Separate DG decision records are available via aidnDgDecisionRecords.
 
 ## Files involved
@@ -12,12 +12,13 @@
 ## Statuses observed
 - pending
 - oriented_to_dn
-- redirected
 - rejected
+- redirected (legacy/deferred compatibility only)
 
 ## User-facing labels
 - Portal avoids exposing DG jargon directly.
 - External statuses map to administrative review/action required style wording.
+- Reorientation is not exposed as a normal user-facing workflow label in the current MVP pass.
 
 ## Demo actions / state transitions
 - DG orientation is seeded; no runtime edit flow for DG decision records exposed in portal.

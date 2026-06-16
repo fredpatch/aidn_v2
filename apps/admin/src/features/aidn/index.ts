@@ -1,5 +1,6 @@
 export { aidnApi } from './api/aidn.api';
-export { AidnStatusBadge, getEntryChannelLabel, getInternalDemandeStatusLabel, getPortalStatusLabel } from './components/AidnStatusBadge';
+export { AidnStatusBadge } from './components/AidnStatusBadge';
+export { getEntryChannelLabel, getInternalDemandeStatusLabel, getPortalStatusLabel } from './components/aidn-status-labels';
 export { DgDecisionBadge } from './components/DgDecisionBadge';
 export { OmaPhaseBadge } from './components/OmaPhaseBadge';
 export { useAidnCertificates, useAidnDashboardSummary, useAidnDocuments, useAidnMeetings, useAidnPhaseEvidence, useAidnPhaseNextActions, useAidnTimelineEvents } from './hooks/use-aidn-dashboard';

@@ -5,7 +5,7 @@ import type { AidnDgDecision } from '../types/aidn.enums';
 const labels: Record<AidnDgDecision, string> = {
   pending: 'En attente DG',
   oriented_to_dn: 'Orientée DN',
-  redirected: 'Réorientée',
+  redirected: 'Legacy: hors MVP',
   rejected: 'Rejetée',
 };
 

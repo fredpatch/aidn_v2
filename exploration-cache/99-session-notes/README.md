@@ -5,7 +5,7 @@ Create one file per implementation/exploration session.
 Format:
 
 ```md
-# YYYY-MM-DD — Short title
+# YYYY-MM-DD - Short title
 
 ## Goal
 

@@ -1,4 +1,4 @@
-import { getInternalDemandeStatusLabel } from '../components/AidnStatusBadge';
+import { getInternalDemandeStatusLabel } from '../components/aidn-status-labels';
 import { AIDN_INTERNAL_DEMANDE_STATUSES } from '../types/aidn.enums';
 import type { AidnCertificate, AidnDashboardSummary, AidnDemande, AidnDossier, AidnOmaPhase } from '../types/aidn.types';
 import { aidnCertificates, aidnDemandes, aidnDossiers, aidnOmaPhases, aidnTimelineEvents } from './aidn.mock';

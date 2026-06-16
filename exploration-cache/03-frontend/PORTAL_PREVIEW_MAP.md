@@ -1,6 +1,11 @@
 # Portal Preview Map
 
-Last reviewed: 2026-05-05
+Last reviewed: 2026-05-18
+
+## Boundary update
+- Real external portal work now starts in `apps/portal`.
+- This file describes the historical protected admin preview at `/portal-preview`.
+- New portal skeleton details live in `exploration-cache/03-frontend/PORTAL_APP_MAP.md`.
 
 ## Current route files
 - apps/admin/src/pages/PortalPreviewPage.tsx
@@ -53,3 +58,4 @@ Last reviewed: 2026-05-05
 - Keep label mapping centralized in portalPreview.utils.ts
 - Keep AIDN data hook usage in pages, not in low-level UI components
 - Keep portal routes under /portal-preview/* until real external auth is introduced
+- Do not migrate preview-only admin routes into `apps/portal` without a dedicated slice.

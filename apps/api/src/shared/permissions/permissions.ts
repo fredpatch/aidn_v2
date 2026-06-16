@@ -1,0 +1,138 @@
+export const Permissions = {
+  PERSONNEL_SEARCH: "PERSONNEL_SEARCH",
+  AIDN_USER_ACTIVATE: "AIDN_USER_ACTIVATE",
+  AIDN_USER_ASSIGN_ROLE: "AIDN_USER_ASSIGN_ROLE",
+  POSTULANT_ACCOUNT_REVIEW: "POSTULANT_ACCOUNT_REVIEW",
+  ORGANIZATION_MANAGE: "ORGANIZATION_MANAGE",
+  REQUEST_VIEW_ALL: "REQUEST_VIEW_ALL",
+  REQUEST_INTAKE_REVIEW: "REQUEST_INTAKE_REVIEW",
+  REQUEST_SUBMIT: "REQUEST_SUBMIT",
+  COURRIER_REGISTER_PHYSICAL: "COURRIER_REGISTER_PHYSICAL",
+  DG_CIRCUIT_HANDLE: "DG_CIRCUIT_HANDLE",
+  DG_DECISION_RECORD: "DG_DECISION_RECORD",
+  DG_DECISION_CORRECT: "DG_DECISION_CORRECT",
+  PRE_EVAL_DG_CIRCUIT_HANDLE: "PRE_EVAL_DG_CIRCUIT_HANDLE",
+  PRE_EVAL_DG_RETURN_CONSULT: "PRE_EVAL_DG_RETURN_CONSULT",
+  DOSSIER_OPEN: "DOSSIER_OPEN",
+  DOSSIER_ASSIGN: "DOSSIER_ASSIGN",
+  DOSSIER_VIEW_ALL: "DOSSIER_VIEW_ALL",
+  DOSSIER_VIEW_OWN: "DOSSIER_VIEW_OWN",
+  PHASE_START: "PHASE_START",
+  PHASE_CLOSE: "PHASE_CLOSE",
+  PHASE_REOPEN: "PHASE_REOPEN",
+  DOCUMENT_UPLOAD_INTERNAL: "DOCUMENT_UPLOAD_INTERNAL",
+  DOCUMENT_UPLOAD_PORTAL: "DOCUMENT_UPLOAD_PORTAL",
+  DOCUMENT_REVIEW: "DOCUMENT_REVIEW",
+  DOCUMENT_PUBLISH: "DOCUMENT_PUBLISH",
+  DOCUMENT_DELETE: "DOCUMENT_DELETE",
+  MEETING_MANAGE: "MEETING_MANAGE",
+  NOTIFICATION_SEND: "NOTIFICATION_SEND",
+  PAYMENT_INVOICE_UPLOAD: "PAYMENT_INVOICE_UPLOAD",
+  PAYMENT_VIEW: "PAYMENT_VIEW",
+  REPORT_VIEW: "REPORT_VIEW",
+  REPORT_EXPORT: "REPORT_EXPORT",
+  AUDIT_VIEW: "AUDIT_VIEW",
+  DEV_DATA_RESET: "DEV_DATA_RESET"
+} as const;
+
+export type Permission = (typeof Permissions)[keyof typeof Permissions];
+
+export const Roles = {
+  BOOTSTRAP_ADMIN: "bootstrap_admin",
+  ADMIN: "admin",
+  DN_SUPERVISOR: "dn_supervisor",
+  DN_AGENT: "dn_agent",
+  DG_SECRETARIAT: "dg_secretariat",
+  RECEPTION: "reception",
+  BUREAU_COURRIER: "bureau_courrier",
+  S5_AGENT: "s5_agent",
+  POSTULANT: "postulant"
+} as const;
+
+export type Role = (typeof Roles)[keyof typeof Roles];
+
+const allPermissions = Object.values(Permissions);
+
+export const rolePermissions: Record<Role, Permission[]> = {
+  [Roles.BOOTSTRAP_ADMIN]: allPermissions,
+  [Roles.ADMIN]: allPermissions,
+  [Roles.DN_SUPERVISOR]: [
+    Permissions.PERSONNEL_SEARCH,
+    Permissions.POSTULANT_ACCOUNT_REVIEW,
+    Permissions.ORGANIZATION_MANAGE,
+    Permissions.REQUEST_VIEW_ALL,
+    Permissions.REQUEST_INTAKE_REVIEW,
+    Permissions.DG_DECISION_RECORD,
+    Permissions.DG_DECISION_CORRECT,
+    Permissions.PRE_EVAL_DG_RETURN_CONSULT,
+    Permissions.DOSSIER_OPEN,
+    Permissions.DOSSIER_ASSIGN,
+    Permissions.DOSSIER_VIEW_ALL,
+    Permissions.PHASE_START,
+    Permissions.PHASE_CLOSE,
+    Permissions.PHASE_REOPEN,
+    Permissions.DOCUMENT_UPLOAD_INTERNAL,
+    Permissions.DOCUMENT_REVIEW,
+    Permissions.DOCUMENT_PUBLISH,
+    Permissions.MEETING_MANAGE,
+    Permissions.NOTIFICATION_SEND,
+    Permissions.PAYMENT_VIEW,
+    Permissions.REPORT_VIEW,
+    Permissions.AUDIT_VIEW
+  ],
+  [Roles.DN_AGENT]: [
+    Permissions.REQUEST_VIEW_ALL,
+    Permissions.REQUEST_INTAKE_REVIEW,
+    Permissions.DG_DECISION_RECORD,
+    Permissions.PRE_EVAL_DG_RETURN_CONSULT,
+    Permissions.DOSSIER_VIEW_ALL,
+    Permissions.PHASE_START,
+    Permissions.PHASE_CLOSE,
+    Permissions.DOCUMENT_UPLOAD_INTERNAL,
+    Permissions.DOCUMENT_REVIEW,
+    Permissions.MEETING_MANAGE,
+    Permissions.NOTIFICATION_SEND,
+    Permissions.PAYMENT_VIEW,
+    Permissions.REPORT_VIEW
+  ],
+  [Roles.DG_SECRETARIAT]: [
+    Permissions.REQUEST_VIEW_ALL,
+    Permissions.DG_CIRCUIT_HANDLE,
+    Permissions.COURRIER_REGISTER_PHYSICAL,
+    Permissions.PRE_EVAL_DG_CIRCUIT_HANDLE,
+    Permissions.PRE_EVAL_DG_RETURN_CONSULT,
+    Permissions.REPORT_VIEW
+  ],
+  [Roles.RECEPTION]: [
+    Permissions.REQUEST_VIEW_ALL,
+    Permissions.COURRIER_REGISTER_PHYSICAL,
+    Permissions.DG_CIRCUIT_HANDLE,
+    Permissions.PRE_EVAL_DG_CIRCUIT_HANDLE,
+    Permissions.PRE_EVAL_DG_RETURN_CONSULT,
+    Permissions.PAYMENT_INVOICE_UPLOAD,
+    Permissions.PAYMENT_VIEW,
+    Permissions.REPORT_VIEW
+  ],
+  [Roles.BUREAU_COURRIER]: [
+    Permissions.REQUEST_VIEW_ALL,
+    Permissions.COURRIER_REGISTER_PHYSICAL,
+    Permissions.DG_CIRCUIT_HANDLE,
+    Permissions.PRE_EVAL_DG_CIRCUIT_HANDLE,
+    Permissions.PRE_EVAL_DG_RETURN_CONSULT,
+    Permissions.REPORT_VIEW
+  ],
+  [Roles.S5_AGENT]: [
+    Permissions.DOSSIER_VIEW_ALL,
+    Permissions.DOCUMENT_UPLOAD_INTERNAL,
+    Permissions.PAYMENT_INVOICE_UPLOAD,
+    Permissions.PAYMENT_VIEW,
+    Permissions.REPORT_VIEW
+  ],
+  [Roles.POSTULANT]: [
+    Permissions.REQUEST_SUBMIT,
+    Permissions.DOSSIER_VIEW_OWN,
+    Permissions.DOCUMENT_UPLOAD_PORTAL
+  ]
+};
+
+export const getPermissionsForRole = (role: Role): Permission[] => rolePermissions[role] ?? [];

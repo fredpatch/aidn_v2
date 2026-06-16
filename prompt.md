@@ -1,535 +1,667 @@
-# AIDN — Exploration Cache Initialization Prompt
+## CACHE-FIRST PROTOCOL - ALWAYS FOLLOW
 
-You are working on the AIDN prototype codebase.
+When processing this task, you MUST:
+
+### 1. Read Cache First
+
+Always start by reading:
+
+- `prompt.md`
+- `exploration-cache/manifest.json`
+- `exploration-cache/QUICK-REFERENCE.md`
+- `exploration-cache/tasks/current-task.md` if relevant
+- `exploration-cache/archive/summaries/**` only when needed as source material
+
+### 2. Answer From Cache When Possible
+
+If the answer exists in cache:
+
+- cite the cache source
+- answer from cache
+- stop there unless the current task explicitly requires implementation
+
+Format:
+FROM CACHE: [file path] - [finding]
+
+### 3. Only Explore Gaps
+
+If cache is incomplete, state:
+
+CACHE GAP: [specific missing info]
+
+Then:
+
+- explore only the missing path(s)
+- never re-explore cached paths without reason
+- keep exploration narrow
+
+4. Update Cache After Each Discovery
+   - After any meaningful new finding:
+   - update the relevant `exploration/pattern/task file`
+   - update `QUICK-REFERENCE.md` if the finding is cross-cutting
+   - update `manifest.json` only if the pass requires manifest changes
+   - update `exploration-cache/tasks/current-task.md`
+
+5. Token Saving Rules
+   - Do not repeat large cached content in the response
+   - Use file references instead
+   - Do not re-read files already read this session unless needed
+   - Keep responses brief and grounded
+   - Do not broaden scope silently
+   - One task only
+
+### SESSION START PROCEDURE
+
+At the beginning of the task:
+
+1. Read this prompt.md
+2. Read exploration-cache/manifest.json
+3. Read exploration-cache/QUICK-REFERENCE.md
+4. Check whether relevant answer/state already exists in:
+   `exploration-cache/03-frontend/ADMIN_APP_MAP.md`
+   `exploration-cache/03-frontend/PORTAL_APP_MAP.md`
+   `exploration-cache/04-backend/API_ROUTES.md`
+   `exploration-cache/05-data/DATA_MODELS.md`
+   `exploration-cache/06-workflows/ADMIN_INTAKE_WORKFLOW.md`
+   `exploration-cache/06-workflows/PORTAL_REQUEST_WORKFLOW.md`
+   `exploration-cache/09-qa/BUILD_AND_TEST_COMMANDS.md`
+   `exploration-cache/tasks/current-task.md`
+5. State cache status briefly.
+6. Proceed only with the current objective.
+
+Expected cache status block:
+
+## CACHE STATUS
+
+- Services explored: [brief list]
+- App areas explored: [brief list]
+- Packages explored: [brief list]
+- Patterns available: [brief list]
+- Last update: [timestamp]
+- Pending gaps: [brief list]
+
+## CRITICAL RULES
+
+NEVER re-explore a path already sufficiently covered in cache unless a real gap exists.
+ALWAYS keep scope narrow.
+ALWAYS separate planning from implementation.
+ALWAYS update task state in cache.
+USE exploration-cache/tasks/history/ for completed-pass memory.
+ALWAYS update cache after discovering something new.
+KEEP responses concise and point to cache files.
+ASK before large explorations over 10 files.
+Do not implement before returning the planning report and receiving approval.
+
+## QUICK COMMANDS
+
+[STATUS] Show current cache coverage for this objective
+[GAPS] List missing info for current objective
+[UPDATE] Force cache update with recent findings
+[VERIFY] Check if answer exists in cache before exploring
+[NEXT] Propose the next narrow pass
+
+## TASK COMPLETION CHECKLIST
+
+Before marking a pass complete:
+
+- all listed deliverables exist
+- content is grounded in cache or explicitly explored gaps
+- no unrelated files were changed
+- exploration-cache/tasks/current-task.md is updated
+- create a brief summary-implementation.md with related implementation notes
+- next step is clearly stated
+- a summary file was created under `exploration-cache/tasks/summaries/`
+
+## Summary Tracking Rule
+
+For every planning, implementation, correction, or modification pass, create a short summary file in:
+
+`exploration-cache/tasks/summaries/`
+
+Use this naming format:
+
+YYYY-MM-DD-<phase-name>-planning.md
+YYYY-MM-DD-<phase-name>-implementation.md
+YYYY-MM-DD-<phase-name>-modification.md
+YYYY-MM-DD-<phase-name>-correction.md
+
+## Each summary must include:
+
+- Objective
+- Cache files read
+- Source files inspected
+- Files changed, if any
+- Key decisions
+- Implementation details, if any
+- Verification commands run
+- Manual checks run or not run
+- Known risks / TODOs
+- Next step
+
+## Also update:
+
+- exploration-cache/tasks/current-task.md
+- exploration-cache/tasks/history/ when the pass is completed
+
+# CURRENT OBJECTIVE
+
+# OMA-EVAL-6D — Portal Phase 3 Action Block
+
+You are working inside the existing `AIDN_V2` repository.
 
 ## Objective
 
-Explore the current state of the project and create/fill a durable `exploration-cache/` folder so future implementation agents can reduce exploration time and work from a reliable project map.
+Implement the small postulant-facing Phase 3 block inside the portal Dossier tab.
 
-Do **not** implement product features in this pass.  
-Do **not** refactor application code unless strictly needed to read or document it.  
-This task is documentation/exploration only.
+This is **not** a payment portal.
 
----
-
-## Context
-
-AIDN is a semi-digital workflow application for the Direction de la Navigabilité.
-
-The prototype currently includes internal/admin pages such as:
-
-- dashboard
-- demandes
-- courriers / orientation DG
-- dossiers DN
-- workflow OMA
-- documents
-- réunions
-- certificats
-- reports
-- settings
-- portal postulant demo / portal preview
-
-Important business principles:
-
-- AIDN is not full dematerialization in v1.
-- The official courrier/DG circuit remains semi-physical.
-- A demande becomes a dossier DN only after DG orientation toward DN.
-- The postulant portal must expose simplified statuses, not internal workflow complexity.
-- The prototype may be mock-data driven.
-
----
-
-# Task
-
-Inspect the repository and create or update the following folder structure:
+The block should allow the postulant to:
 
 ```txt
-exploration-cache/
-├── 00-control/
-│   ├── INDEX.md
-│   ├── CURRENT_STATE.md
-│   ├── EXPLORATION_PROTOCOL.md
-│   └── SOURCE_OF_TRUTH.md
-├── 01-project-map/
-│   ├── REPO_STRUCTURE.md
-│   ├── ROUTES_MAP.md
-│   ├── ENTRYPOINTS.md
-│   └── MODULE_BOUNDARIES.md
-├── 02-domain/
-│   ├── DOMAIN_GLOSSARY.md
-│   ├── BUSINESS_RULES.md
-│   ├── STATUSES.md
-│   └── ROLES_AND_PERMISSIONS.md
-├── 03-frontend/
-│   ├── FRONTEND_ARCHITECTURE.md
-│   ├── ADMIN_SHELL.md
-│   ├── PORTAL_PREVIEW_MAP.md
-│   ├── COMPONENT_INVENTORY.md
-│   └── UI_PATTERNS.md
-├── 04-backend/
-│   ├── BACKEND_ARCHITECTURE.md
-│   ├── API_ROUTES.md
-│   ├── SERVICES_AND_CONTROLLERS.md
-│   └── AUTH_AND_PERMISSIONS.md
-├── 05-data/
-│   ├── MOCKS_AND_FIXTURES.md
-│   ├── DATA_MODELS.md
-│   └── SEED_DATA.md
-├── 06-workflows/
-│   ├── DEMANDE_TO_DOSSIER.md
-│   ├── DG_ORIENTATION.md
-│   ├── OMA_WORKFLOW.md
-│   ├── DOCUMENT_WORKFLOW.md
-│   ├── PAYMENT_WORKFLOW.md
-│   ├── MEETING_WORKFLOW.md
-│   ├── CERTIFICATE_WORKFLOW.md
-│   └── PORTAL_APPLICANT_VIEW.md
-├── 07-ui-ux/
-│   ├── PAGE_LEVEL_UX.md
-│   ├── PORTAL_UX_AUDIT.md
-│   ├── STATUS_LABELS_EXTERNAL.md
-│   └── NAVIGATION_MODEL.md
-├── 08-integrations/
-│   ├── EMAIL_NOTIFICATIONS.md
-│   ├── FILE_STORAGE.md
-│   └── QLOG_OR_EXTERNAL_SYSTEMS.md
-├── 09-qa/
-│   ├── BUILD_AND_TEST_COMMANDS.md
-│   ├── KNOWN_GAPS.md
-│   ├── RISK_REGISTER.md
-│   └── MANUAL_QA_CHECKLIST.md
-├── 10-decisions/
-│   ├── DECISIONS_LOG.md
-│   └── OPEN_QUESTIONS.md
-└── 99-session-notes/
-    └── exploration-session-YYYY-MM-DD.md
-
-Create missing files. Update existing files if already present.
-
-Required exploration method
-1. Start with project structure
-
-Inspect:
-
-pwd
-ls
-find . -maxdepth 3 -type f | sort
-
-Ignore heavy folders:
-
-node_modules
-dist
-build
-coverage
-.git
-.cache
-.vite
-.next
-
-Document the result in:
-
-exploration-cache/01-project-map/REPO_STRUCTURE.md
-
-Include:
-
-apps/packages/services layout
-important source folders
-config files
-build tooling
-where frontend lives
-where backend lives, if present
-where mock/demo data lives
-2. Identify entrypoints and routes
-
-Search for:
-
-router
-routes
-createBrowserRouter
-BrowserRouter
-<Route
-path:
-
-Document in:
-
-exploration-cache/01-project-map/ROUTES_MAP.md
-exploration-cache/01-project-map/ENTRYPOINTS.md
-
-For each route, capture:
-
-Route	Page/component	Purpose	Data source	Notes
-
-Pay special attention to:
-
-/portal-preview
-/portal-preview/*
-/demandes
-/courriers
-/dossiers
-/dossiers/:id
-/workflow-oma
-/documents
-/reunions
-/certificats
-/reports
-/settings
-3. Inspect frontend architecture
-
-Find:
-
-app bootstrap
-router config
-layouts
-sidebar/nav config
-pages directory
-shared UI components
-feature folders
-hooks
-API/data access files
-
-Document in:
-
-exploration-cache/03-frontend/FRONTEND_ARCHITECTURE.md
-exploration-cache/03-frontend/ADMIN_SHELL.md
-exploration-cache/03-frontend/COMPONENT_INVENTORY.md
-exploration-cache/03-frontend/UI_PATTERNS.md
-
-Include exact file paths.
-
-4. Inspect portal preview
-
-Search for portal-related files:
-
-grep -R "portal" -n .
-grep -R "postulant" -n .
-grep -R "Portal" -n .
-
-Document in:
-
-exploration-cache/03-frontend/PORTAL_PREVIEW_MAP.md
-exploration-cache/06-workflows/PORTAL_APPLICANT_VIEW.md
-exploration-cache/07-ui-ux/PORTAL_UX_AUDIT.md
-
-Capture:
-
-current portal page file path
-components used
-mock data used
-current sections displayed
-current problems
-how data is currently grouped
-whether portal is read-only
-what should remain unchanged
-recommended next refactor boundaries
-
-Important UX finding to record:
-
-The current portal preview shows too much information on one long page. It should later be split into:
-
-Portal home
-└── Dossier detail page
-    ├── Vue d’ensemble
-    ├── Documents
-    ├── Paiements
-    ├── Réunions
-    ├── Notifications
-    └── Certificat
-
-Do not implement this refactor now. Only document it.
-
-5. Inspect mock/demo data
-
-Search for:
-
-mock
-mocks
-fixture
-fixtures
-demo
-seed
-aidn-demo
-
-Document in:
-
-exploration-cache/05-data/MOCKS_AND_FIXTURES.md
-exploration-cache/05-data/DATA_MODELS.md
-exploration-cache/05-data/SEED_DATA.md
-
-Capture:
-
-File	Exports	Used by	Data represented	Notes
-
-Pay attention to data for:
-
-demandes
-courriers
-dossiers
-OMA phases
-documents
-payments
-meetings/reunions
-certificates
-portal preview
-notifications
-6. Inspect workflows
-
-From code and data, document current implemented workflow behavior in:
-
-exploration-cache/06-workflows/DEMANDE_TO_DOSSIER.md
-exploration-cache/06-workflows/DG_ORIENTATION.md
-exploration-cache/06-workflows/OMA_WORKFLOW.md
-exploration-cache/06-workflows/DOCUMENT_WORKFLOW.md
-exploration-cache/06-workflows/PAYMENT_WORKFLOW.md
-exploration-cache/06-workflows/MEETING_WORKFLOW.md
-exploration-cache/06-workflows/CERTIFICATE_WORKFLOW.md
-
-Each workflow file should include:
-
-# Workflow name
-
-## Current implementation
-
-## Files involved
-
-## Statuses observed
-
-## User-facing labels
-
-## Demo actions / state transitions
-
-## Known gaps
-
-## Safe next improvements
-7. Inspect domain rules
-
-Document:
-
-exploration-cache/02-domain/DOMAIN_GLOSSARY.md
-exploration-cache/02-domain/BUSINESS_RULES.md
-exploration-cache/02-domain/STATUSES.md
-exploration-cache/02-domain/ROLES_AND_PERMISSIONS.md
-
-Include at least:
-
-demande
-courrier
-orientation DG
-dossier DN
-postulant
-organisme
-workflow OMA
-phase
-document
-réunion
-convocation
-paiement
-certificat
-retrait
-notification
-
-Separate:
-
-Internal status
-External/postulant status
-Demo-only status
-8. Inspect backend if present
-
-If backend exists, inspect:
-
-Express/Nest/etc entrypoints
-API route registration
-controllers
-services
-repositories
-auth middleware
-validation
-storage/file upload handling
-
-Document in:
-
-exploration-cache/04-backend/BACKEND_ARCHITECTURE.md
-exploration-cache/04-backend/API_ROUTES.md
-exploration-cache/04-backend/SERVICES_AND_CONTROLLERS.md
-exploration-cache/04-backend/AUTH_AND_PERMISSIONS.md
-
-If no backend exists or prototype is frontend-only/mock-only, state that clearly.
-
-9. Inspect integrations
-
-Document current reality, not assumptions:
-
-exploration-cache/08-integrations/EMAIL_NOTIFICATIONS.md
-exploration-cache/08-integrations/FILE_STORAGE.md
-exploration-cache/08-integrations/QLOG_OR_EXTERNAL_SYSTEMS.md
-
-For each:
-
-implemented?
-mocked?
-referenced only?
-not present?
-future requirement?
-10. QA and commands
-
-Inspect package scripts:
-
-cat package.json
-find . -name package.json -maxdepth 4 -print
-
-Document in:
-
+- see invoice availability
+- download the invoice
+- upload proof of payment
+- see proof submitted state
+- see document evaluation statuses
+- read DN annotations when correction is requested
+- upload corrected documents
+```
+
+Do not implement S5/internal UI.
+Do not implement online payment.
+Do not implement payment validation/rejection.
+Do not create a new portal route unless absolutely necessary.
+Do not redesign the whole portal dossier page.
+
+---
+
+## Current validated state
+
+Backend:
+
+```txt
+OMA-EVAL-6B complete:
+GET /portal/dossiers/:id/phases/document-evaluation
+POST /portal/dossiers/:id/phases/document-evaluation/payment-proof
+POST /portal/document-evaluations/:evaluationId/correction
+GET /portal/dossiers/:id/documents/:documentId supports Phase 3 docs
+```
+
+Frontend API:
+
+```txt
+OMA-EVAL-6C complete:
+getPortalPhase3State
+uploadPortalPaymentProof
+uploadPortalDocumentEvaluationCorrection
+downloadPortalDossierDocument
+```
+
+Portal location decision:
+
+```txt
+RequestDetailPage.tsx
+→ Dossier tab
+→ append Phase 3 block after Phase 2 block
+```
+
+---
+
+## Cache-first protocol
+
+Start by reading:
+
+```txt
+prompt.md
+exploration-cache/manifest.json
+exploration-cache/QUICK-REFERENCE.md
+exploration-cache/tasks/current-task.md
+exploration-cache/tasks/summaries/2026-06-01-oma-eval-6a-portal-phase-3-api-readiness-audit.md
+exploration-cache/tasks/summaries/2026-06-01-oma-eval-6b-portal-phase-3-backend-read-download.md
+exploration-cache/tasks/summaries/2026-06-01-oma-eval-6c-portal-phase-3-api-client-types.md
+exploration-cache/03-frontend/PORTAL_APP_MAP.md
+exploration-cache/06-workflows/PORTAL_REQUEST_WORKFLOW.md
 exploration-cache/09-qa/BUILD_AND_TEST_COMMANDS.md
-exploration-cache/09-qa/MANUAL_QA_CHECKLIST.md
-exploration-cache/09-qa/KNOWN_GAPS.md
-exploration-cache/09-qa/RISK_REGISTER.md
+```
 
-Include:
+If a summary file is missing, use the current session report and state:
 
-install command
-dev command
-typecheck command
-build command
-lint/test if available
-verified or not verified
-manual pages to check
+```txt
+CACHE GAP: <missing summary path>
+```
 
-Do not claim commands passed unless you actually run them.
+---
 
-11. Decisions and open questions
+## Files to inspect
 
-Create/update:
+```txt
+apps/portal/src/pages/RequestDetailPage.tsx
+apps/portal/src/lib/api/portal.api.ts
+apps/portal/src/lib/api/http.ts
+apps/portal/src/components/RequestStatusBadge.tsx
+apps/portal/src/components/EmptyState.tsx
+apps/portal/src/styles.css
+```
 
-exploration-cache/10-decisions/DECISIONS_LOG.md
-exploration-cache/10-decisions/OPEN_QUESTIONS.md
+Look for:
 
-Record known decisions:
+```txt
+- Dossier tab rendering
+- Phase 1/2 block structure
+- existing upload form pattern
+- existing document download pattern
+- toast/error pattern
+- status badge styles
+```
 
-MVP is semi-digital, not full dematerialization.
-DG does not necessarily need to work directly in app v1.
-DN/Admin may record DG decision from physical courrier.
-Portal uses simplified statuses.
-Portal preview remains read-only for demo.
-OMA is the priority workflow for MVP.
+---
 
-Record open questions discovered from code gaps or unclear implementation.
+## Required implementation
 
-12. Control files
+Modify:
+
+```txt
+apps/portal/src/pages/RequestDetailPage.tsx
+```
+
+Create local helper/component if needed:
+
+```txt
+Phase3DocumentEvaluationBlock
+```
+
+Prefer local component first unless file becomes too large.
+
+If already too large, create:
+
+```txt
+apps/portal/src/components/Phase3DocumentEvaluationBlock.tsx
+```
+
+---
+
+## Data loading
+
+When Dossier tab is active and dossier exists:
+
+```txt
+call getPortalPhase3State(dossierId)
+```
+
+Recommended behavior:
+
+```txt
+- load separately from existing dossier detail
+- store phase3State, phase3Loading, phase3Error
+- if Phase 3 endpoint returns 404 because phase not opened, hide block gracefully
+```
+
+Do not block the rest of the dossier tab if Phase 3 state fails.
+
+After payment proof upload or correction upload:
+
+```txt
+reload phase3State
+```
+
+---
+
+## UI block placement
+
+In Dossier tab:
+
+```txt
+Phase 1 block
+Phase 2 block
+Phase 3 block ← add here
+```
+
+Only render Phase 3 block when:
+
+```txt
+- phase3State exists
+- OR dossier status indicates document_evaluation_phase / inspection_phase / delivery_phase / closed
+```
+
+If endpoint 404s, do not show scary error. Phase 3 may not exist yet.
+
+---
+
+## Section layout
+
+### Header
+
+```txt
+Phase III — Évaluation approfondie
+```
+
+Subtitle:
+
+```txt
+Suivi de la facture, du paiement et des corrections documentaires.
+```
+
+Status badge from:
+
+```txt
+phase.documentEvaluationStatus
+```
+
+Labels:
+
+```txt
+document_evaluation_waiting_invoice → En attente de facture
+document_evaluation_waiting_payment → En attente du paiement
+document_evaluation_payment_proof_submitted → Preuve de paiement envoyée
+document_evaluation_study_in_progress → Évaluation en cours
+document_evaluation_waiting_corrections → Corrections demandées
+document_evaluation_ready_to_close → Évaluation finalisée
+document_evaluation_closed → Phase III clôturée
+```
+
+---
+
+## Section 1 — Facture
+
+If no invoice:
+
+```txt
+En attente de la facture ANAC.
+```
+
+If invoice exists:
+
+```txt
+Facture disponible
+[ Télécharger la facture ]
+```
+
+Download:
+
+```ts
+downloadPortalDossierDocument(dossierId, invoiceDocumentId);
+```
+
+Use filename:
+
+```txt
+facture-frais-etude.pdf
+```
+
+---
+
+## Section 2 — Paiement
+
+If no invoice:
+
+```txt
+Le dépôt de la preuve sera disponible après réception de la facture.
+```
+
+If invoice exists and no proof:
+
+Show action-required card:
+
+```txt
+Action requise
+Déposer la preuve de paiement
+Téléversez la quittance ou preuve de paiement des frais d’étude.
+[Choisir un fichier] [Envoyer]
+```
+
+Upload:
+
+```txt
+multipart/form-data
+file
+notes optional
+```
+
+Call:
+
+```ts
+uploadPortalPaymentProof(dossierId, formData);
+```
+
+If proof exists:
+
+```txt
+Preuve de paiement envoyée
+```
+
+Optional download proof button:
+
+```txt
+Télécharger la preuve déposée
+```
+
+Use `downloadPortalDossierDocument`.
+
+---
+
+## Section 3 — Évaluation des documents
+
+If `evaluations.length === 0`:
+
+Show muted message:
+
+```txt
+L’évaluation documentaire commencera après réception de la preuve de paiement.
+```
+
+If evaluations exist:
+
+Render compact list.
+
+Each item:
+
+```txt
+- requirementLabel
+- formCode or requirementCode if present
+- status badge
+- annotation block if annotation exists
+```
+
+Status labels:
+
+```txt
+pending → En cours d’examen
+satisfaisant → Satisfaisant
+non_satisfaisant → Correction demandée
+correction_submitted → Correction envoyée
+```
+
+---
+
+## Section 4 — Corrections demandées
+
+For each evaluation where:
+
+```ts
+canUploadCorrection === true;
+```
+
+Show action-required card:
+
+```txt
+Correction demandée
+<requirementLabel>
+Annotation DN:
+<annotation>
+[Déposer le document corrigé]
+```
+
+Inline upload form:
+
+```txt
+file
+notes optional
+```
+
+Call:
+
+```ts
+uploadPortalDocumentEvaluationCorrection(evaluationId, formData);
+```
+
+After success:
+
+```txt
+toast.success("Correction envoyée.")
+reload phase3State
+```
+
+For `correction_submitted`:
+
+```txt
+Correction envoyée — en attente de revue DN.
+```
+
+No duplicate upload unless backend allows status back to `non_satisfaisant`.
+
+---
+
+## Upload constraints
+
+Use existing portal upload style:
+
+```txt
+accept=".pdf,.jpg,.jpeg,.png"
+```
+
+Handle:
+
+```txt
+loading state per upload action
+inline error message
+reset file input after success
+```
+
+---
+
+## Download behavior
+
+Use existing portal download pattern:
+
+```txt
+portalGetBlob → object URL → <a download> click
+```
+
+If `downloadPortalDossierDocument` already handles this, use it.
+
+If it only returns Blob, create local helper:
+
+```ts
+downloadAndSave(blob, fileName);
+```
+
+Do not introduce new dependency.
+
+---
+
+## Error behavior
+
+Use existing patterns:
+
+```txt
+toast.success
+toast.error or inline red alert
+```
+
+Rules:
+
+```txt
+- 404 for Phase 3 state: hide block / show nothing
+- other Phase 3 state error: compact warning inside dossier tab
+- upload failure: inline error in the upload card
+- download failure: toast/error message
+```
+
+---
+
+## Scope boundaries
+
+Do not implement:
+
+```txt
+- online payment
+- S5 workspace
+- admin evaluation controls
+- correction history
+- Phase 4 portal block
+- route/page split
+- dashboard integration
+```
+
+---
+
+## Cache updates
 
 Update:
 
-exploration-cache/00-control/INDEX.md
-exploration-cache/00-control/CURRENT_STATE.md
-exploration-cache/00-control/EXPLORATION_PROTOCOL.md
-exploration-cache/00-control/SOURCE_OF_TRUTH.md
-INDEX.md must include:
-folder map
-what each folder is for
-recommended reading order for future agents
-CURRENT_STATE.md must include:
-project status
-implemented modules
-mock/demo limitations
-next recommended implementation target
-EXPLORATION_PROTOCOL.md must include:
-how future agents should update the cache
-what files to read first
-what commands to run
-how to record findings
-what not to do
-SOURCE_OF_TRUTH.md must include:
+```txt
+exploration-cache/tasks/current-task.md
+exploration-cache/03-frontend/PORTAL_APP_MAP.md
+exploration-cache/06-workflows/PORTAL_REQUEST_WORKFLOW.md
+```
 
-Priority order:
+Create summary:
 
-Actual source code
-Existing exploration-cache files
-Project feasibility study / cahier des charges
-User/stakeholder corrections
-Assumptions clearly marked as assumptions
-Required output quality
+```txt
+exploration-cache/tasks/summaries/2026-06-01-oma-eval-6d-portal-phase-3-action-block.md
+```
 
-Each .md file should be useful to a future coding agent.
+Create/update history:
 
-Avoid vague text like:
+```txt
+exploration-cache/tasks/history/2026-06-01-oma-eval-6d-portal-phase-3-action-block.md
+```
 
-This file contains information about routes.
+Update manifest if current convention requires it.
 
-Prefer concrete findings:
+---
 
-Route `/portal-preview` is registered in `apps/admin/src/router.tsx` and renders `PortalPreviewPage` from `...`.
-It currently reads demo data from `...`.
-It displays documents, payments, meetings, notifications, and certificate cards on one page.
-File citation convention inside cache
+## Verification
 
-Whenever possible, include exact source file paths and symbols:
+Run:
 
-Source:
-- `apps/admin/src/router.tsx`
-- `apps/admin/src/pages/portal/PortalPreviewPage.tsx`
-- `apps/admin/src/features/aidn-demo/aidn-demo-data.ts`
-
-No need for line-perfect citations, but include enough path detail for future navigation.
-
-Session note
-
-Create:
-
-exploration-cache/99-session-notes/exploration-session-YYYY-MM-DD.md
-
-Include:
-
-# Exploration session — YYYY-MM-DD
-
-## Goal
-
-## Commands run
-
-## Files inspected
-
-## Files created/updated
-
-## Important findings
-
-## Gaps / uncertain points
-
-## Recommended next task
-Verification
-
-After creating/updating the cache:
-
-Run if available:
-
+```bash
+cd apps/portal
 npx tsc --noEmit
 npm run build
+```
 
-If the project is large and these commands are expensive, at minimum run:
+Manual checks if dev server available:
 
-git status --short
+```txt
+1. Dossier tab loads without Phase 3
+2. Phase 3 block appears when phase exists
+3. Waiting invoice state renders
+4. Invoice download works
+5. Payment proof upload appears only when invoice exists and no proof exists
+6. Payment proof upload refreshes block
+7. Evaluations list appears after payment gate
+8. non_satisfaisant shows annotation
+9. Correction upload appears only when canUploadCorrection=true
+10. Correction upload refreshes to correction_submitted
+11. Closed phase shows read-only state
+```
 
-Then report:
+---
 
-files created/updated
-commands run
-pass/fail/not run
-key findings
-next recommended implementation task
-Final response format
+## Return report
 
-Return a concise implementation report:
+Return:
 
-## Exploration Cache Report
-
-### Files created/updated
-
-### Project state summary
-
-### Key findings
-
-### Commands run
-
-### Verification status
-
-### Recommended next task
-
-Create a manifest.json file which act a a summary or index file if there is not any yet, to guide exploration/navigation through the exploration-cache.
+```txt
+1. Cache status
+2. Files changed
+3. Data loading behavior
+4. Phase 3 block behavior
+5. Upload/download behavior
+6. Error/loading behavior
+7. Verification results
+8. Manual checks
+9. Known risks/TODOs
+10. Next step
 ```

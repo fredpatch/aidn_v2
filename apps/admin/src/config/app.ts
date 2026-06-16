@@ -1,11 +1,22 @@
-export const APP_NAME = import.meta.env.VITE_APP_NAME ?? 'AIDN';
-export const APP_VERSION = import.meta.env.VITE_APP_VERSION ?? '0.1.0';
-export const APP_ENV = import.meta.env.VITE_ENV ?? import.meta.env.MODE ?? 'local';
-export const STORAGE_PREFIX = 'aidn';
-export const DATA_MODE = import.meta.env.VITE_DATA_MODE ?? 'mock';
-export const MOCK_LATENCY_MS = Number(import.meta.env.VITE_MOCK_LATENCY_MS ?? '300');
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '';
-export const DEFAULT_THEME = 'system' as const;
-export const DEFAULT_PALETTE = 'aidn' as const;
-export const AVAILABLE_PALETTES = ['aidn', 'aviation', 'gabon', 'neutral'] as const;
+// export const APP_NAME = import.meta.env.VITE_APP_NAME ?? "AIDN";
+// export const APP_VERSION = import.meta.env.VITE_APP_VERSION ?? "0.1.1";
+// export const APP_ENV =
+//   import.meta.env.VITE_ENV ?? import.meta.env.MODE ?? "local";
+export const APP_NAME = "AIDN OMA";
+export const APP_VERSION = "0.1.1";
+export const APP_ENV = "beta";
+export const STORAGE_PREFIX = "aidn";
+export const DATA_MODE = import.meta.env.VITE_DATA_MODE ?? "mock";
+export const MOCK_LATENCY_MS = Number(
+  import.meta.env.VITE_MOCK_LATENCY_MS ?? "300",
+);
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "";
+export const DEFAULT_THEME = "system" as const;
+export const DEFAULT_PALETTE = "aidn" as const;
+export const AVAILABLE_PALETTES = [
+  "aidn",
+  "aviation",
+  "gabon",
+  "neutral",
+] as const;
 export type AvailablePalette = (typeof AVAILABLE_PALETTES)[number];

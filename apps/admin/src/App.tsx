@@ -17,8 +17,6 @@ import { InternalAccountsPage } from "./pages/InternalAccountsPage";
 import { LoginPage } from "./pages/LoginPage";
 import { ManagementPage } from "./pages/ManagementPage";
 import { PersonnelPage } from "./pages/PersonnelPage";
-import { PortalPreviewDossierPage } from "./pages/PortalPreviewDossierPage";
-import { PortalPreviewPage } from "./pages/PortalPreviewPage";
 import { ReunionsPage } from "./pages/ReunionsPage";
 import { ReportsPage } from "./pages/ReportsPage";
 import { RequestsPage } from "./pages/RequestsPage";
@@ -43,22 +41,26 @@ export function App(): React.JSX.Element {
           <Route path="/certificats" element={<CertificatsPage />} />
           <Route path="/management" element={<ManagementPage />} />
           <Route path="/reports" element={<ReportsPage />} />
-          <Route path="/portal-preview" element={<PortalPreviewPage />} />
-          <Route
-            path="/portal-preview/dossiers/:id"
-            element={<PortalPreviewDossierPage />}
-          />
           <Route path="/settings" element={<SettingsPage />} />
         </Route>
       </Route>
-      <Route element={<ProtectedRoute permissions={["PERSONNEL_SEARCH", "AIDN_USER_ACTIVATE"]} />}>
+      <Route
+        element={
+          <ProtectedRoute
+            permissions={["PERSONNEL_SEARCH", "AIDN_USER_ACTIVATE"]}
+          />
+        }
+      >
         <Route element={<AdminLayout />}>
           <Route path="/admin/personnel" element={<PersonnelPage />} />
         </Route>
       </Route>
       <Route element={<ProtectedRoute permissions={["AIDN_USER_ACTIVATE"]} />}>
         <Route element={<AdminLayout />}>
-          <Route path="/admin/internal-accounts" element={<InternalAccountsPage />} />
+          <Route
+            path="/admin/internal-accounts"
+            element={<InternalAccountsPage />}
+          />
         </Route>
       </Route>
       <Route element={<ProtectedRoute permissions={["AUDIT_VIEW"]} />}>
@@ -66,9 +68,14 @@ export function App(): React.JSX.Element {
           <Route path="/admin/audit-logs" element={<AuditLogsPage />} />
         </Route>
       </Route>
-      <Route element={<ProtectedRoute permissions={["POSTULANT_ACCOUNT_REVIEW"]} />}>
+      <Route
+        element={<ProtectedRoute permissions={["POSTULANT_ACCOUNT_REVIEW"]} />}
+      >
         <Route element={<AdminLayout />}>
-          <Route path="/admin/demandes-comptes" element={<AccountRequestsPage />} />
+          <Route
+            path="/admin/demandes-comptes"
+            element={<AccountRequestsPage />}
+          />
         </Route>
       </Route>
       <Route element={<ProtectedRoute permissions={["REQUEST_VIEW_ALL"]} />}>
@@ -76,7 +83,17 @@ export function App(): React.JSX.Element {
           <Route path="/demandes" element={<RequestsPage />} />
         </Route>
       </Route>
-      <Route element={<ProtectedRoute permissions={["DG_CIRCUIT_HANDLE", "COURRIER_REGISTER_PHYSICAL", "PRE_EVAL_DG_CIRCUIT_HANDLE"]} />}>
+      <Route
+        element={
+          <ProtectedRoute
+            permissions={[
+              "DG_CIRCUIT_HANDLE",
+              "COURRIER_REGISTER_PHYSICAL",
+              "PRE_EVAL_DG_CIRCUIT_HANDLE",
+            ]}
+          />
+        }
+      >
         <Route element={<AdminLayout />}>
           <Route path="/circuit-dg" element={<DgCircuitPage />} />
         </Route>

@@ -181,7 +181,7 @@ export function PersonnelPage(): React.JSX.Element {
             },
             temporaryPassword: "123456",
           }
-        : await activateInternalAccount(selected.personnelId, role);
+        : await activateInternalAccount(selected.matricule, role);
 
       setActivationResult(response);
       await loadPersonnel(search, page, limit);

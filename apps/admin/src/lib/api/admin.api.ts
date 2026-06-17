@@ -84,8 +84,8 @@ export function listInternalAccounts(filters: {
   return apiGet<{ items: InternalAccount[] }>(`/api/v1/admin/internal-accounts${query ? `?${query}` : ''}`);
 }
 
-export function activateInternalAccount(personnelId: string, role: string): Promise<ActivateInternalAccountResponse> {
-  return apiPost<ActivateInternalAccountResponse>('/api/v1/admin/internal-accounts/activate', { personnelId, role });
+export function activateInternalAccount(matricule: string, role: string): Promise<ActivateInternalAccountResponse> {
+  return apiPost<ActivateInternalAccountResponse>('/api/v1/admin/internal-accounts/activate', { matricule, role });
 }
 
 export function listAuditLogs(paramsInput: { page: number; limit: number }): Promise<PaginatedResponse<AuditLog>> {

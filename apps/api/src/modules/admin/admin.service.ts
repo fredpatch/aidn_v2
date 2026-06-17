@@ -46,17 +46,26 @@ export const searchPersonnel = async (params: {
   const result = await personnelAdapter.searchPersonnel(params);
 
   const personnelIds = result.items.map((item) => item.personnelId);
+  const matricules = result.items.map((item) => normalizeMatricule(item.matricule));
   const accounts = await AidnInternalAccountModel.find({
     personnelSource: "official_personnel_db",
-    personnelId: { $in: personnelIds },
+    $or: [
+      { personnelId: { $in: personnelIds } },
+      { matricule: { $in: matricules } },
+    ],
   }).lean();
-  const accountByPersonnelId = new Map(
-    accounts.map((account) => [account.personnelId, account]),
-  );
+  const accountByPersonnelLookup = new Map<string, (typeof accounts)[number]>();
+
+  accounts.forEach((account) => {
+    accountByPersonnelLookup.set(account.personnelId, account);
+    accountByPersonnelLookup.set(normalizeMatricule(account.matricule), account);
+  });
 
   return {
     items: result.items.map((personnel) => {
-      const account = accountByPersonnelId.get(personnel.personnelId);
+      const account =
+        accountByPersonnelLookup.get(personnel.personnelId) ??
+        accountByPersonnelLookup.get(normalizeMatricule(personnel.matricule));
 
       return {
         personnelId: personnel.personnelId,
@@ -151,7 +160,7 @@ export const listInternalAccounts = async (filters: {
 };
 
 export const activateInternalAccount = async (input: {
-  personnelId: string;
+  matricule: string;
   role: Role;
   activatedById: string;
   activatedByRole: Role;
@@ -162,12 +171,13 @@ export const activateInternalAccount = async (input: {
     throw new HttpError(400, "Invalid internal activation role");
   }
 
-  if (!input.personnelId?.trim()) {
-    throw new HttpError(400, "personnelId is required");
+  if (!input.matricule?.trim()) {
+    throw new HttpError(400, "matricule is required");
   }
 
-  const personnel = await personnelAdapter.getPersonnelById(
-    input.personnelId.trim(),
+  const requestedMatricule = normalizeMatricule(input.matricule);
+  const personnel = await personnelAdapter.getPersonnelByMatricule(
+    requestedMatricule,
   );
 
   if (!personnel) {
@@ -180,7 +190,10 @@ export const activateInternalAccount = async (input: {
 
   const existingAccount = await AidnInternalAccountModel.findOne({
     personnelSource: "official_personnel_db",
-    personnelId: personnel.personnelId,
+    $or: [
+      { personnelId: personnel.personnelId },
+      { matricule: normalizeMatricule(personnel.matricule) },
+    ],
   }).lean();
   const temporaryPassword = generateTemporaryPassword();
   const passwordHash = await bcrypt.hash(temporaryPassword, 12);
@@ -190,10 +203,12 @@ export const activateInternalAccount = async (input: {
   );
 
   const user = await UserModel.findOneAndUpdate(
-    {
-      externalSource: "official_personnel_db",
-      externalUserId: personnel.personnelId,
-    },
+    existingAccount
+      ? { _id: existingAccount.userId }
+      : {
+          externalSource: "official_personnel_db",
+          externalUserId: personnel.personnelId,
+        },
     {
       userType: "internal",
       fullName: personnel.fullName,
@@ -215,10 +230,12 @@ export const activateInternalAccount = async (input: {
   );
 
   const account = await AidnInternalAccountModel.findOneAndUpdate(
-    {
-      personnelSource: "official_personnel_db",
-      personnelId: personnel.personnelId,
-    },
+    existingAccount
+      ? { _id: existingAccount._id }
+      : {
+          personnelSource: "official_personnel_db",
+          personnelId: personnel.personnelId,
+        },
     {
       personnelSource: "official_personnel_db",
       personnelId: personnel.personnelId,

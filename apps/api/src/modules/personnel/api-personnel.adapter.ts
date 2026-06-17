@@ -53,6 +53,11 @@ type ApiRecordEnvelope =
       item?: ApiPersonnelRecord;
     };
 
+type GetJsonOptions = {
+  nullOnStatuses?: number[];
+  logRaw?: boolean;
+};
+
 const normalizeMatricule = (value: number | string | null | undefined) => {
   const raw = String(value ?? "").trim();
 
@@ -68,6 +73,13 @@ const firstNonEmpty = (...values: Array<string | null | undefined>) =>
 
 const cleanLabel = (value?: string | null) =>
   value?.replace(/\s+/g, " ").trim() || undefined;
+
+const readPersonnelId = (record: ApiPersonnelRecord) => {
+  const id =
+    record.id ?? record.idpersonnel ?? record.idPersonnel ?? record.personnelId;
+
+  return id === null || id === undefined ? undefined : String(id).trim();
+};
 
 const toIdentity = (record: ApiPersonnelRecord): PersonnelIdentity | null => {
   const matricule = normalizeMatricule(
@@ -94,10 +106,7 @@ const toIdentity = (record: ApiPersonnelRecord): PersonnelIdentity | null => {
     ) ?? matricule;
 
   return {
-    // Keep personnelId stable with the historical AIDN mapping. The SI-ANAC
-    // numeric id remains external to this adapter until an account migration is
-    // explicitly planned.
-    personnelId: matricule,
+    personnelId: readPersonnelId(record) || matricule,
     matricule,
     fullName,
     email:
@@ -247,10 +256,13 @@ export class ApiPersonnelAdapter implements PersonnelAdapter {
   private async getJson<T>(
     path: string,
     params?: Record<string, string | number>,
+    options: GetJsonOptions = {},
   ): Promise<T | null> {
     const url = this.buildUrl(path, params);
 
-    // console.log(`[personnel-api] GET ${url}`);
+    if (options.logRaw) {
+      console.log(`[personnel-api] request GET ${url}`);
+    }
 
     try {
       const response = await axios.get<T>(url, {
@@ -261,15 +273,35 @@ export class ApiPersonnelAdapter implements PersonnelAdapter {
         },
       });
 
-      // console.log(`[personnel-api] ${response.status} ${url}`);
-      // console.log(
-      //   `[personnel-api] raw response:\n${stringifyForLog(response.data)}`,
-      // );
+      if (options.logRaw) {
+        console.log(`[personnel-api] response ${response.status} ${url}`);
+        console.log(
+          `[personnel-api] raw response:\n${stringifyForLog(response.data)}`,
+        );
+      }
+
       return response.data;
     } catch (caught) {
       if (caught instanceof AxiosError) {
+        if (options.logRaw) {
+          console.log(
+            `[personnel-api] error response ${caught.response?.status ?? "no-status"} ${url}`,
+          );
+          console.log(
+            `[personnel-api] raw error response:\n${stringifyForLog(
+              caught.response?.data ?? caught.message,
+            )}`,
+          );
+        }
+
+        if (
+          caught.response?.status &&
+          options.nullOnStatuses?.includes(caught.response.status)
+        ) {
+          return null;
+        }
+
         if (caught.response?.status === 404) {
-          // console.log(`[personnel-api] 404 ${url}`);
           return null;
         }
 
@@ -312,22 +344,9 @@ export class ApiPersonnelAdapter implements PersonnelAdapter {
           },
     );
 
-    if (isObject(payload)) {
-      // console.log(
-      //   `[personnel-api] payload keys=${Object.keys(payload).join(",")}`,
-      // );
-    } else {
-      // console.log(
-      //   `[personnel-api] payload type=${Array.isArray(payload) ? "array" : typeof payload}`,
-      // );
-    }
-
     const { records, total } = payload
       ? extractList(payload)
       : { records: [], total: 0 };
-    // console.log(
-    //   `[personnel-api] extracted records:\n${stringifyForLog(records)}`,
-    // );
 
     const items = records
       .map(toIdentity)
@@ -346,9 +365,22 @@ export class ApiPersonnelAdapter implements PersonnelAdapter {
   async getPersonnelById(
     personnelId: string,
   ): Promise<PersonnelIdentity | null> {
-    // AIDN historically stores personnelId as the normalized matricule. Keep
-    // lookup compatible by resolving IDs through the matricule endpoint.
-    return this.getPersonnelByMatricule(personnelId);
+    const id = personnelId.trim();
+
+    if (!id) {
+      return null;
+    }
+
+    const payload = await this.getJson<ApiRecordEnvelope | null>(
+      `/personnel/${encodeURIComponent(id)}`,
+    );
+
+    if (!payload) {
+      return null;
+    }
+
+    const record = extractRecord(payload);
+    return record ? toIdentity(record) : null;
   }
 
   async getPersonnelByMatricule(
@@ -360,9 +392,21 @@ export class ApiPersonnelAdapter implements PersonnelAdapter {
       return null;
     }
 
-    const payload = await this.getJson<ApiRecordEnvelope | null>(
+    let payload = await this.getJson<ApiRecordEnvelope | null>(
       `/personnel/matricule/${encodeURIComponent(normalized)}`,
+      undefined,
+      {
+        logRaw: true,
+        nullOnStatuses: [400],
+      },
     );
+
+    if (!payload) {
+      console.log(
+        `[personnel-api] matricule lookup fallback through search for ${normalized}`,
+      );
+      payload = await this.findPersonnelByMatriculeThroughSearch(normalized);
+    }
 
     if (!payload) {
       return null;
@@ -370,5 +414,28 @@ export class ApiPersonnelAdapter implements PersonnelAdapter {
 
     const record = extractRecord(payload);
     return record ? toIdentity(record) : null;
+  }
+
+  private async findPersonnelByMatriculeThroughSearch(
+    matricule: string,
+  ): Promise<ApiPersonnelRecord | null> {
+    const payload = await this.getJson<ApiListEnvelope>("/personnel/search", {
+      q: matricule,
+      limit: 10,
+    });
+
+    if (!payload) {
+      return null;
+    }
+
+    const { records } = extractList(payload);
+    return (
+      records.find(
+        (record) =>
+          normalizeMatricule(
+            record.identity?.matricule ?? record.numat ?? record.matricule,
+          ) === matricule,
+      ) ?? null
+    );
   }
 }

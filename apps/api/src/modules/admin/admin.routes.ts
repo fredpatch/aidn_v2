@@ -242,9 +242,15 @@ adminRouter.post(
   "/internal-accounts/activate",
   requirePermission(Permissions.AIDN_USER_ACTIVATE),
   asyncHandler(async (req, res) => {
-    const body = req.body as { personnelId?: string; role?: Role };
+    const body = req.body as {
+      personnelId?: string;
+      matricule?: string;
+      role?: Role;
+    };
+    const matricule = body.matricule ?? body.personnelId ?? "";
+
     const result = await activateInternalAccount({
-      personnelId: body.personnelId ?? "",
+      matricule,
       role: body.role as Role,
       activatedById: req.user!.id,
       activatedByRole: req.user!.role,

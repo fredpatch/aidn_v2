@@ -159,7 +159,10 @@ export const loginInternalUser = async (matricule: string, password: string) => 
 
   const account = await AidnInternalAccountModel.findOne({
     personnelSource: "official_personnel_db",
-    personnelId: personnel.personnelId
+    $or: [
+      { personnelId: personnel.personnelId },
+      { matricule: personnel.matricule }
+    ]
   });
 
   if (!account) {
@@ -181,6 +184,8 @@ export const loginInternalUser = async (matricule: string, password: string) => 
       service: personnel.service,
       direction: personnel.direction,
       fonction: personnel.fonction,
+      externalSource: "official_personnel_db",
+      externalUserId: personnel.personnelId,
       matricule: personnel.matricule,
       lastSyncedAt: new Date()
     },
@@ -212,6 +217,8 @@ export const loginInternalUser = async (matricule: string, password: string) => 
   user.lastLoginAt = new Date();
   await user.save();
 
+  account.personnelId = personnel.personnelId;
+  account.matricule = personnel.matricule;
   account.lastLoginAt = new Date();
   await account.save();
 

@@ -1,5 +1,3 @@
-import { MariaDataSource } from "../../shared/database/maria.datasource.js";
-import { EmployeeDirectory } from "../../shared/database/views/employee-directory.view.js";
 import { HttpError } from "../../shared/errors/http-error.js";
 import { Roles, type Role } from "../../shared/permissions/permissions.js";
 import bcrypt from "bcryptjs";
@@ -18,7 +16,8 @@ const activatableInternalRoles: Role[] = [
   Roles.BUREAU_COURRIER,
 ];
 
-const normalizeMatricule = (matricule: string) => matricule.trim().toUpperCase();
+const normalizeMatricule = (matricule: string) =>
+  matricule.trim().toUpperCase();
 
 const generateTemporaryPassword = () =>
   crypto.randomInt(100000, 1000000).toString();
@@ -45,6 +44,7 @@ export const searchPersonnel = async (params: {
   limit: number;
 }) => {
   const result = await personnelAdapter.searchPersonnel(params);
+
   const personnelIds = result.items.map((item) => item.personnelId);
   const accounts = await AidnInternalAccountModel.find({
     personnelSource: "official_personnel_db",
@@ -185,7 +185,9 @@ export const activateInternalAccount = async (input: {
   const temporaryPassword = generateTemporaryPassword();
   const passwordHash = await bcrypt.hash(temporaryPassword, 12);
   const now = new Date();
-  const temporaryPasswordExpiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+  const temporaryPasswordExpiresAt = new Date(
+    now.getTime() + 24 * 60 * 60 * 1000,
+  );
 
   const user = await UserModel.findOneAndUpdate(
     {
@@ -279,31 +281,39 @@ export const activateInternalAccount = async (input: {
 export const listSiUsers = async (params: ListParams) => {
   const limit = Math.min(Math.max(params.limit ?? 20, 1), 50);
   const page = Math.max(params.page ?? 1, 1);
-  const skip = (page - 1) * limit;
+  const result = await personnelAdapter.searchPersonnel({
+    search: params.q ?? "",
+    page,
+    limit,
+  });
+  const items = result.items
+    .filter((personnel) => {
+      if (params.direction && personnel.direction !== params.direction) {
+        return false;
+      }
 
-  const repo = MariaDataSource.getRepository(EmployeeDirectory);
-  const qb = repo.createQueryBuilder("e");
+      if (params.fonction && personnel.fonction !== params.fonction) {
+        return false;
+      }
 
-  // q search (matricule, firstName, lastName)
-  if (params.q?.trim()) {
-    const q = `%${params.q.trim()}%`;
-    qb.andWhere(
-      `(e.matricule LIKE :q OR e.firstName LIKE :q OR e.lastName LIKE :q)`,
-      { q },
-    );
-  }
+      return true;
+    })
+    .map((personnel): EmployeeDirectoryItem => {
+      const [firstName = "", ...lastNameParts] = personnel.fullName.split(" ");
 
-  if (params.direction) {
-    qb.andWhere(`e.direction = :direction`, { direction: params.direction });
-  }
+      return {
+        matricule: personnel.matricule,
+        firstName,
+        lastName: lastNameParts.join(" "),
+        direction: personnel.direction ?? null,
+        fonction: personnel.fonction ?? null,
+      };
+    });
 
-  if (params.fonction) {
-    qb.andWhere(`e.fonction = :fonction`, { fonction: params.fonction });
-  }
-
-  qb.orderBy("e.matricule", "ASC").skip(skip).take(limit);
-
-  const [items, total] = await qb.getManyAndCount();
-
-  return { items, total, page, limit };
+  return {
+    items,
+    total: params.direction || params.fonction ? items.length : result.total,
+    page: result.page,
+    limit: result.limit,
+  };
 };

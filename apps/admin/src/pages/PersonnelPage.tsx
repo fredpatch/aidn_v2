@@ -98,6 +98,7 @@ export function PersonnelPage(): React.JSX.Element {
   const [activationResult, setActivationResult] =
     useState<ActivateInternalAccountResponse | null>(null);
   const [error, setError] = useState("");
+  const [hasSearched, setHasSearched] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isActivating, setIsActivating] = useState(false);
 
@@ -110,7 +111,10 @@ export function PersonnelPage(): React.JSX.Element {
     nextPage = page,
     nextLimit = limit,
   ) => {
+    const trimmedTerm = term.trim();
+
     setError("");
+
     setIsLoading(true);
     try {
       if (isMockMode()) {
@@ -119,11 +123,12 @@ export function PersonnelPage(): React.JSX.Element {
         setTotal(mockPersonnel.length);
         setPage(nextPage);
         setLimit(nextLimit);
+        setHasSearched(true);
         return;
       }
 
       const response = await searchPersonnel({
-        search: term,
+        search: trimmedTerm,
         page: nextPage,
         limit: nextLimit,
       });
@@ -131,6 +136,7 @@ export function PersonnelPage(): React.JSX.Element {
       setTotal(response.total);
       setPage(response.page);
       setLimit(response.limit);
+      setHasSearched(true);
     } catch {
       setError("Connexion impossible.");
     } finally {
@@ -227,7 +233,9 @@ export function PersonnelPage(): React.JSX.Element {
       <section className="surface overflow-hidden rounded-lg">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-4 py-3 text-sm dark:border-slate-800">
           <p className="text-slate-600 dark:text-slate-300">
-            {total === 0
+            {!hasSearched
+              ? "Chargement du personnel"
+              : total === 0
               ? "Aucun resultat"
               : `${firstItem}-${lastItem} sur ${total}`}
           </p>
@@ -314,7 +322,11 @@ export function PersonnelPage(): React.JSX.Element {
             {!items.length ? (
               <TableRow>
                 <TableCell className="px-4 py-8 text-center text-slate-500" colSpan={6}>
-                  {isLoading ? "Chargement..." : "Aucun personnel trouve."}
+                  {isLoading
+                    ? "Chargement..."
+                    : hasSearched
+                      ? "Aucun personnel trouve."
+                      : "Chargement du personnel ANAC."}
                 </TableCell>
               </TableRow>
             ) : null}

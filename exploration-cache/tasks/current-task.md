@@ -1,5 +1,55 @@
 # Current Task
 
+## Phase: PERSONNEL-API-1 - Personnel API Adapter
+
+Date: 2026-06-16
+Status: **Complete - API typecheck PASS, API build PASS**
+
+## Summary file
+
+- Planning: `exploration-cache/tasks/summaries/2026-06-16-personnel-api-adapter-planning.md`
+- Implementation: `exploration-cache/tasks/summaries/2026-06-16-personnel-api-adapter-implementation.md`
+- History: `exploration-cache/tasks/history/2026-06-16-personnel-api-adapter-planning.md`
+
+## Objective
+
+Adapted the existing personnel identity boundary so production can use the external read-only SI-ANAC personnel API while MariaDB remains available for local use and rollback.
+
+## Key plan
+
+- Keep `PersonnelAdapter` unchanged.
+- Added `PersonnelApiAdapter`.
+- Added explicit `PERSONNEL_SOURCE=api|maria|mock`.
+- Keep internal login semantics: personnel source confirms existence only; AIDN account status and local password remain authoritative.
+- Decoupled MariaDB initialization from API/mock mode.
+
+## Verification
+
+- `npm install` in `apps/api` - PASS after approved networked install.
+- `npm run typecheck` in `apps/api` - PASS.
+- `npm run build` in `apps/api` - PASS.
+
+## Runtime correction
+
+- `2026-06-16`: `ApiPersonnelAdapter.searchPersonnel` now returns an empty result for blank or one-character searches because the external Personnel API requires `q` to contain at least 2 characters.
+- Summary: `exploration-cache/tasks/summaries/2026-06-16-personnel-api-empty-search-correction.md`
+- `2026-06-16`: `ApiPersonnelAdapter.searchPersonnel` now supports nested/common gateway response envelopes for search results.
+- Summary: `exploration-cache/tasks/summaries/2026-06-16-personnel-api-search-envelope-correction.md`
+- `2026-06-16`: `ApiPersonnelAdapter` now uses Axios. Outgoing ANAC search shape is controlled in `searchPersonnel`: `/personnel/search` with params `{ q, limit }`.
+- Summary: `exploration-cache/tasks/summaries/2026-06-16-personnel-api-axios-correction.md`
+- `2026-06-16`: `ApiPersonnelAdapter.toIdentity` now maps the real ANAC payload shape: `identity.*` and `organization.*`.
+- Summary: `exploration-cache/tasks/summaries/2026-06-16-personnel-api-real-payload-mapping-correction.md`
+- `2026-06-16`: Admin Personnel page now treats blank search as a prompt state because ANAC search requires `q` length >= 2 and has no documented list-all endpoint.
+- Summary: `exploration-cache/tasks/summaries/2026-06-16-personnel-admin-blank-search-ui-correction.md`
+- `2026-06-17`: ANAC Personnel list endpoint integrated. Blank admin personnel search now calls `/personnel?page=&limit=`.
+- Summary: `exploration-cache/tasks/summaries/2026-06-17-personnel-api-list-endpoint-integration.md`
+
+## Next step
+
+Configure real Personnel API env values and smoke-test admin personnel search, internal account activation, and internal login.
+
+---
+
 ## Phase: OMA-EVAL-6D — Portal Phase 3 Action Block
 
 Date: 2026-06-01

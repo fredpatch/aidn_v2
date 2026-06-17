@@ -1,5 +1,5 @@
 import { PortalStatusBadge } from "./PortalStatusBadge";
-import type { PortalRequestStatus } from "../lib/api/portal.api";
+import type { PortalRequestStatus } from "../lib/api/requests";
 
 const statusLabels: Record<PortalRequestStatus, string> = {
   draft: "Brouillon",

@@ -3,6 +3,7 @@ import { Link, NavLink, useNavigate } from "react-router-dom";
 
 import { usePortalAuth } from "../lib/auth/PortalAuthContext";
 import { portalRoutes } from "../lib/routes";
+import { Button } from "./ui/button";
 
 export function PortalHeader(): React.JSX.Element {
   const { isAuthenticated, logout, user } = usePortalAuth();
@@ -27,7 +28,9 @@ export function PortalHeader(): React.JSX.Element {
             <span className="block text-sm font-semibold uppercase tracking-wide text-slate-500">
               AIDN
             </span>
-            <span className="block text-base font-bold">Portail postulant</span>
+            <span className="block text-base font-semibold">
+              Portail postulant
+            </span>
           </span>
         </Link>
 
@@ -38,10 +41,15 @@ export function PortalHeader(): React.JSX.Element {
                 <UserRound size={16} aria-hidden="true" />
                 Bienvenue, {user?.fullName}
               </span>
-              <button type="button" className="btn btn-secondary" onClick={handleLogout}>
+              <Button
+                size="sm"
+                type="button"
+                className="btn"
+                onClick={handleLogout}
+              >
                 <LogOut size={16} aria-hidden="true" />
                 Se deconnecter
-              </button>
+              </Button>
             </>
           ) : (
             <>

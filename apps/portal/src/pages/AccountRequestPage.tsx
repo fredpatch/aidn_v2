@@ -9,7 +9,7 @@ import { toast } from "sonner";
 import {
   submitAccountRequest,
   type SubmitAccountRequestPayload,
-} from "../lib/api/portal.api";
+} from "../lib/api/account-requests";
 import { PortalApiError } from "../lib/api/http";
 import { Badge } from "../components/ui/badge";
 import { Field, FieldError, FieldLabel } from "../components/ui/field";

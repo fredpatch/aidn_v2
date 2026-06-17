@@ -1,101 +1,159 @@
-import { LogIn } from "lucide-react";
-import { useState, type FormEvent } from "react";
+import { Loader2, LockKeyhole, LogIn, Mail, ShieldCheck } from "lucide-react";
+import { useForm, type SubmitHandler } from "react-hook-form";
 import { Link, Navigate, useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 
-import { PortalApiError } from "../lib/api/http";
+import { Badge } from "../components/ui/badge";
+import { Button } from "../components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "../components/ui/card";
+import { Field, FieldError, FieldLabel } from "../components/ui/field";
+import { Input } from "../components/ui/input";
 import { usePortalAuth } from "../lib/auth/PortalAuthContext";
 import { portalRoutes } from "../lib/routes";
+import {
+  getLoginErrorMessage,
+  loginDefaultValues,
+  loginValidationRules,
+  normalizeLoginValues,
+  type LoginFormValues,
+} from "./login/login-form.helpers";
 
 export function LoginPage(): React.JSX.Element {
   const { isAuthenticated, isLoading, login } = usePortalAuth();
   const navigate = useNavigate();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const {
+    register,
+    handleSubmit,
+    setError,
+    formState: { errors, isSubmitting },
+  } = useForm<LoginFormValues>({
+    defaultValues: loginDefaultValues,
+    mode: "onBlur",
+  });
 
   if (!isLoading && isAuthenticated) {
     return <Navigate to={portalRoutes.dashboard} replace />;
   }
 
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    setError(null);
-    setIsSubmitting(true);
-
+  const onSubmit: SubmitHandler<LoginFormValues> = async (values) => {
     try {
-      await login(email, password);
+      const credentials = normalizeLoginValues(values);
+      await login(credentials.email, credentials.password);
+      toast.success("Connexion réussie", {
+        description: "Votre session postulant est ouverte.",
+      });
       navigate(portalRoutes.dashboard, { replace: true });
-    } catch (nextError) {
-      setError(
-        nextError instanceof PortalApiError && nextError.status >= 500
-          ? nextError.message
-          : "Adresse e-mail ou mot de passe incorrect.",
-      );
-    } finally {
-      setIsSubmitting(false);
+    } catch (error) {
+      const message = getLoginErrorMessage(error);
+      setError("root.server", { message });
+      toast.error("Connexion impossible", {
+        description: message,
+      });
     }
   };
 
   return (
-    <section className="mx-auto grid w-full max-w-5xl gap-6 py-6 lg:grid-cols-[0.9fr_1.1fr]">
-      <div>
+    <section className="mx-auto grid w-full max-w-5xl gap-6 py-6 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
+      <div className="space-y-5">
+        <Badge variant="outline" className="gap-1.5">
+          <ShieldCheck size={13} aria-hidden="true" />
+          Espace postulant
+        </Badge>
         <h1 className="page-title">Connexion postulant</h1>
         <p className="page-subtitle">
-          Connectez-vous avec l’adresse e-mail et le mot de passe utilisés lors
+          Connectez-vous avec l'adresse e-mail et le mot de passe utilisés lors
           de votre demande de compte approuvée.
         </p>
       </div>
 
-      <form className="surface grid gap-4 rounded-lg p-5" onSubmit={handleSubmit}>
-        <div className="flex items-center gap-3 border-b border-slate-200 pb-4">
-          <span className="flex size-10 items-center justify-center rounded-md bg-slate-100 text-slate-700">
-            <LogIn size={20} aria-hidden="true" />
-          </span>
-          <div>
-            <h2 className="text-lg font-bold text-slate-950">Accès portail</h2>
-            <p className="text-sm text-slate-600">Session postulant sécurisée</p>
+      <Card className="shadow-sm">
+        <CardHeader className="border-b">
+          <div className="flex items-center gap-3">
+            <span className="flex size-10 items-center justify-center rounded-md bg-slate-100 text-slate-700">
+              <LogIn size={20} aria-hidden="true" />
+            </span>
+            <div>
+              <CardTitle>Accès portail</CardTitle>
+              <CardDescription>Session postulant sécurisée</CardDescription>
+            </div>
           </div>
-        </div>
-        {error ? (
-          <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">
-            {error}
-          </p>
-        ) : null}
-        <div className="field">
-          <label htmlFor="email">Adresse e-mail</label>
-          <input
-            id="email"
-            type="email"
-            className="control"
-            value={email}
-            autoComplete="email"
-            required
-            onChange={(event) => setEmail(event.target.value)}
-          />
-        </div>
-        <div className="field">
-          <label htmlFor="password">Mot de passe</label>
-          <input
-            id="password"
-            type="password"
-            className="control"
-            value={password}
-            autoComplete="current-password"
-            required
-            onChange={(event) => setPassword(event.target.value)}
-          />
-        </div>
-        <button type="submit" className="btn btn-primary" disabled={isSubmitting}>
-          {isSubmitting ? "Connexion en cours…" : "Se connecter"}
-        </button>
-        <Link
-          to={portalRoutes.accountRequest}
-          className="text-sm font-semibold text-slate-700 underline-offset-4 hover:underline"
-        >
-          Pas encore de compte ? Demander un compte
-        </Link>
-      </form>
+        </CardHeader>
+        <CardContent>
+          <form
+            className="grid gap-4"
+            onSubmit={(event) => void handleSubmit(onSubmit)(event)}
+            noValidate
+          >
+            <Field>
+              <FieldLabel htmlFor="email">Adresse e-mail</FieldLabel>
+              <Input
+                id="email"
+                type="email"
+                autoComplete="email"
+                placeholder="contact@organisme.ga"
+                invalid={Boolean(errors.email)}
+                disabled={isSubmitting}
+                badge={<Badge variant="destructive">Requis</Badge>}
+                aria-invalid={errors.email ? "true" : "false"}
+                aria-describedby={errors.email ? "email-error" : undefined}
+                {...register("email", loginValidationRules.email)}
+              />
+              <FieldError id="email-error">{errors.email?.message}</FieldError>
+            </Field>
+
+            <Field>
+              <FieldLabel htmlFor="password">Mot de passe</FieldLabel>
+              <Input
+                id="password"
+                type="password"
+                autoComplete="current-password"
+                placeholder="Votre mot de passe"
+                invalid={Boolean(errors.password)}
+                disabled={isSubmitting}
+                badge={<Badge variant="destructive">Requis</Badge>}
+                aria-invalid={errors.password ? "true" : "false"}
+                aria-describedby={
+                  errors.password ? "password-error" : undefined
+                }
+                {...register("password", loginValidationRules.password)}
+              />
+              <FieldError id="password-error">
+                {errors.password?.message}
+              </FieldError>
+              <FieldError className="text-xs text-red-600">
+                {errors.root?.server?.message}
+              </FieldError>
+            </Field>
+
+            <Button type="submit" size="lg" disabled={isSubmitting}>
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="animate-spin" aria-hidden="true" />
+                  Connexion en cours...
+                </>
+              ) : (
+                <>
+                  <LockKeyhole aria-hidden="true" />
+                  Se connecter
+                </>
+              )}
+            </Button>
+
+            <Button asChild variant="link" className="h-auto justify-start px-0">
+              <Link to={portalRoutes.accountRequest}>
+                <Mail aria-hidden="true" />
+                Pas encore de compte ? Demander un compte
+              </Link>
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
     </section>
   );
 }

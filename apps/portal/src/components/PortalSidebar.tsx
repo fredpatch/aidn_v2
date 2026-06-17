@@ -3,18 +3,18 @@ import {
   CalendarDays,
   ClipboardList,
   Home,
-  ListChecks,
+  // ListChecks,
   LogOut,
 } from "lucide-react";
 import { NavLink, useNavigate } from "react-router-dom";
 
-import { usePortalAuth } from "../lib/auth/PortalAuthContext";
-import { portalRoutes } from "../lib/routes";
+import { usePortalAuth } from "@/lib/auth/PortalAuthContext";
+import { portalRoutes } from "@/lib/routes";
 
 const navItems = [
   { label: "Tableau de bord", to: portalRoutes.dashboard, icon: Home },
   { label: "Mes demandes", to: portalRoutes.requests, icon: ClipboardList },
-  { label: "Actions requises", to: portalRoutes.requests, icon: ListChecks },
+  // { label: "Actions requises", to: portalRoutes.requests, icon: ListChecks },
   { label: "Rendez-vous", to: portalRoutes.rendezVous, icon: CalendarDays },
   { label: "Notifications", to: portalRoutes.notifications, icon: Bell },
 ];
@@ -29,6 +29,31 @@ function getInitials(name?: string): string {
     .join("");
 }
 
+interface UserChipProps {
+  user: { fullName?: string; email?: string };
+}
+
+function UserChip({ user }: UserChipProps): React.JSX.Element {
+  return (
+    <div className="mb-3 flex items-center gap-2.5 rounded-lg bg-slate-50 px-3 py-2.5">
+      <span
+        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-900 text-xs font-bold text-white"
+        aria-hidden="true"
+      >
+        {getInitials(user.fullName)}
+      </span>
+      <span className="min-w-0">
+        <span className="block truncate text-sm font-semibold text-slate-900">
+          {user.fullName}
+        </span>
+        <span className="block truncate text-xs text-slate-500">
+          {user.email}
+        </span>
+      </span>
+    </div>
+  );
+}
+
 export function PortalSidebar(): React.JSX.Element {
   const { logout, user } = usePortalAuth();
   const navigate = useNavigate();
@@ -40,25 +65,7 @@ export function PortalSidebar(): React.JSX.Element {
 
   return (
     <aside className="surface h-fit rounded-xl p-3">
-      {/* User chip */}
-      {user ? (
-        <div className="mb-3 flex items-center gap-2.5 rounded-lg bg-slate-50 px-3 py-2.5">
-          <span
-            className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-slate-900 text-xs font-bold text-white"
-            aria-hidden="true"
-          >
-            {getInitials(user.fullName)}
-          </span>
-          <span className="min-w-0">
-            <span className="block truncate text-sm font-semibold text-slate-900">
-              {user.fullName}
-            </span>
-            <span className="block truncate text-xs text-slate-500">
-              {user.email}
-            </span>
-          </span>
-        </div>
-      ) : null}
+      {user ? <UserChip user={user} /> : null}
 
       <nav className="flex flex-col gap-0.5">
         {navItems.map((item) => {
@@ -69,9 +76,9 @@ export function PortalSidebar(): React.JSX.Element {
               to={item.to}
               className={({ isActive }) =>
                 [
-                  "flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                  "flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors",
                   isActive
-                    ? "border-l-[3px] border-slate-900 bg-slate-50 pl-[9px] text-slate-900"
+                    ? "border-l-[3px] border-slate-900 bg-slate-200/40 pl-[9px] text-slate-900 font-medium"
                     : "text-slate-600 hover:bg-slate-50 hover:text-slate-900",
                 ].join(" ")
               }

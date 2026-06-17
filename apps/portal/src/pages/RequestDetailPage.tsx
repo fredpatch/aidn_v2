@@ -23,23 +23,27 @@ import {
   RequestTypeLabel,
 } from "../components/RequestTypeLabel";
 import {
-  downloadFormalRequestTemplate,
   downloadPortalDossierDocument,
   getPortalDossier,
+  uploadPreEvaluationForm,
+  type PortalDossierDetail,
+  type PortalDossierMeeting,
+} from "../lib/api/dossiers";
+import {
   getRequest,
   submitRequestWithCourrier,
   updateRequest,
-  uploadFormalRequestCourrier,
-  uploadFormalRequestDocument,
-  uploadPreEvaluationForm,
   type PortalCourrier,
   type PortalDocument,
-  type PortalDossierDetail,
-  type PortalDossierMeeting,
-  type PortalFormalRequestRequirement,
   type PortalRequest,
   type PortalRequestType,
-} from "../lib/api/portal.api";
+} from "../lib/api/requests";
+import {
+  downloadFormalRequestTemplate,
+  uploadFormalRequestCourrier,
+  uploadFormalRequestDocument,
+  type PortalFormalRequestRequirement,
+} from "../lib/api/formal-request";
 import { PortalApiError } from "../lib/api/http";
 import { portalRoutes } from "../lib/routes";
 

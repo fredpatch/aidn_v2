@@ -1,13 +1,21 @@
-import { AlertCircle, ClipboardList, Eye, FolderOpen, Plus } from "lucide-react";
-import { useEffect, useState } from "react";
+import {
+  AlertCircle,
+  ClipboardList,
+  Eye,
+  FolderOpen,
+  Plus,
+} from "lucide-react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
 
 import { EmptyState } from "../components/EmptyState";
 import { RequestStatusBadge } from "../components/RequestStatusBadge";
 import { RequestTypeLabel } from "../components/RequestTypeLabel";
-import { listRequests, type PortalRequest } from "../lib/api/portal.api";
+import type { PortalRequest } from "../lib/api/requests";
 import { PortalApiError } from "../lib/api/http";
+import { usePortalRequests } from "../lib/query";
 import { portalRoutes } from "../lib/routes";
+import { Button } from "@/components/ui/button";
 
 const formatDate = (value?: string) =>
   value
@@ -15,6 +23,11 @@ const formatDate = (value?: string) =>
         new Date(value),
       )
     : "-";
+
+const getErrorMessage = (caught: unknown) =>
+  caught instanceof PortalApiError
+    ? caught.message
+    : "Une erreur est survenue. Veuillez réessayer.";
 
 function RequestPreviewPanel({
   request,
@@ -79,38 +92,14 @@ function RequestPreviewPanel({
 }
 
 export function MyRequestsPage(): React.JSX.Element {
-  const [requests, setRequests] = useState<PortalRequest[]>([]);
-  const [selected, setSelected] = useState<PortalRequest | null>(null);
-  const [error, setError] = useState("");
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    let isMounted = true;
-
-    listRequests()
-      .then(({ items }) => {
-        if (isMounted) {
-          setRequests(items);
-          if (items.length > 0) setSelected(items[0]);
-        }
-      })
-      .catch((caught) => {
-        if (isMounted) {
-          setError(
-            caught instanceof PortalApiError
-              ? caught.message
-              : "Une erreur est survenue. Veuillez réessayer.",
-          );
-        }
-      })
-      .finally(() => {
-        if (isMounted) setIsLoading(false);
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const { data, error, isLoading } = usePortalRequests();
+  const requests = data?.items ?? [];
+  const selected =
+    requests.find((request) => request.id === selectedId) ??
+    requests[0] ??
+    null;
+  const errorMessage = error ? getErrorMessage(error) : "";
 
   return (
     <section className="flex flex-col gap-6">
@@ -121,21 +110,23 @@ export function MyRequestsPage(): React.JSX.Element {
             Suivez vos brouillons et demandes soumises depuis le portail.
           </p>
         </div>
-        <Link className="btn btn-primary w-fit" to={portalRoutes.newRequest}>
-          <Plus size={16} aria-hidden="true" />
-          Nouvelle demande
-        </Link>
+        <Button size="sm" className="btn w-fit">
+          <Link to={portalRoutes.newRequest} className="flex items-center gap-1">
+            <Plus size={16} aria-hidden="true" />
+            Nouvelle demande
+          </Link>
+        </Button>
       </div>
 
-      {error ? (
+      {errorMessage ? (
         <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">
-          {error}
+          {errorMessage}
         </div>
       ) : null}
 
       {isLoading ? (
         <div className="surface rounded-lg p-5 text-sm font-semibold text-slate-600">
-          Chargement des demandes…
+          Chargement des demandes...
         </div>
       ) : requests.length === 0 ? (
         <EmptyState
@@ -145,27 +136,25 @@ export function MyRequestsPage(): React.JSX.Element {
         />
       ) : (
         <div className="grid gap-4 lg:grid-cols-[320px_1fr]">
-          {/* Left panel – request list */}
           <div className="surface divide-y divide-slate-100 overflow-hidden rounded-lg">
             {requests.map((request) => {
-              const hasAction =
-                request.status === "intake_requires_correction";
+              const hasAction = request.status === "intake_requires_correction";
               const isSelected = selected?.id === request.id;
 
               return (
                 <button
                   key={request.id}
                   type="button"
-                  onClick={() => setSelected(request)}
+                  onClick={() => setSelectedId(request.id)}
                   className={`flex w-full flex-col gap-1.5 px-4 py-3 text-left transition-colors ${
-                    isSelected
-                      ? "bg-slate-950 text-white"
-                      : "hover:bg-slate-50"
+                    isSelected ? "bg-slate-950 text-white" : "hover:bg-slate-50"
                   }`}
                 >
                   <div className="flex items-center justify-between gap-2">
                     <span
-                      className={`text-xs font-bold uppercase ${isSelected ? "text-slate-300" : "text-slate-400"}`}
+                      className={`text-xs font-bold uppercase ${
+                        isSelected ? "text-slate-300" : "text-slate-400"
+                      }`}
                     >
                       <RequestTypeLabel type={request.requestType} />
                     </span>
@@ -174,9 +163,7 @@ export function MyRequestsPage(): React.JSX.Element {
                         <FolderOpen
                           size={12}
                           className={
-                            isSelected
-                              ? "text-emerald-300"
-                              : "text-emerald-600"
+                            isSelected ? "text-emerald-300" : "text-emerald-600"
                           }
                           aria-label="Dossier ouvert"
                         />
@@ -193,12 +180,16 @@ export function MyRequestsPage(): React.JSX.Element {
                     </div>
                   </div>
                   <p
-                    className={`line-clamp-1 text-sm font-semibold ${isSelected ? "text-white" : "text-slate-950"}`}
+                    className={`line-clamp-1 text-sm font-semibold ${
+                      isSelected ? "text-white" : "text-slate-950"
+                    }`}
                   >
                     {request.subject}
                   </p>
                   <span
-                    className={`text-xs ${isSelected ? "text-slate-300" : "text-slate-500"}`}
+                    className={`text-xs ${
+                      isSelected ? "text-slate-300" : "text-slate-500"
+                    }`}
                   >
                     {formatDate(request.submittedAt ?? request.createdAt)}
                   </span>
@@ -207,7 +198,6 @@ export function MyRequestsPage(): React.JSX.Element {
             })}
           </div>
 
-          {/* Right panel – preview */}
           {selected ? <RequestPreviewPanel request={selected} /> : null}
         </div>
       )}

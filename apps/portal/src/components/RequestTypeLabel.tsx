@@ -1,4 +1,4 @@
-import type { PortalRequestType } from "../lib/api/portal.api";
+import type { PortalRequestType } from "../lib/api/requests";
 
 const requestTypeLabels: Record<PortalRequestType, string> = {
   oma_recognition: "Certificat de reconnaissance OMA",

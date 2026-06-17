@@ -6,17 +6,16 @@ import {
   ClipboardList,
   ListChecks,
 } from "lucide-react";
-import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { usePortalAuth } from "../lib/auth/PortalAuthContext";
+import type { PortalMeeting } from "../lib/api/meetings";
+import type { PortalRequest } from "../lib/api/requests";
 import {
-  listPortalMeetings,
-  listPortalNotifications,
-  listRequests,
-  type PortalMeeting,
-  type PortalRequest,
-} from "../lib/api/portal.api";
+  usePortalMeetings,
+  usePortalNotifications,
+  usePortalRequests,
+} from "../lib/query";
 import { portalRoutes } from "../lib/routes";
 
 function deriveStats(
@@ -95,31 +94,17 @@ function buildCards(stats: Stats): KpiCard[] {
 
 export function PortalDashboardPage(): React.JSX.Element {
   const { user } = usePortalAuth();
-  const [stats, setStats] = useState<Stats>({
-    demandes: 0,
-    actionsRequises: 0,
-    notifications: 0,
-    nextMeetingLabel: null,
-    lastActiveRequest: null,
+  const requestsQuery = usePortalRequests();
+  const notificationsQuery = usePortalNotifications({
+    status: "unread",
+    limit: 50,
   });
-
-  useEffect(() => {
-    let isMounted = true;
-    void Promise.all([
-      listRequests(),
-      listPortalNotifications({ status: "unread", limit: 50 }),
-      listPortalMeetings({ status: "all" }),
-    ]).then(([requestsRes, notifRes, meetingsRes]) => {
-      if (isMounted) {
-        setStats(
-          deriveStats(requestsRes.items, notifRes.unreadCount, meetingsRes.items),
-        );
-      }
-    });
-    return () => {
-      isMounted = false;
-    };
-  }, []);
+  const meetingsQuery = usePortalMeetings({ status: "all" });
+  const stats = deriveStats(
+    requestsQuery.data?.items ?? [],
+    notificationsQuery.data?.unreadCount ?? 0,
+    meetingsQuery.data?.items ?? [],
+  );
 
   const cards = buildCards(stats);
   const firstName = user?.fullName?.split(" ")[0] ?? "Bienvenue";

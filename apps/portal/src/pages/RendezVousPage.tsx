@@ -18,7 +18,7 @@ import {
   listPortalMeetings,
   type PortalMeeting,
   type PortalMeetingStatus,
-} from "../lib/api/portal.api";
+} from "../lib/api/meetings";
 import { PortalApiError } from "../lib/api/http";
 import { usePortalAuth } from "../lib/auth/PortalAuthContext";
 

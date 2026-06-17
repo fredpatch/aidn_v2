@@ -15,7 +15,7 @@ import {
   markAllPortalNotificationsRead,
   markPortalNotificationRead,
   type PortalNotification,
-} from "../lib/api/portal.api";
+} from "../lib/api/notifications";
 import { PortalApiError } from "../lib/api/http";
 
 function formatDateTime(value?: string): string {

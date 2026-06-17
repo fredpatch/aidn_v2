@@ -2,14 +2,14 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { CheckCircle2, Download, FileText, RefreshCw, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { PortalApiError } from "../lib/api/http";
+import { downloadPortalDossierDocument } from "../lib/api/dossiers";
 import {
-  downloadPortalDossierDocument,
   getPortalPhase3State,
   uploadPortalDocumentEvaluationCorrection,
   uploadPortalPaymentProof,
   type PortalDocumentEvaluationEntry,
   type PortalPhase3State,
-} from "../lib/api/portal.api";
+} from "../lib/api/document-evaluation";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 

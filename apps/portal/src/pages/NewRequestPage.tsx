@@ -6,7 +6,7 @@ import { Link, useNavigate } from "react-router-dom";
 import {
   createRequest,
   type PortalRequestType,
-} from "../lib/api/portal.api";
+} from "../lib/api/requests";
 import { PortalApiError } from "../lib/api/http";
 import { portalRoutes } from "../lib/routes";
 import { getRequestTypeLabel } from "../components/RequestTypeLabel";

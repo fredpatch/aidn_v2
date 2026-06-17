@@ -13,7 +13,7 @@ import {
   loginPortal,
   logoutPortal,
   type PortalUser,
-} from "../api/portal.api";
+} from "../api/auth";
 import { PORTAL_TOKEN_KEY } from "../api/http";
 
 type PortalAuthContextValue = {

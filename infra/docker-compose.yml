@@ -1,5 +1,6 @@
-services:
+name: aidnoma-dev
 
+services:
   # ─── Database ───────────────────────────────────────────────────────────────
   mongo:
     image: mongo:7

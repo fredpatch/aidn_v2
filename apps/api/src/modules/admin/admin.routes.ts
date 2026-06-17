@@ -95,7 +95,10 @@ const physicalCourrierUpload = multer({
 });
 const handlePhysicalCourrierUpload: RequestHandler = (req, res, next) => {
   physicalCourrierUpload.single("file")(req, res, (error) => {
-    if (error instanceof multer.MulterError && error.code === "LIMIT_FILE_SIZE") {
+    if (
+      error instanceof multer.MulterError &&
+      error.code === "LIMIT_FILE_SIZE"
+    ) {
       next(new HttpError(413, "Courrier file is too large"));
       return;
     }
@@ -109,32 +112,45 @@ const handlePhysicalCourrierUpload: RequestHandler = (req, res, next) => {
   });
 };
 const handleDgReturnUpload: RequestHandler = (req, res, next) => {
-  physicalCourrierUpload.single("returnedScannedDocument")(req, res, (error) => {
-    if (error instanceof multer.MulterError && error.code === "LIMIT_FILE_SIZE") {
-      next(new HttpError(413, "DG return file is too large"));
-      return;
-    }
+  physicalCourrierUpload.single("returnedScannedDocument")(
+    req,
+    res,
+    (error) => {
+      if (
+        error instanceof multer.MulterError &&
+        error.code === "LIMIT_FILE_SIZE"
+      ) {
+        next(new HttpError(413, "DG return file is too large"));
+        return;
+      }
 
-    if (error) {
-      next(error);
-      return;
-    }
+      if (error) {
+        next(error);
+        return;
+      }
 
-    next();
-  });
+      next();
+    },
+  );
 };
 
 adminRouter.use(requireAuth({ scope: "admin" }));
 
 const requireAnyPermission =
-  (permissions: Array<(typeof Permissions)[keyof typeof Permissions]>): RequestHandler =>
+  (
+    permissions: Array<(typeof Permissions)[keyof typeof Permissions]>,
+  ): RequestHandler =>
   (req, _res, next) => {
     if (!req.user) {
       next(new HttpError(401, "Authentication required"));
       return;
     }
 
-    if (!permissions.some((permission) => req.user!.permissions.includes(permission))) {
+    if (
+      !permissions.some((permission) =>
+        req.user!.permissions.includes(permission),
+      )
+    ) {
       next(new HttpError(403, "Missing required permission"));
       return;
     }
@@ -189,8 +205,12 @@ adminRouter.get(
   "/personnel",
   requirePermission(Permissions.PERSONNEL_SEARCH),
   asyncHandler(async (req, res) => {
-    const limit = typeof req.query.limit === "string" ? Number(req.query.limit) : 20;
-    const page = typeof req.query.page === "string" ? Number(req.query.page) : 1;
+    const limit =
+      typeof req.query.limit === "string" ? Number(req.query.limit) : 20;
+    const page =
+      typeof req.query.page === "string" ? Number(req.query.page) : 1;
+
+    // console.log("Searching personnel with query:", req.query);
 
     res.json(
       await searchPersonnel({
@@ -255,12 +275,26 @@ adminRouter.get(
   asyncHandler(async (req, res) => {
     res.json(
       await listAdminRequests({
-        status: typeof req.query.status === "string" ? req.query.status : undefined,
-        requestType: typeof req.query.requestType === "string" ? req.query.requestType : undefined,
-        organizationId: typeof req.query.organizationId === "string" ? req.query.organizationId : undefined,
-        submittedById: typeof req.query.submittedById === "string" ? req.query.submittedById : undefined,
-        courrierSource: typeof req.query.courrierSource === "string" ? req.query.courrierSource : undefined,
-        search: typeof req.query.search === "string" ? req.query.search : undefined,
+        status:
+          typeof req.query.status === "string" ? req.query.status : undefined,
+        requestType:
+          typeof req.query.requestType === "string"
+            ? req.query.requestType
+            : undefined,
+        organizationId:
+          typeof req.query.organizationId === "string"
+            ? req.query.organizationId
+            : undefined,
+        submittedById:
+          typeof req.query.submittedById === "string"
+            ? req.query.submittedById
+            : undefined,
+        courrierSource:
+          typeof req.query.courrierSource === "string"
+            ? req.query.courrierSource
+            : undefined,
+        search:
+          typeof req.query.search === "string" ? req.query.search : undefined,
         from: typeof req.query.from === "string" ? req.query.from : undefined,
         to: typeof req.query.to === "string" ? req.query.to : undefined,
       }),
@@ -272,13 +306,17 @@ adminRouter.get(
   "/dg-circuit/tasks",
   requireDgCircuitTaskAccess,
   asyncHandler(async (req, res) => {
-    const limit = typeof req.query.limit === "string" ? Number(req.query.limit) : undefined;
+    const limit =
+      typeof req.query.limit === "string" ? Number(req.query.limit) : undefined;
     res.json(
       await listDgCircuitTasks(
         {
-          bucket: typeof req.query.bucket === "string" ? req.query.bucket : undefined,
-          source: typeof req.query.source === "string" ? req.query.source : undefined,
-          search: typeof req.query.search === "string" ? req.query.search : undefined,
+          bucket:
+            typeof req.query.bucket === "string" ? req.query.bucket : undefined,
+          source:
+            typeof req.query.source === "string" ? req.query.source : undefined,
+          search:
+            typeof req.query.search === "string" ? req.query.search : undefined,
           limit: Number.isFinite(limit) ? limit : undefined,
         },
         req.user!,
@@ -297,7 +335,10 @@ adminRouter.get(
       req.user!,
     );
     res.set("Content-Type", mimeType);
-    res.set("Content-Disposition", `attachment; filename="${encodeURIComponent(fileName)}"`);
+    res.set(
+      "Content-Disposition",
+      `attachment; filename="${encodeURIComponent(fileName)}"`,
+    );
     res.set("Content-Length", String(buffer.length));
     res.end(buffer);
   }),
@@ -315,13 +356,17 @@ adminRouter.get(
   "/requests/:id/documents/:documentId",
   requirePermission(Permissions.REQUEST_VIEW_ALL),
   asyncHandler(async (req, res) => {
-    const { buffer, mimeType, fileName } = await downloadAdminRequestOrientationDocument(
-      String(req.params.id),
-      String(req.params.documentId),
-      req.user!,
-    );
+    const { buffer, mimeType, fileName } =
+      await downloadAdminRequestOrientationDocument(
+        String(req.params.id),
+        String(req.params.documentId),
+        req.user!,
+      );
     res.set("Content-Type", mimeType);
-    res.set("Content-Disposition", `attachment; filename="${encodeURIComponent(fileName)}"`);
+    res.set(
+      "Content-Disposition",
+      `attachment; filename="${encodeURIComponent(fileName)}"`,
+    );
     res.set("Content-Length", String(buffer.length));
     res.end(buffer);
   }),
@@ -331,7 +376,9 @@ adminRouter.post(
   "/requests/:id/start-intake",
   requirePermission(Permissions.REQUEST_INTAKE_REVIEW),
   asyncHandler(async (req, res) => {
-    res.json(await startAdminRequestIntake(String(req.params.id), req.body, req.user!));
+    res.json(
+      await startAdminRequestIntake(String(req.params.id), req.body, req.user!),
+    );
   }),
 );
 
@@ -339,7 +386,11 @@ adminRouter.post(
   "/requests/:id/open-dossier-dn",
   requirePermission(Permissions.REQUEST_INTAKE_REVIEW),
   asyncHandler(async (req, res) => {
-    res.status(201).json(await openAdminDossierDn(String(req.params.id), req.body, req.user!));
+    res
+      .status(201)
+      .json(
+        await openAdminDossierDn(String(req.params.id), req.body, req.user!),
+      );
   }),
 );
 
@@ -347,7 +398,13 @@ adminRouter.post(
   "/requests/:id/request-correction",
   requirePermission(Permissions.REQUEST_INTAKE_REVIEW),
   asyncHandler(async (req, res) => {
-    res.json(await requestAdminRequestCorrection(String(req.params.id), req.body, req.user!));
+    res.json(
+      await requestAdminRequestCorrection(
+        String(req.params.id),
+        req.body,
+        req.user!,
+      ),
+    );
   }),
 );
 
@@ -369,7 +426,8 @@ adminRouter.post(
             typeof req.body.officialReference === "string"
               ? req.body.officialReference
               : undefined,
-          notes: typeof req.body.notes === "string" ? req.body.notes : undefined,
+          notes:
+            typeof req.body.notes === "string" ? req.body.notes : undefined,
         },
         req.user!,
       ),
@@ -381,7 +439,13 @@ adminRouter.post(
   "/requests/:id/mark-printed-for-dg",
   requirePermission(Permissions.DG_CIRCUIT_HANDLE),
   asyncHandler(async (req, res) => {
-    res.json(await markAdminRequestPrintedForDg(String(req.params.id), req.body, req.user!));
+    res.json(
+      await markAdminRequestPrintedForDg(
+        String(req.params.id),
+        req.body,
+        req.user!,
+      ),
+    );
   }),
 );
 
@@ -395,9 +459,18 @@ adminRouter.post(
         String(req.params.id),
         req.file,
         {
-          decision: typeof req.body.decision === "string" ? req.body.decision : undefined,
-          returnedAt: typeof req.body.returnedAt === "string" ? req.body.returnedAt : undefined,
-          observations: typeof req.body.observations === "string" ? req.body.observations : undefined,
+          decision:
+            typeof req.body.decision === "string"
+              ? req.body.decision
+              : undefined,
+          returnedAt:
+            typeof req.body.returnedAt === "string"
+              ? req.body.returnedAt
+              : undefined,
+          observations:
+            typeof req.body.observations === "string"
+              ? req.body.observations
+              : undefined,
         },
         req.user!,
       ),
@@ -409,7 +482,9 @@ adminRouter.post(
   "/requests/:id/send-to-dg",
   requirePermission(Permissions.DG_CIRCUIT_HANDLE),
   asyncHandler(async (req, res) => {
-    res.json(await sendAdminRequestToDg(String(req.params.id), req.body, req.user!));
+    res.json(
+      await sendAdminRequestToDg(String(req.params.id), req.body, req.user!),
+    );
   }),
 );
 
@@ -434,7 +509,9 @@ adminRouter.get(
   "/account-requests/:id",
   requirePermission(Permissions.POSTULANT_ACCOUNT_REVIEW),
   asyncHandler(async (req, res) => {
-    res.json({ request: await getAccountRequestDetails(String(req.params.id)) });
+    res.json({
+      request: await getAccountRequestDetails(String(req.params.id)),
+    });
   }),
 );
 
@@ -466,7 +543,10 @@ adminRouter.post(
 
 const handleOmaDocumentUpload: RequestHandler = (req, res, next) => {
   physicalCourrierUpload.single("file")(req, res, (error) => {
-    if (error instanceof multer.MulterError && error.code === "LIMIT_FILE_SIZE") {
+    if (
+      error instanceof multer.MulterError &&
+      error.code === "LIMIT_FILE_SIZE"
+    ) {
       next(new HttpError(413, "Document file is too large"));
       return;
     }
@@ -487,9 +567,14 @@ adminRouter.get(
     res.json(
       await listAdminDossiers(
         {
-          status: typeof req.query.status === "string" ? req.query.status : undefined,
-          dossierType: typeof req.query.dossierType === "string" ? req.query.dossierType : undefined,
-          search: typeof req.query.search === "string" ? req.query.search : undefined,
+          status:
+            typeof req.query.status === "string" ? req.query.status : undefined,
+          dossierType:
+            typeof req.query.dossierType === "string"
+              ? req.query.dossierType
+              : undefined,
+          search:
+            typeof req.query.search === "string" ? req.query.search : undefined,
         },
         req.user!,
       ),
@@ -509,7 +594,9 @@ adminRouter.get(
   "/dossiers/:id/phases/formal-request",
   requirePermission(Permissions.DOSSIER_VIEW_ALL),
   asyncHandler(async (req, res) => {
-    res.json(await getAdminFormalRequestPhase(String(req.params.id), req.user!));
+    res.json(
+      await getAdminFormalRequestPhase(String(req.params.id), req.user!),
+    );
   }),
 );
 
@@ -518,9 +605,13 @@ adminRouter.post(
   requirePermission(Permissions.DOCUMENT_UPLOAD_INTERNAL),
   handleOmaDocumentUpload,
   asyncHandler(async (req, res) => {
-    const source = typeof req.body.source === "string" ? req.body.source : undefined;
+    const source =
+      typeof req.body.source === "string" ? req.body.source : undefined;
     if (source !== "physical_deposit" && source !== "internal_scan") {
-      throw new HttpError(400, "source doit être physical_deposit ou internal_scan.");
+      throw new HttpError(
+        400,
+        "source doit être physical_deposit ou internal_scan.",
+      );
     }
     res.status(201).json(
       await registerFormalRequestCourrier(
@@ -529,10 +620,15 @@ adminRouter.post(
         {
           source,
           officialReference:
-            typeof req.body.officialReference === "string" ? req.body.officialReference : undefined,
+            typeof req.body.officialReference === "string"
+              ? req.body.officialReference
+              : undefined,
           physicalDepositDate:
-            typeof req.body.physicalDepositDate === "string" ? req.body.physicalDepositDate : undefined,
-          notes: typeof req.body.notes === "string" ? req.body.notes : undefined,
+            typeof req.body.physicalDepositDate === "string"
+              ? req.body.physicalDepositDate
+              : undefined,
+          notes:
+            typeof req.body.notes === "string" ? req.body.notes : undefined,
         },
         req.user!,
       ),
@@ -544,7 +640,9 @@ adminRouter.post(
   "/dossiers/:id/phases/formal-request/send-to-dg",
   requirePermission(Permissions.DG_CIRCUIT_HANDLE),
   asyncHandler(async (req, res) => {
-    res.status(201).json(await sendFormalRequestToDg(String(req.params.id), req.user!));
+    res
+      .status(201)
+      .json(await sendFormalRequestToDg(String(req.params.id), req.user!));
   }),
 );
 
@@ -560,10 +658,15 @@ adminRouter.post(
         req.file,
         {
           returnedFromDgAt:
-            typeof req.body.returnedFromDgAt === "string" ? req.body.returnedFromDgAt : undefined,
+            typeof req.body.returnedFromDgAt === "string"
+              ? req.body.returnedFromDgAt
+              : undefined,
           officialReference:
-            typeof req.body.officialReference === "string" ? req.body.officialReference : undefined,
-          notes: typeof req.body.notes === "string" ? req.body.notes : undefined,
+            typeof req.body.officialReference === "string"
+              ? req.body.officialReference
+              : undefined,
+          notes:
+            typeof req.body.notes === "string" ? req.body.notes : undefined,
         },
       ),
     );
@@ -576,22 +679,31 @@ adminRouter.post(
   asyncHandler(async (req, res) => {
     const decision = req.body.decision as string;
     if (!["approved", "rejected", "reoriented", "pending"].includes(decision)) {
-      throw new HttpError(400, "decision doit être approved, rejected, reoriented ou pending.");
+      throw new HttpError(
+        400,
+        "decision doit être approved, rejected, reoriented ou pending.",
+      );
     }
     res.status(201).json(
-      await recordFormalRequestDgDecision(
-        String(req.params.id),
-        req.user!,
-        {
-          decision: decision as "approved" | "rejected" | "reoriented" | "pending",
-          orientedDirection:
-            typeof req.body.orientedDirection === "string" ? req.body.orientedDirection : undefined,
-          observations:
-            typeof req.body.observations === "string" ? req.body.observations : undefined,
-          decisionRecordedAt:
-            typeof req.body.decisionRecordedAt === "string" ? req.body.decisionRecordedAt : undefined,
-        },
-      ),
+      await recordFormalRequestDgDecision(String(req.params.id), req.user!, {
+        decision: decision as
+          | "approved"
+          | "rejected"
+          | "reoriented"
+          | "pending",
+        orientedDirection:
+          typeof req.body.orientedDirection === "string"
+            ? req.body.orientedDirection
+            : undefined,
+        observations:
+          typeof req.body.observations === "string"
+            ? req.body.observations
+            : undefined,
+        decisionRecordedAt:
+          typeof req.body.decisionRecordedAt === "string"
+            ? req.body.decisionRecordedAt
+            : undefined,
+      }),
     );
   }),
 );
@@ -600,22 +712,28 @@ adminRouter.post(
   "/dossiers/:id/phases/formal-request/meeting",
   requirePermission(Permissions.MEETING_MANAGE),
   asyncHandler(async (req, res) => {
-    const outlookStatus = typeof req.body.outlookEmailStatus === "string"
-      ? req.body.outlookEmailStatus as "not_required" | "to_be_sent_manually" | "sent_manually"
-      : undefined;
+    const outlookStatus =
+      typeof req.body.outlookEmailStatus === "string"
+        ? (req.body.outlookEmailStatus as
+            | "not_required"
+            | "to_be_sent_manually"
+            | "sent_manually")
+        : undefined;
     res.status(201).json(
-      await createFormalMeeting(
-        String(req.params.id),
-        req.user!,
-        {
-          scheduledAt: typeof req.body.scheduledAt === "string" ? req.body.scheduledAt : undefined,
-          location: typeof req.body.location === "string" ? req.body.location : undefined,
-          notes: typeof req.body.notes === "string" ? req.body.notes : undefined,
-          outlookEmailStatus: outlookStatus,
-          outlookEmailSentAt:
-            typeof req.body.outlookEmailSentAt === "string" ? req.body.outlookEmailSentAt : undefined,
-        },
-      ),
+      await createFormalMeeting(String(req.params.id), req.user!, {
+        scheduledAt:
+          typeof req.body.scheduledAt === "string"
+            ? req.body.scheduledAt
+            : undefined,
+        location:
+          typeof req.body.location === "string" ? req.body.location : undefined,
+        notes: typeof req.body.notes === "string" ? req.body.notes : undefined,
+        outlookEmailStatus: outlookStatus,
+        outlookEmailSentAt:
+          typeof req.body.outlookEmailSentAt === "string"
+            ? req.body.outlookEmailSentAt
+            : undefined,
+      }),
     );
   }),
 );
@@ -625,14 +743,11 @@ adminRouter.post(
   requirePermission(Permissions.MEETING_MANAGE),
   asyncHandler(async (req, res) => {
     res.status(201).json(
-      await markFormalMeetingHeld(
-        String(req.params.id),
-        req.user!,
-        {
-          heldAt: typeof req.body.heldAt === "string" ? req.body.heldAt : undefined,
-          notes: typeof req.body.notes === "string" ? req.body.notes : undefined,
-        },
-      ),
+      await markFormalMeetingHeld(String(req.params.id), req.user!, {
+        heldAt:
+          typeof req.body.heldAt === "string" ? req.body.heldAt : undefined,
+        notes: typeof req.body.notes === "string" ? req.body.notes : undefined,
+      }),
     );
   }),
 );
@@ -648,7 +763,8 @@ adminRouter.post(
         req.user!,
         req.file,
         {
-          notes: typeof req.body.notes === "string" ? req.body.notes : undefined,
+          notes:
+            typeof req.body.notes === "string" ? req.body.notes : undefined,
         },
       ),
     );
@@ -660,9 +776,13 @@ adminRouter.post(
   requirePermission(Permissions.DOCUMENT_UPLOAD_INTERNAL),
   handleOmaDocumentUpload,
   asyncHandler(async (req, res) => {
-    const source = typeof req.body.source === "string" ? req.body.source : undefined;
+    const source =
+      typeof req.body.source === "string" ? req.body.source : undefined;
     if (source !== "physical_deposit" && source !== "internal_scan") {
-      throw new HttpError(400, "source doit être physical_deposit ou internal_scan.");
+      throw new HttpError(
+        400,
+        "source doit être physical_deposit ou internal_scan.",
+      );
     }
     res.status(201).json(
       await uploadFormalRequestSupportingDocument(
@@ -671,7 +791,8 @@ adminRouter.post(
         req.file,
         {
           source,
-          notes: typeof req.body.notes === "string" ? req.body.notes : undefined,
+          notes:
+            typeof req.body.notes === "string" ? req.body.notes : undefined,
         },
         req.user!,
       ),
@@ -690,8 +811,11 @@ adminRouter.post(
         req.file,
         {
           officialReference:
-            typeof req.body.officialReference === "string" ? req.body.officialReference : undefined,
-          notes: typeof req.body.notes === "string" ? req.body.notes : undefined,
+            typeof req.body.officialReference === "string"
+              ? req.body.officialReference
+              : undefined,
+          notes:
+            typeof req.body.notes === "string" ? req.body.notes : undefined,
         },
         req.user!,
       ),
@@ -710,8 +834,11 @@ adminRouter.post(
         req.file,
         {
           officialReference:
-            typeof req.body.officialReference === "string" ? req.body.officialReference : undefined,
-          notes: typeof req.body.notes === "string" ? req.body.notes : undefined,
+            typeof req.body.officialReference === "string"
+              ? req.body.officialReference
+              : undefined,
+          notes:
+            typeof req.body.notes === "string" ? req.body.notes : undefined,
         },
         req.user!,
       ),
@@ -724,18 +851,16 @@ adminRouter.post(
   requirePermission(Permissions.PHASE_CLOSE),
   asyncHandler(async (req, res) => {
     res.status(201).json(
-      await closeFormalRequestPhase(
-        String(req.params.id),
-        req.user!,
-        {
-          notes: typeof req.body.notes === "string" ? req.body.notes : undefined,
-          completeness:
-            req.body.completeness === "partial" || req.body.completeness === "complete"
-              ? (req.body.completeness as "complete" | "partial")
-              : undefined,
-          comment: typeof req.body.comment === "string" ? req.body.comment : undefined,
-        },
-      ),
+      await closeFormalRequestPhase(String(req.params.id), req.user!, {
+        notes: typeof req.body.notes === "string" ? req.body.notes : undefined,
+        completeness:
+          req.body.completeness === "partial" ||
+          req.body.completeness === "complete"
+            ? (req.body.completeness as "complete" | "partial")
+            : undefined,
+        comment:
+          typeof req.body.comment === "string" ? req.body.comment : undefined,
+      }),
     );
   }),
 );
@@ -763,11 +888,21 @@ adminRouter.post(
         req.file,
         {
           invoiceReference:
-            typeof req.body.invoiceReference === "string" ? req.body.invoiceReference : undefined,
-          issuedAt: typeof req.body.issuedAt === "string" ? req.body.issuedAt : undefined,
-          amount: typeof req.body.amount === "string" ? req.body.amount : undefined,
-          currency: typeof req.body.currency === "string" ? req.body.currency : undefined,
-          notes: typeof req.body.notes === "string" ? req.body.notes : undefined,
+            typeof req.body.invoiceReference === "string"
+              ? req.body.invoiceReference
+              : undefined,
+          issuedAt:
+            typeof req.body.issuedAt === "string"
+              ? req.body.issuedAt
+              : undefined,
+          amount:
+            typeof req.body.amount === "string" ? req.body.amount : undefined,
+          currency:
+            typeof req.body.currency === "string"
+              ? req.body.currency
+              : undefined,
+          notes:
+            typeof req.body.notes === "string" ? req.body.notes : undefined,
         },
         req.user!,
       ),
@@ -781,7 +916,9 @@ adminRouter.post(
   "/dossiers/:id/phases/document-evaluation/close",
   requirePermission(Permissions.PHASE_CLOSE),
   asyncHandler(async (req, res) => {
-    res.json(await closeDocumentEvaluationPhase(String(req.params.id), req.user!));
+    res.json(
+      await closeDocumentEvaluationPhase(String(req.params.id), req.user!),
+    );
   }),
 );
 
@@ -828,10 +965,14 @@ adminRouter.patch(
         String(req.params.id),
         String(req.params.evaluationId),
         {
-          status: typeof req.body.status === "string"
-            ? (req.body.status as "satisfaisant" | "non_satisfaisant")
-            : ("" as never),
-          annotation: typeof req.body.annotation === "string" ? req.body.annotation : undefined,
+          status:
+            typeof req.body.status === "string"
+              ? (req.body.status as "satisfaisant" | "non_satisfaisant")
+              : ("" as never),
+          annotation:
+            typeof req.body.annotation === "string"
+              ? req.body.annotation
+              : undefined,
         },
         req.user!,
       ),
@@ -845,7 +986,10 @@ adminRouter.post(
   asyncHandler(async (req, res) => {
     const status = req.body.status as string;
     if (!["validated", "requires_correction", "incomplete"].includes(status)) {
-      throw new HttpError(400, "Statut de revue non autorisé pour la demande formelle.");
+      throw new HttpError(
+        400,
+        "Statut de revue non autorisé pour la demande formelle.",
+      );
     }
     res.json(
       await reviewFormalRequestDocumentSubmission(
@@ -853,7 +997,8 @@ adminRouter.post(
         req.user!,
         {
           status: status as "validated" | "requires_correction" | "incomplete",
-          comment: typeof req.body.comment === "string" ? req.body.comment : undefined,
+          comment:
+            typeof req.body.comment === "string" ? req.body.comment : undefined,
         },
       ),
     );
@@ -868,9 +1013,16 @@ adminRouter.post(
       await inviteFirstMeeting(
         String(req.params.id),
         {
-          scheduledAt: typeof req.body.scheduledAt === "string" ? req.body.scheduledAt : undefined,
-          location: typeof req.body.location === "string" ? req.body.location : undefined,
-          notes: typeof req.body.notes === "string" ? req.body.notes : undefined,
+          scheduledAt:
+            typeof req.body.scheduledAt === "string"
+              ? req.body.scheduledAt
+              : undefined,
+          location:
+            typeof req.body.location === "string"
+              ? req.body.location
+              : undefined,
+          notes:
+            typeof req.body.notes === "string" ? req.body.notes : undefined,
         },
         req.user!,
       ),
@@ -888,7 +1040,8 @@ adminRouter.post(
         String(req.params.id),
         req.file,
         {
-          notes: typeof req.body.notes === "string" ? req.body.notes : undefined,
+          notes:
+            typeof req.body.notes === "string" ? req.body.notes : undefined,
           visibleToPostulant: req.body.visibleToPostulant === "true",
         },
         req.user!,
@@ -901,9 +1054,9 @@ adminRouter.post(
   "/dossiers/:id/preliminary/publish-pre-evaluation-form",
   requirePermission(Permissions.DOCUMENT_UPLOAD_INTERNAL),
   asyncHandler(async (req, res) => {
-    res.status(201).json(
-      await publishPreEvaluationForm(String(req.params.id), req.user!),
-    );
+    res
+      .status(201)
+      .json(await publishPreEvaluationForm(String(req.params.id), req.user!));
   }),
 );
 
@@ -915,8 +1068,10 @@ adminRouter.post(
       await sendPreEvalToDg(
         String(req.params.id),
         {
-          sentAt: typeof req.body.sentAt === "string" ? req.body.sentAt : undefined,
-          notes: typeof req.body.notes === "string" ? req.body.notes : undefined,
+          sentAt:
+            typeof req.body.sentAt === "string" ? req.body.sentAt : undefined,
+          notes:
+            typeof req.body.notes === "string" ? req.body.notes : undefined,
         },
         req.user!,
       ),
@@ -934,8 +1089,12 @@ adminRouter.post(
         String(req.params.id),
         req.file,
         {
-          returnedAt: typeof req.body.returnedAt === "string" ? req.body.returnedAt : undefined,
-          notes: typeof req.body.notes === "string" ? req.body.notes : undefined,
+          returnedAt:
+            typeof req.body.returnedAt === "string"
+              ? req.body.returnedAt
+              : undefined,
+          notes:
+            typeof req.body.notes === "string" ? req.body.notes : undefined,
         },
         req.user!,
       ),
@@ -953,7 +1112,10 @@ adminRouter.get(
       req.user!,
     );
     res.set("Content-Type", mimeType);
-    res.set("Content-Disposition", `attachment; filename="${encodeURIComponent(fileName)}"`);
+    res.set(
+      "Content-Disposition",
+      `attachment; filename="${encodeURIComponent(fileName)}"`,
+    );
     res.set("Content-Length", String(buffer.length));
     res.end(buffer);
   }),
@@ -967,9 +1129,16 @@ adminRouter.post(
       await invitePreliminaryMeeting(
         String(req.params.id),
         {
-          scheduledAt: typeof req.body.scheduledAt === "string" ? req.body.scheduledAt : undefined,
-          location: typeof req.body.location === "string" ? req.body.location : undefined,
-          notes: typeof req.body.notes === "string" ? req.body.notes : undefined,
+          scheduledAt:
+            typeof req.body.scheduledAt === "string"
+              ? req.body.scheduledAt
+              : undefined,
+          location:
+            typeof req.body.location === "string"
+              ? req.body.location
+              : undefined,
+          notes:
+            typeof req.body.notes === "string" ? req.body.notes : undefined,
         },
         req.user!,
       ),
@@ -986,7 +1155,10 @@ adminRouter.post(
       await recordPreliminaryMeeting(
         String(req.params.id),
         req.file,
-        { notes: typeof req.body.notes === "string" ? req.body.notes : undefined },
+        {
+          notes:
+            typeof req.body.notes === "string" ? req.body.notes : undefined,
+        },
         req.user!,
       ),
     );
@@ -1002,7 +1174,10 @@ adminRouter.post(
       await uploadClosureCourrier(
         String(req.params.id),
         req.file,
-        { title: typeof req.body.title === "string" ? req.body.title : undefined },
+        {
+          title:
+            typeof req.body.title === "string" ? req.body.title : undefined,
+        },
         req.user!,
       ),
     );
@@ -1046,9 +1221,20 @@ adminRouter.get(
     res.json(
       await listDocumentTemplates(
         {
-          documentType: typeof req.query.documentType === "string" ? req.query.documentType : undefined,
-          phaseKey: typeof req.query.phaseKey === "string" ? req.query.phaseKey : undefined,
-          isActive: req.query.isActive === "true" ? true : req.query.isActive === "false" ? false : undefined,
+          documentType:
+            typeof req.query.documentType === "string"
+              ? req.query.documentType
+              : undefined,
+          phaseKey:
+            typeof req.query.phaseKey === "string"
+              ? req.query.phaseKey
+              : undefined,
+          isActive:
+            req.query.isActive === "true"
+              ? true
+              : req.query.isActive === "false"
+                ? false
+                : undefined,
         },
         req.user!,
       ),
@@ -1067,8 +1253,14 @@ adminRouter.post(
         {
           code: typeof req.body.code === "string" ? req.body.code : "",
           title: typeof req.body.title === "string" ? req.body.title : "",
-          documentType: typeof req.body.documentType === "string" ? req.body.documentType : "",
-          phaseKey: typeof req.body.phaseKey === "string" ? req.body.phaseKey : undefined,
+          documentType:
+            typeof req.body.documentType === "string"
+              ? req.body.documentType
+              : "",
+          phaseKey:
+            typeof req.body.phaseKey === "string"
+              ? req.body.phaseKey
+              : undefined,
         },
         req.user!,
       ),
@@ -1083,7 +1275,10 @@ adminRouter.post(
     res.json(
       await resetTestData(
         {
-          confirmation: typeof req.body.confirmation === "string" ? req.body.confirmation : "",
+          confirmation:
+            typeof req.body.confirmation === "string"
+              ? req.body.confirmation
+              : "",
           deleteUploadedFiles: req.body.deleteUploadedFiles === true,
           includeAuditLogs: req.body.includeAuditLogs !== false,
           includeNotifications: req.body.includeNotifications !== false,

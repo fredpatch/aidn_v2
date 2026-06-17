@@ -23,7 +23,7 @@ FROM node:22-alpine AS api-dev
 WORKDIR /app
 ENV PATH=/app/node_modules/.bin:$PATH
 COPY --from=api-deps /app/node_modules ./node_modules
-EXPOSE 4000
+EXPOSE 4400
 CMD ["npx", "tsx", "watch", "src/server.ts"]
 
 # ─── Portal deps ─────────────────────────────────────────────────────────────

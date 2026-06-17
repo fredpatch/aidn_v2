@@ -1,0 +1,296 @@
+# Request Detail Workflow Refactor Plan
+
+Date: 2026-06-17
+Status: Draft
+Scope: Portal request creation, request consultation, and cleanup of `RequestDetailPage.tsx`
+
+## Objective
+
+Refactor `apps/portal/src/pages/RequestDetailPage.tsx` into smaller workflow-focused pieces while preserving current behavior. The target is a detail page that is easier to read, safer to modify, and visually clearer for a postulant consulting or completing a request.
+
+The current component is doing too much at the same level: data loading, tab routing, request editing, courrier submission, dossier consultation, preliminary phase uploads, formal request uploads, downloads, status guidance, local notices, and several embedded UI components. That makes the workflow difficult to reason about and increases the risk of breaking one phase while touching another.
+
+## Current Risks
+
+- The page is about 1850 lines, so unrelated workflows are visually and logically mixed together.
+- Local state is spread across the component for request data, dossier data, upload state, expanded requirement state, errors, selected tabs, and form values.
+- API calls are made directly in the page instead of through query hooks, which makes loading, retry, invalidation, and stale data harder to control.
+- Some success/error messages are persistent inline notices that stay on screen after the action is done; they should become Sonner notifications when they are action feedback.
+- Some inline notices are actually workflow guidance and should remain visible, but they need better visual hierarchy.
+- Upload and download handlers are shared across distant UI sections, which makes it easy to connect the wrong error state to the wrong form.
+- Multiple forms still use plain HTML controls and custom `btn`/`control` classes instead of the shadcn component set now used elsewhere.
+- The page mixes request-level workflow and dossier-level workflow, even though the user thinks in steps: create request, submit courrier, follow dossier, complete required actions.
+
+## Guiding Principles
+
+- Move in small slices and typecheck after each one.
+- Do not change backend contracts during the UI cleanup.
+- Preserve the current user workflow before improving layout.
+- Separate request-level concerns from dossier-level concerns.
+- Put server state in TanStack Query; keep local state for open panels, selected tabs, selected files, and temporary form drafts.
+- Use Sonner for action feedback: save success, submit success, upload success, download errors, creation/update failures.
+- Keep persistent in-page notices only for workflow state: action required, no action required, dossier phase status, required next step.
+- Use shadcn components for form fields, buttons, cards, tabs, select controls, alerts, and separators where available.
+
+## Proposed Structure
+
+Create a request-detail folder:
+
+```txt
+apps/portal/src/pages/request-detail/
+  constants.ts
+  formatters.ts
+  helpers.ts
+  types.ts
+  RequestDetailHeader.tsx
+  RequestWorkflowTabs.tsx
+  RequestSummaryTab.tsx
+  RequestCourrierTab.tsx
+  RequestActionsTab.tsx
+  RequestDossierTab.tsx
+  RequestHistoryTab.tsx
+  ProcessTimeline.tsx
+  MeetingBlock.tsx
+  Phase2DocumentChecklist.tsx
+  PreEvaluationUploadForm.tsx
+  FormalRequestCourrierForm.tsx
+```
+
+Keep `RequestDetailPage.tsx` as the orchestrator only:
+
+- read route params
+- call query hooks
+- hold selected tab/sub-tab UI state
+- pass data and handlers to child components
+- render loading/not found/page shell
+
+## Query and API Plan
+
+Add or extend query hooks under `apps/portal/src/lib/query`:
+
+- `usePortalRequest(requestId)`
+- `useUpdatePortalRequest()`
+- `useSubmitPortalRequestWithCourrier()`
+- `usePortalDossier(dossierId, { enabled })`
+- `useUploadPreEvaluationForm()`
+- `useUploadFormalRequestCourrier()`
+- `useUploadFormalRequestDocument()`
+- download helpers can stay direct functions for now because they return blobs and are user-triggered.
+
+Invalidate narrowly:
+
+- request update: invalidate `requests.detail(requestId)` and request lists
+- request submit: invalidate `requests.detail(requestId)`, request lists, and dossier detail if opened
+- dossier upload: invalidate `dossiers.detail(dossierId)`
+- formal request upload: invalidate `dossiers.detail(dossierId)`
+
+## Step-by-Step Refactor
+
+### Step 1 - Extract Pure Helpers
+
+Move these out first because they are low risk:
+
+- `formatDate`
+- `formatDateTime`
+- `getErrorMessage`
+- `dossierTypeLabels`
+- `portalStatusGuidance`
+- `REQ_STATUS_LABELS`
+- `REQ_STATUS_CLASSES`
+- `requestTypeOptions`
+- `locationOptions`
+- process step builder
+
+Target files:
+
+- `request-detail/formatters.ts`
+- `request-detail/constants.ts`
+- `request-detail/helpers.ts`
+- `request-detail/types.ts`
+
+Risk: low. The main risk is import churn or accidentally changing labels.
+
+### Step 2 - Extract Display-Only Components
+
+Move components that do not own network calls:
+
+- `ProcessTimeline`
+- `MeetingBlock`
+- `RequestDetailHeader`
+- `RequestWorkflowTabs`
+- `RequestHistoryTab`
+
+Use shadcn `Card`, `Tabs`, `Badge`, and `Button` where natural.
+
+Risk: low to medium. This is mostly JSX movement, but class names and props can regress layout.
+
+### Step 3 - Convert Main Tabs to Components
+
+Split each tab into a focused file:
+
+- `RequestSummaryTab`
+- `RequestCourrierTab`
+- `RequestActionsTab`
+- `RequestDossierTab`
+
+Each component should receive explicit props instead of reading page state indirectly.
+
+Risk: medium. This is where state ownership can get confused. Keep handlers in the page at first, then move them after behavior is stable.
+
+### Step 4 - Replace Inline Notices With Clear UI Rules
+
+Classify every message:
+
+- Action feedback: Sonner only.
+- Workflow guidance: persistent shadcn `Alert` or card notice.
+- Blocking error: inline `Alert` near the affected workflow, plus Sonner if triggered by a user action.
+- Empty state: page/card empty state, not a red error.
+
+Urgent examples:
+
+- Save request success should be Sonner.
+- Submit courrier success should be Sonner.
+- Upload success should be Sonner.
+- Download failure should be Sonner.
+- `No action required` should remain inline, but styled as calm workflow guidance.
+- `Action required` should remain inline, but styled as a clear next-step card.
+
+Risk: medium. Removing the wrong inline message could hide important workflow state. Each message must be classified before removal.
+
+### Step 5 - Harden Forms With shadcn and React Hook Form
+
+Refactor one form at a time:
+
+1. Request draft metadata form
+   - request type
+   - subject
+   - message
+
+2. Courrier submission form
+   - upload mode
+   - file upload
+   - physical deposit fields
+
+3. Pre-evaluation upload form
+   - file input
+   - constraints notice
+
+4. Formal request courrier form
+   - location select
+   - file input
+   - notes if applicable
+
+5. Formal requirement upload form
+   - file input
+   - notes textarea
+   - template download
+
+Use:
+
+- shadcn `Field`
+- shadcn `Input`
+- shadcn `Select`
+- shadcn `Button`
+- shadcn `Card`
+- Sonner for submit result
+- character counters for long text areas where useful
+- required/optional badges as already introduced on request creation
+
+Risk: medium to high. File inputs and multipart submissions are easy to break. Keep one form per commit or checkpoint.
+
+### Step 6 - Introduce Query Hooks
+
+After the UI is split, move network state into TanStack Query:
+
+- request detail loading
+- dossier detail loading
+- mutations for update/submit/upload
+
+The page should stop manually coordinating refreshes with broad local `loadRequest` and `loadDossier` calls.
+
+Risk: high. This changes data flow. Do it only after the component split makes each workflow easy to test.
+
+### Step 7 - Improve Dossier Phase Navigation
+
+Replace custom sub-tab classes with shadcn `Tabs`.
+
+Recommended shape:
+
+- Main page tabs: Resume, Courrier, Actions, Dossier, Historique.
+- Dossier tabs: Apercu, Phase I, Phase II, Phase III.
+- Hide dossier tabs that are not available yet, but show an explanatory empty state when the whole dossier section is not opened.
+
+Risk: medium. Users may rely on current tab behavior, so preserve default tab selection logic.
+
+### Step 8 - Cleanup and Remove Dead Page Paths
+
+Once the modal creation flow is stable, review whether `NewRequestPage` still has a role.
+
+Options:
+
+- Keep it as a deep-link fallback for now.
+- Redirect it to `portalRoutes.requests` and open the modal later if we support route-driven modals.
+- Remove it only after confirming no route or navigation still depends on it.
+
+Risk: medium. Route removal can break bookmarks or future workflows.
+
+## Urgent Improvements
+
+- Split pure helpers/constants from `RequestDetailPage.tsx`.
+- Extract display-only components.
+- Classify notices: Sonner feedback vs persistent workflow guidance.
+- Replace custom buttons in the most-used actions with shadcn `Button`.
+- Keep request creation modal aligned with the detail page after creation.
+
+## Can Be Delayed
+
+- Full TanStack Query migration for every mutation.
+- Route-level lazy loading.
+- Deep-linkable modal state for new request creation.
+- Full dossier phase redesign.
+- Removing `NewRequestPage`.
+- Zustand or any client store. There is no clear need yet.
+
+## UI Improvement Hints
+
+- Use a stronger page header with request type, subject, status badge, and primary next action.
+- Put the current next step in a dedicated card near the top.
+- Make tabs visually distinct with shadcn `Tabs`; avoid every section feeling like the same flat block.
+- Use `CardHeader`, `CardTitle`, and `CardDescription` to separate status, forms, and document lists.
+- Use quiet neutral cards for read-only information and stronger accent alerts only for required action.
+- Keep upload forms compact and close to the document they affect.
+- Use dropdown actions for secondary document actions if a row has multiple possible actions.
+- Prefer skeleton/loading blocks per section instead of one page-wide generic loading state after initial page load.
+
+## Workflow Improvement Hints
+
+- After request creation, the detail page should clearly tell the postulant the next step: complete or submit the initial courrier.
+- If a request is still a draft, prioritize edit and submit actions.
+- If a request is submitted and no action is required, the page should emphasize consultation/status rather than forms.
+- If dossier actions are required, surface them in the `Actions` tab and link to the exact dossier phase section.
+- Downloads should not create persistent inline errors far from the clicked button; use Sonner and keep local button state if needed.
+
+## Verification Plan
+
+After each slice:
+
+```txt
+npm run typecheck
+npm run build
+```
+
+Manual checks:
+
+- Open an existing draft request.
+- Edit request metadata.
+- Submit initial courrier.
+- Open a submitted request with no dossier.
+- Open a request with a dossier.
+- Download a dossier document/template.
+- Upload pre-evaluation form.
+- Upload a formal request document.
+- Confirm Sonner appears for action success/error and persistent workflow notices remain visible.
+
+Known local caveat:
+
+On this Windows sandbox, `npm run build` can fail with the Tailwind/Vite native `spawn EPERM` issue. Rerun outside the sandbox when that happens.

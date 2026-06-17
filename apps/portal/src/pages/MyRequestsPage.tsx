@@ -1,105 +1,61 @@
-import {
-  AlertCircle,
-  ClipboardList,
-  Eye,
-  FolderOpen,
-  Plus,
-} from "lucide-react";
-import { useState } from "react";
-import { Link } from "react-router-dom";
+import { ClipboardList, LayoutGrid, List, Plus } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 import { EmptyState } from "../components/EmptyState";
-import { RequestStatusBadge } from "../components/RequestStatusBadge";
-import { RequestTypeLabel } from "../components/RequestTypeLabel";
-import type { PortalRequest } from "../lib/api/requests";
+import { Badge } from "../components/ui/badge";
+import { Button } from "../components/ui/button";
 import { PortalApiError } from "../lib/api/http";
+import type { PortalRequest } from "../lib/api/requests";
 import { usePortalRequests } from "../lib/query";
 import { portalRoutes } from "../lib/routes";
-import { Button } from "@/components/ui/button";
-
-const formatDate = (value?: string) =>
-  value
-    ? new Intl.DateTimeFormat("fr-FR", { dateStyle: "medium" }).format(
-        new Date(value),
-      )
-    : "-";
+import {
+  countRequestsByBucket,
+  filterRequestsByBucket,
+  getInitialBucket,
+  requestBuckets,
+  type RequestBucket,
+  type RequestViewMode,
+} from "./my-requests/my-requests.helpers";
+import { CreateRequestDialog } from "./my-requests/CreateRequestDialog";
+import { RequestCardGrid } from "./my-requests/RequestCardGrid";
+import { RequestTableList } from "./my-requests/RequestTableList";
 
 const getErrorMessage = (caught: unknown) =>
   caught instanceof PortalApiError
     ? caught.message
     : "Une erreur est survenue. Veuillez réessayer.";
 
-function RequestPreviewPanel({
-  request,
-}: {
-  request: PortalRequest;
-}): React.JSX.Element {
-  const hasAction = request.status === "intake_requires_correction";
-
-  return (
-    <div className="surface flex flex-col gap-4 rounded-lg p-5">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-xs font-bold uppercase text-slate-400">
-            <RequestTypeLabel type={request.requestType} />
-          </p>
-          <p className="mt-1 font-semibold text-slate-950">{request.subject}</p>
-        </div>
-        <RequestStatusBadge
-          status={request.status}
-          label={request.portalStatusLabel}
-        />
-      </div>
-
-      {request.message ? (
-        <p className="text-sm text-slate-600">{request.message}</p>
-      ) : null}
-
-      <dl className="grid grid-cols-2 gap-3 text-sm">
-        <div>
-          <dt className="font-semibold text-slate-500">Date</dt>
-          <dd className="text-slate-950">
-            {formatDate(request.submittedAt ?? request.createdAt)}
-          </dd>
-        </div>
-        {request.dossierId ? (
-          <div>
-            <dt className="font-semibold text-slate-500">Dossier</dt>
-            <dd className="flex items-center gap-1 text-emerald-700">
-              <FolderOpen size={14} aria-hidden="true" />
-              Ouvert
-            </dd>
-          </div>
-        ) : null}
-      </dl>
-
-      {hasAction ? (
-        <div className="flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800">
-          <AlertCircle size={14} aria-hidden="true" />
-          Action requise : correction demandée.
-        </div>
-      ) : null}
-
-      <Link
-        className="btn btn-primary w-fit"
-        to={portalRoutes.requestDetail(request.id)}
-      >
-        <Eye size={16} aria-hidden="true" />
-        Ouvrir la demande
-      </Link>
-    </div>
-  );
-}
-
 export function MyRequestsPage(): React.JSX.Element {
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const navigate = useNavigate();
+  const [bucket, setBucket] = useState<RequestBucket>("active");
+  const [viewMode, setViewMode] = useState<RequestViewMode>("grid");
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const { data, error, isLoading } = usePortalRequests();
   const requests = data?.items ?? [];
-  const selected =
-    requests.find((request) => request.id === selectedId) ??
-    requests[0] ??
-    null;
+  const counts = useMemo(() => countRequestsByBucket(requests), [requests]);
+  const visibleRequests = useMemo(
+    () => filterRequestsByBucket(requests, bucket),
+    [bucket, requests],
+  );
+  const activeBucket =
+    requestBuckets.find((option) => option.value === bucket) ??
+    requestBuckets[0];
   const errorMessage = error ? getErrorMessage(error) : "";
+
+  useEffect(() => {
+    if (!requests.length) {
+      return;
+    }
+
+    if (counts[bucket] === 0) {
+      setBucket(getInitialBucket(requests));
+    }
+  }, [bucket, counts, requests]);
+
+  const openRequest = (request: PortalRequest) => {
+    navigate(portalRoutes.requestDetail(request.id));
+  };
 
   return (
     <section className="flex flex-col gap-6">
@@ -107,22 +63,81 @@ export function MyRequestsPage(): React.JSX.Element {
         <div>
           <h1 className="page-title">Mes demandes</h1>
           <p className="page-subtitle">
-            Suivez vos brouillons et demandes soumises depuis le portail.
+            Consultez vos demandes en cours, vos brouillons et l'historique de
+            vos dossiers depuis le portail.
           </p>
         </div>
-        <Button size="sm" className="btn w-fit">
-          <Link to={portalRoutes.newRequest} className="flex items-center gap-1">
-            <Plus size={16} aria-hidden="true" />
-            Nouvelle demande
-          </Link>
+        <Button
+          type="button"
+          size="sm"
+          className="w-fit gap-1"
+          onClick={() => setCreateDialogOpen(true)}
+        >
+          <Plus size={16} aria-hidden="true" />
+          Nouvelle demande
         </Button>
       </div>
+
+      <CreateRequestDialog
+        open={createDialogOpen}
+        onOpenChange={setCreateDialogOpen}
+      />
 
       {errorMessage ? (
         <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">
           {errorMessage}
         </div>
       ) : null}
+
+      <div className="flex flex-col gap-3 rounded-lg border border-slate-200 bg-white p-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-wrap gap-2">
+          {requestBuckets.map((option) => {
+            const isSelected = bucket === option.value;
+
+            return (
+              <Button
+                key={option.value}
+                type="button"
+                size="sm"
+                variant={isSelected ? "default" : "outline"}
+                onClick={() => setBucket(option.value)}
+                className="gap-2"
+              >
+                {option.label}
+                <Badge
+                  variant={isSelected ? "secondary" : "outline"}
+                  className="h-4 px-1.5 text-[11px]"
+                >
+                  {counts[option.value]}
+                </Badge>
+              </Button>
+            );
+          })}
+        </div>
+
+        <div className="flex w-fit rounded-lg border border-slate-200 bg-slate-50 p-1">
+          <Button
+            type="button"
+            size="icon-sm"
+            variant={viewMode === "grid" ? "default" : "ghost"}
+            onClick={() => setViewMode("grid")}
+            aria-label="Vue grille"
+            title="Vue grille"
+          >
+            <LayoutGrid size={15} aria-hidden="true" />
+          </Button>
+          <Button
+            type="button"
+            size="icon-sm"
+            variant={viewMode === "list" ? "default" : "ghost"}
+            onClick={() => setViewMode("list")}
+            aria-label="Vue liste"
+            title="Vue liste"
+          >
+            <List size={15} aria-hidden="true" />
+          </Button>
+        </div>
+      </div>
 
       {isLoading ? (
         <div className="surface rounded-lg p-5 text-sm font-semibold text-slate-600">
@@ -134,72 +149,16 @@ export function MyRequestsPage(): React.JSX.Element {
           title="Aucune demande enregistrée."
           description="Créez une nouvelle demande pour initier le dépôt de votre courrier."
         />
+      ) : visibleRequests.length === 0 ? (
+        <EmptyState
+          icon={ClipboardList}
+          title={activeBucket.emptyTitle}
+          description={activeBucket.emptyDescription}
+        />
+      ) : viewMode === "grid" ? (
+        <RequestCardGrid requests={visibleRequests} onOpen={openRequest} />
       ) : (
-        <div className="grid gap-4 lg:grid-cols-[320px_1fr]">
-          <div className="surface divide-y divide-slate-100 overflow-hidden rounded-lg">
-            {requests.map((request) => {
-              const hasAction = request.status === "intake_requires_correction";
-              const isSelected = selected?.id === request.id;
-
-              return (
-                <button
-                  key={request.id}
-                  type="button"
-                  onClick={() => setSelectedId(request.id)}
-                  className={`flex w-full flex-col gap-1.5 px-4 py-3 text-left transition-colors ${
-                    isSelected ? "bg-slate-950 text-white" : "hover:bg-slate-50"
-                  }`}
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <span
-                      className={`text-xs font-bold uppercase ${
-                        isSelected ? "text-slate-300" : "text-slate-400"
-                      }`}
-                    >
-                      <RequestTypeLabel type={request.requestType} />
-                    </span>
-                    <div className="flex flex-shrink-0 items-center gap-1.5">
-                      {request.dossierId ? (
-                        <FolderOpen
-                          size={12}
-                          className={
-                            isSelected ? "text-emerald-300" : "text-emerald-600"
-                          }
-                          aria-label="Dossier ouvert"
-                        />
-                      ) : null}
-                      {hasAction ? (
-                        <AlertCircle
-                          size={12}
-                          className={
-                            isSelected ? "text-amber-300" : "text-amber-500"
-                          }
-                          aria-label="Action requise"
-                        />
-                      ) : null}
-                    </div>
-                  </div>
-                  <p
-                    className={`line-clamp-1 text-sm font-semibold ${
-                      isSelected ? "text-white" : "text-slate-950"
-                    }`}
-                  >
-                    {request.subject}
-                  </p>
-                  <span
-                    className={`text-xs ${
-                      isSelected ? "text-slate-300" : "text-slate-500"
-                    }`}
-                  >
-                    {formatDate(request.submittedAt ?? request.createdAt)}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-
-          {selected ? <RequestPreviewPanel request={selected} /> : null}
-        </div>
+        <RequestTableList requests={visibleRequests} onOpen={openRequest} />
       )}
     </section>
   );

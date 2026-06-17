@@ -1,11 +1,21 @@
 import { useState } from "react";
+import {
+  useForm,
+  type RegisterOptions,
+  type SubmitHandler,
+} from "react-hook-form";
+import { toast } from "sonner";
 
 import {
   submitAccountRequest,
   type SubmitAccountRequestPayload,
 } from "../lib/api/portal.api";
 import { PortalApiError } from "../lib/api/http";
-import { PortalStatusBadge } from "../components/PortalStatusBadge";
+import { Badge } from "../components/ui/badge";
+import { Field, FieldError, FieldLabel } from "../components/ui/field";
+import { Input } from "../components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Loader2 } from "lucide-react";
 
 type AccountRequestForm = {
   requestedOrganizationName: string;
@@ -30,16 +40,54 @@ type FieldConfig = {
 };
 
 const fields = [
-  { name: "requestedOrganizationName", label: "Nom de l'organisme", type: "text", required: true },
-  { name: "requestedLegalAddress", label: "Adresse legale", type: "text" },
-  { name: "requestedEmail", label: "Email de l'organisme", type: "email" },
-  { name: "requestedPhone", label: "Telephone de l'organisme", type: "tel" },
-  { name: "approvalNumberOrigin", label: "N d'agrement d'origine", type: "text" },
-  { name: "contactFullName", label: "Nom du contact", type: "text", required: true },
-  { name: "contactEmail", label: "Email du contact", type: "email", required: true },
-  { name: "contactPhone", label: "Telephone du contact", type: "tel" },
+  {
+    name: "requestedOrganizationName",
+    label: "Nom de l’organisme",
+    type: "text",
+    required: true,
+  },
+  {
+    name: "requestedLegalAddress",
+    label: "Adresse légale",
+    type: "text",
+    required: true,
+  },
+  {
+    name: "requestedEmail",
+    label: "Adresse e-mail de l’organisme",
+    type: "email",
+  },
+  { name: "requestedPhone", label: "Téléphone de l’organisme", type: "tel" },
+  {
+    name: "approvalNumberOrigin",
+    label: "Numéro d’agrément d’origine",
+    type: "text",
+  },
+  {
+    name: "contactFullName",
+    label: "Nom du contact",
+    type: "text",
+    required: true,
+  },
+  {
+    name: "contactEmail",
+    label: "Adresse e-mail du contact",
+    type: "email",
+    required: true,
+  },
+  {
+    name: "contactPhone",
+    label: "Téléphone du contact",
+    type: "tel",
+    required: true,
+  },
   { name: "password", label: "Mot de passe", type: "password", required: true },
-  { name: "confirmPassword", label: "Confirmer le mot de passe", type: "password", required: true },
+  {
+    name: "confirmPassword",
+    label: "Confirmer le mot de passe",
+    type: "password",
+    required: true,
+  },
 ] satisfies FieldConfig[];
 
 const createInitialForm = (): AccountRequestForm => ({
@@ -68,38 +116,6 @@ const optional = (value: string) => {
   return next ? next : undefined;
 };
 
-function validateForm(form: AccountRequestForm): string | null {
-  if (!form.requestedOrganizationName.trim()) {
-    return "Le nom de l'organisme est requis.";
-  }
-
-  if (!form.contactFullName.trim()) {
-    return "Le nom du contact est requis.";
-  }
-
-  if (!form.contactEmail.trim()) {
-    return "L'email du contact est requis.";
-  }
-
-  if (!isEmailLike(form.contactEmail.trim())) {
-    return "L'email du contact n'est pas valide.";
-  }
-
-  if (form.requestedEmail.trim() && !isEmailLike(form.requestedEmail.trim())) {
-    return "L'email de l'organisme n'est pas valide.";
-  }
-
-  if (form.password.length < 8) {
-    return "Le mot de passe doit contenir au moins 8 caracteres.";
-  }
-
-  if (form.confirmPassword !== form.password) {
-    return "La confirmation du mot de passe ne correspond pas.";
-  }
-
-  return null;
-}
-
 function toPayload(form: AccountRequestForm): SubmitAccountRequestPayload {
   return {
     requestedOrganizationName: form.requestedOrganizationName.trim(),
@@ -116,51 +132,95 @@ function toPayload(form: AccountRequestForm): SubmitAccountRequestPayload {
   };
 }
 
+const requiredMessage = (label: string) => `${label} est requis.`;
+
 export function AccountRequestPage(): React.JSX.Element {
-  const [form, setForm] = useState<AccountRequestForm>(() => createInitialForm());
   const [error, setError] = useState("");
-  const [successStatus, setSuccessStatus] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const isSubmitted = Boolean(successStatus);
+  const {
+    register,
+    handleSubmit,
+    reset,
+    watch,
+    formState: { errors, isSubmitting },
+  } = useForm<AccountRequestForm>({
+    defaultValues: createInitialForm(),
+    mode: "onBlur",
+  });
+  const password = watch("password");
+
+  const getFieldRules = (
+    field: FieldConfig,
+  ): RegisterOptions<AccountRequestForm, FieldConfig["name"]> => {
+    const rules: RegisterOptions<AccountRequestForm, FieldConfig["name"]> = {};
+
+    if (field.required) {
+      rules.required = requiredMessage(field.label);
+    }
+
+    if (field.name === "requestedEmail" || field.name === "contactEmail") {
+      rules.validate = (value) =>
+        !value || isEmailLike(String(value))
+          ? true
+          : `${field.label} n’est pas valide.`;
+    }
+
+    if (field.name === "password") {
+      rules.minLength = {
+        value: 8,
+        message: "Le mot de passe doit contenir au moins 8 caractères.",
+      };
+    }
+
+    if (field.name === "confirmPassword") {
+      rules.validate = (value) =>
+        value === password
+          ? true
+          : "La confirmation du mot de passe ne correspond pas.";
+    }
+
+    return rules;
+  };
+
+  const onSubmit: SubmitHandler<AccountRequestForm> = async (form) => {
+    setError("");
+
+    try {
+      const response = await submitAccountRequest(toPayload(form));
+      reset(createInitialForm());
+      const status = response.request?.status ?? "submitted";
+      toast.success("Votre demande de compte a été envoyée.", {
+        description: `Statut : ${
+          statusLabels[status] ?? status
+        }. Elle sera examinée par un agent habilité avant activation.`,
+      });
+    } catch (caughtError) {
+      const message =
+        caughtError instanceof PortalApiError
+          ? caughtError.message
+          : "Impossible d’envoyer la demande pour le moment. Veuillez réessayer.";
+
+      setError(message);
+      toast.error("Envoi impossible", {
+        description: message,
+      });
+    }
+  };
 
   return (
     <section className="mx-auto flex w-full max-w-4xl flex-col gap-6">
       <div>
         <h1 className="page-title">Demande de compte postulant</h1>
         <p className="page-subtitle">
-          Renseignez les informations de votre organisme et du contact principal.
-          La demande sera examinee par l'ANAC avant activation du compte.
+          Renseignez les informations de votre organisme et du contact
+          principal. La demande sera examinée par l’ANAC avant activation du
+          compte.
         </p>
       </div>
 
       <form
         className="surface grid gap-5 rounded-lg p-5 sm:grid-cols-2"
-        onSubmit={async (event) => {
-          event.preventDefault();
-          setError("");
-          setSuccessStatus(null);
-
-          const validationError = validateForm(form);
-          if (validationError) {
-            setError(validationError);
-            return;
-          }
-
-          setIsSubmitting(true);
-          try {
-            const response = await submitAccountRequest(toPayload(form));
-            setForm(createInitialForm());
-            setSuccessStatus(response.request?.status ?? "submitted");
-          } catch (caughtError) {
-            setError(
-              caughtError instanceof PortalApiError
-                ? caughtError.message
-                : "Impossible d'envoyer la demande pour le moment. Veuillez reessayer.",
-            );
-          } finally {
-            setIsSubmitting(false);
-          }
-        }}
+        onSubmit={(event) => void handleSubmit(onSubmit)(event)}
+        noValidate
       >
         {error ? (
           <div className="rounded-md border border-red-200 bg-red-50 p-4 text-sm font-medium text-red-800 sm:col-span-2">
@@ -168,65 +228,63 @@ export function AccountRequestPage(): React.JSX.Element {
           </div>
         ) : null}
 
-        {isSubmitted ? (
-          <div className="rounded-md border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900 sm:col-span-2">
-            <div className="flex flex-wrap items-center gap-3">
-              <p className="font-bold">Votre demande de compte a ete envoyee.</p>
-              <PortalStatusBadge
-                label={`Statut : ${statusLabels[successStatus ?? "submitted"] ?? successStatus}`}
-                tone="success"
-              />
-            </div>
-            <p className="mt-2">
-              Elle sera examinee par un agent habilite avant activation.
-            </p>
-          </div>
-        ) : null}
-
         <input
           type="text"
-          name="website"
           tabIndex={-1}
           autoComplete="off"
           className="hidden"
-          value={form.website}
-          onChange={(event) => {
-            setForm((current) => ({
-              ...current,
-              website: event.target.value,
-            }));
-          }}
+          {...register("website")}
+        />
+        <input
+          type="hidden"
+          {...register("formStartedAt", { valueAsNumber: true })}
         />
 
-        {fields.map((field) => (
-          <div key={field.name} className="field">
-            <label htmlFor={field.name}>{field.label}</label>
-            <input
-              id={field.name}
-              name={field.name}
-              type={field.type}
-              required={field.required}
-              value={form[field.name] ?? ""}
-              disabled={isSubmitting || isSubmitted}
-              onChange={(event) => {
-                setForm((current) => ({
-                  ...current,
-                  [field.name]: event.target.value,
-                }));
-              }}
-              className="control"
-            />
-          </div>
-        ))}
+        {fields.map((field) => {
+          const fieldError = errors[field.name];
+          const errorId = `${field.name}-error`;
+
+          return (
+            <Field key={field.name}>
+              <FieldLabel htmlFor={field.name}>{field.label}</FieldLabel>
+              <Input
+                id={field.name}
+                type={field.type}
+                required={field.required}
+                disabled={isSubmitting}
+                invalid={Boolean(fieldError)}
+                badge={
+                  field.required ? (
+                    <Badge variant="destructive">Requis</Badge>
+                  ) : (
+                    <Badge variant="outline">Optionnel</Badge>
+                  )
+                }
+                aria-invalid={fieldError ? "true" : "false"}
+                aria-describedby={fieldError ? errorId : undefined}
+                {...register(field.name, getFieldRules(field))}
+              />
+              <FieldError id={errorId}>{fieldError?.message}</FieldError>
+            </Field>
+          );
+        })}
 
         <div className="sm:col-span-2">
-          <button
+          <Button
             type="submit"
-            className="btn btn-primary"
-            disabled={isSubmitting || isSubmitted}
+            variant="default"
+            className="py-5 px-4"
+            disabled={isSubmitting}
           >
-            {isSubmitting ? "Envoi en cours..." : "Soumettre la demande"}
-          </button>
+            {isSubmitting ? (
+              <span className="ml-2 flex items-center gap-2">
+                <Loader2 className="animate-spin size-4" />
+                Envoi en cours…
+              </span>
+            ) : (
+              <span>Envoyer la demande</span>
+            )}
+          </Button>
         </div>
       </form>
     </section>

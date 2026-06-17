@@ -30,7 +30,7 @@ export function LoginPage(): React.JSX.Element {
       setError(
         nextError instanceof PortalApiError && nextError.status >= 500
           ? nextError.message
-          : "Email ou mot de passe incorrect.",
+          : "Adresse e-mail ou mot de passe incorrect.",
       );
     } finally {
       setIsSubmitting(false);
@@ -42,8 +42,8 @@ export function LoginPage(): React.JSX.Element {
       <div>
         <h1 className="page-title">Connexion postulant</h1>
         <p className="page-subtitle">
-          Connectez-vous avec l'email et le mot de passe utilises lors de votre
-          demande de compte approuvee.
+          Connectez-vous avec l’adresse e-mail et le mot de passe utilisés lors
+          de votre demande de compte approuvée.
         </p>
       </div>
 
@@ -53,8 +53,8 @@ export function LoginPage(): React.JSX.Element {
             <LogIn size={20} aria-hidden="true" />
           </span>
           <div>
-            <h2 className="text-lg font-bold text-slate-950">Acces portail</h2>
-            <p className="text-sm text-slate-600">Session postulant securisee</p>
+            <h2 className="text-lg font-bold text-slate-950">Accès portail</h2>
+            <p className="text-sm text-slate-600">Session postulant sécurisée</p>
           </div>
         </div>
         {error ? (
@@ -63,7 +63,7 @@ export function LoginPage(): React.JSX.Element {
           </p>
         ) : null}
         <div className="field">
-          <label htmlFor="email">Email</label>
+          <label htmlFor="email">Adresse e-mail</label>
           <input
             id="email"
             type="email"
@@ -87,7 +87,7 @@ export function LoginPage(): React.JSX.Element {
           />
         </div>
         <button type="submit" className="btn btn-primary" disabled={isSubmitting}>
-          {isSubmitting ? "Connexion en cours..." : "Se connecter"}
+          {isSubmitting ? "Connexion en cours…" : "Se connecter"}
         </button>
         <Link
           to={portalRoutes.accountRequest}

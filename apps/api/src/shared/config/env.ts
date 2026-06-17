@@ -62,6 +62,8 @@ export const env = {
     email: process.env.BOOTSTRAP_ADMIN_EMAIL ?? "admin@aidn.local",
     password: process.env.BOOTSTRAP_ADMIN_PASSWORD ?? "change-me-now",
   },
+  personnelSource: readPersonnelSource(),
+  personnelApi: readPersonnelApiConfig(),
   officialPersonnelDbEnabled:
     process.env.OFFICIAL_PERSONNEL_DB_ENABLED === "true",
   mockPersonnelEnabled: process.env.MOCK_PERSONNEL_ENABLED !== "false",
@@ -135,4 +137,52 @@ function readPositiveInteger(key: string, fallback: number): number {
   }
 
   return value;
+}
+
+function readPersonnelSource(): "api" | "maria" | "mock" {
+  const explicit = process.env.PERSONNEL_SOURCE?.trim().toLowerCase();
+
+  if (explicit) {
+    if (!["api", "maria", "mock"].includes(explicit)) {
+      throw new Error("PERSONNEL_SOURCE must be one of: api, maria, mock");
+    }
+
+    return explicit as "api" | "maria" | "mock";
+  }
+
+  if (process.env.OFFICIAL_PERSONNEL_DB_ENABLED === "true") {
+    return "maria";
+  }
+
+  if (process.env.MOCK_PERSONNEL_ENABLED !== "false") {
+    return "mock";
+  }
+
+  throw new Error(
+    "No personnel source configured. Set PERSONNEL_SOURCE=api, PERSONNEL_SOURCE=maria, or PERSONNEL_SOURCE=mock.",
+  );
+}
+
+function readPersonnelApiConfig() {
+  const baseUrl = process.env.PERSONNEL_API_BASE_URL?.trim() ?? "";
+  const apiKey = process.env.PERSONNEL_API_KEY?.trim() ?? "";
+  const apiPrefix = process.env.PERSONNEL_API_PREFIX?.trim() || "/api/v1";
+  const timeoutMs = readPositiveInteger("PERSONNEL_API_TIMEOUT_MS", 5000);
+
+  if (readPersonnelSource() === "api") {
+    if (!baseUrl) {
+      throw new Error("PERSONNEL_SOURCE=api requires PERSONNEL_API_BASE_URL");
+    }
+
+    if (!apiKey) {
+      throw new Error("PERSONNEL_SOURCE=api requires PERSONNEL_API_KEY");
+    }
+  }
+
+  return {
+    baseUrl,
+    apiKey,
+    apiPrefix,
+    timeoutMs,
+  };
 }

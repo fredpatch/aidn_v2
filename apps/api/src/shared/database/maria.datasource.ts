@@ -56,17 +56,17 @@ export async function ensureMariaViews() {
 }
 
 export async function initializeMariaIfConfigured() {
-  if (!hasMariaConfig()) {
-    if (env.officialPersonnelDbEnabled) {
-      throw new Error(
-        "OFFICIAL_PERSONNEL_DB_ENABLED=true requires OFFICIAL_PERSONNEL_DB_HOST, OFFICIAL_PERSONNEL_DB_USER, and OFFICIAL_PERSONNEL_DB_NAME",
-      );
-    }
-
-    console.warn(
-      "[mariadb] MariaDB is not configured, skipping initialization",
+  if (env.personnelSource !== "maria") {
+    console.log(
+      `[mariadb] Skipping MariaDB initialization because PERSONNEL_SOURCE=${env.personnelSource}`,
     );
     return false;
+  }
+
+  if (!hasMariaConfig()) {
+    throw new Error(
+      "PERSONNEL_SOURCE=maria requires OFFICIAL_PERSONNEL_DB_HOST, OFFICIAL_PERSONNEL_DB_USER, and OFFICIAL_PERSONNEL_DB_NAME",
+    );
   }
 
   if (!MariaDataSource.isInitialized) {

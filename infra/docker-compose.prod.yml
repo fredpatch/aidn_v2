@@ -67,7 +67,7 @@ services:
     depends_on:
       - api
     ports:
-      - "${PORTAL_PORT:-8081}:80"
+      - "${PORTAL_PORT:-8083}:80"
 
 volumes:
   mongo_data:

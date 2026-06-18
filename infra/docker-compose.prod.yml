@@ -31,8 +31,13 @@ services:
       PORT: 4400
       MONGODB_URI: mongodb://mongo:27017/aidn
       UPLOAD_STORAGE_DIR: /app/storage
+      JWT_PRIVATE_KEY_BASE64: /run/secrets/jwt_private_key_b64
+      JWT_PUBLIC_KEY_BASE64: /run/secrets/jwt_public_key_b64
     volumes:
       - api_storage:/app/storage
+    secrets:
+      - jwt_private_key_b64
+      - jwt_public_key_b64
 
   admin:
     build:
@@ -72,3 +77,9 @@ services:
 volumes:
   mongo_data:
   api_storage:
+
+secrets:
+  jwt_private_key_b64:
+    file: ./secrets/jwt-private.b64
+  jwt_public_key_b64:
+    file: ./secrets/jwt-public.b64

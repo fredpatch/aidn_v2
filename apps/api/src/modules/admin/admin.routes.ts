@@ -466,17 +466,9 @@ adminRouter.post(
         String(req.params.id),
         req.file,
         {
-          decision:
-            typeof req.body.decision === "string"
-              ? req.body.decision
-              : undefined,
           returnedAt:
             typeof req.body.returnedAt === "string"
               ? req.body.returnedAt
-              : undefined,
-          observations:
-            typeof req.body.observations === "string"
-              ? req.body.observations
               : undefined,
         },
         req.user!,

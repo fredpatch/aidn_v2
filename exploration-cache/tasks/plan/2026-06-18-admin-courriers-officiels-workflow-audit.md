@@ -69,6 +69,15 @@ Open product/workflow question:
 
 - DN may still need `Demandes` as the place to check whether a signed DG courrier made a request available for dossier opening. This could be a valid boundary: courrier teams work in `/circuit-dg`, while DN uses `/demandes` to see readiness and start the preliminary phase. Before retiring duplicated actions, study whether `Demandes` should remain the DN readiness surface, become read-only plus "open dossier", or deep-link into `/circuit-dg` for traceability.
 
+Vocabulary decision:
+
+- The visible workflow should describe one business event: DG signature. Internal states such as `returned_scanned`, `decision_recorded`, and `processed` can stay granular for guards, history, and API contracts, but operators should see one terminal concept: `Signe DG`.
+- The operational flow should read as `A imprimer` -> `En circuit DG` -> `Signe DG`.
+- Avoid multiplying labels such as "Retours DG", "Decision saisie", "signed/annotated", or "retour signe" when they refer to the same DG signature handoff.
+- Printing and status transition should be separate actions. `Imprimer` only previews/downloads the outgoing document; `Marquer en circuit DG` is the explicit workflow transition that moves the item toward DG signature.
+- DG return upload is evidence capture only. Reception, bureau courrier, and DG assistant roles do not select the outcome of the courrier and do not add observations; DN will appreciate the signed courrier in its own workflow.
+- DN dossier opening readiness is now based on signed DG courrier evidence: request status `initial_dg_returned`, DG review status `returned_scanned`, and a returned scanned document. Legacy `oriented_to_dn` / `decision_recorded` records remain accepted for backward compatibility, but new courrier roles no longer create that decision.
+
 ## Current Risks
 
 - `DgCircuitPage.tsx` is doing too much in one file: task list, filters, task row, timeline, print confirmation, return upload, physical receipt upload, download/preview plumbing, mutation routing, and local refresh behavior.
@@ -105,9 +114,11 @@ Open product/workflow question:
    - Each source should own its payload mapping: initial request, pre-evaluation, formal request.
 
 5. Add a confirmation copy pass for print/mise en circuit.
-   - The visible action can be "Imprimer et marquer mis en circuit".
+   - Status: Completed on 2026-06-18. The action is now split into `Imprimer` and `Marquer en circuit DG`.
+   - `Imprimer` only previews/downloads the document.
+   - `Marquer en circuit DG` opens the confirmation dialog and owns the status transition.
    - Avoid explaining the internal parapheur path in detail.
-   - Make the status impact visible enough: after confirmation, the item is no longer "a imprimer" and waits for DG return.
+   - Make the status impact visible enough: after confirmation, the item is no longer "a imprimer" and waits for DG signature.
 
 ## Proposed Structure
 
@@ -166,7 +177,7 @@ Downloads can stay direct user-triggered calls, but they should be wrapped with 
 
 ### Step 1 - Stabilize Behavior
 
-Status: In progress.
+Status: Completed.
 
 - Fix formal return date field mapping.
   - Status: Completed on 2026-06-18. `DgCircuitPage` now sends `returnedFromDgAt` for `formal_request` returns and keeps `returnedAt` for initial/pre-evaluation returns.
@@ -175,7 +186,7 @@ Status: In progress.
 - Align route and service permission sets for DG circuit task access.
   - Status: Completed on 2026-06-18. `/dg-circuit/tasks` route access now includes `DG_DECISION_RECORD`, matching service-level task view permissions.
 - Add a small helper for source-specific form field names.
-  - Status: Not started. Recommended next small slice before extracting dialogs.
+  - Status: Completed on 2026-06-18. `DgCircuitPage` now uses explicit helpers for DG return file/date field names and builds return `FormData` through one source-aware function.
 
 Risk: medium. These are small changes but touch workflow transitions.
 
@@ -188,16 +199,16 @@ Status: Not started.
   - "Courriers officiels"
   - "A imprimer"
   - "En circuit DG"
-  - "Retour DG enregistre"
-  - "Decision saisie"
-  - "Televerser le retour signe/annote"
+  - "Signe DG"
+  - "Televerser le document signe"
+  - "Marquer en circuit DG"
 - Use "DG secretariat" in UI only if the code role `dg_secretariat` represents assistant DG.
 
 Risk: low to medium. Mostly display text, but broad file edits can create noisy diffs.
 
 ### Step 3 - Extract Pure Helpers and Constants
 
-Status: Not started.
+Status: Completed.
 
 Move out:
 
@@ -208,11 +219,22 @@ Move out:
 - API error formatting
 - task status derivation/display helpers
 
+Progress:
+
+- Completed on 2026-06-18:
+  - Added `apps/admin/src/pages/dg-circuit/types.ts`.
+  - Added `apps/admin/src/pages/dg-circuit/helpers.ts`.
+  - Added `apps/admin/src/pages/dg-circuit/formatters.ts`.
+  - Added `apps/admin/src/pages/dg-circuit/constants.tsx`.
+  - Added `apps/admin/src/pages/dg-circuit/actions.ts`.
+  - `DgCircuitPage.tsx` now imports task counts, modal state, DG return form-data helpers, bucket tabs, source labels, bucket styles, date formatting, and API error formatting from the new module.
+  - Source-specific DG circuit mutations and document preview/download handling now live in `actions.ts`; `DgCircuitPage` delegates print transmission, signed document upload, physical receipt registration, and document preview to named workflow actions.
+
 Risk: low. Keep exports typed and avoid changing labels during movement.
 
 ### Step 4 - Extract Display Components
 
-Status: Not started.
+Status: Completed.
 
 Extract:
 
@@ -223,11 +245,25 @@ Extract:
 - `DgCircuitTaskDetail`
 - `DgCircuitTimeline`
 
+Progress:
+
+- Completed on 2026-06-18:
+  - Extracted `StatusBadge`.
+  - Extracted `CourrierTimeline`.
+  - Extracted `CourrierTaskRow`.
+  - Extracted `DgCircuitKpis`.
+  - Extracted `DgCircuitFilters`.
+  - Extracted `DgCircuitTaskList`.
+  - Extracted `DgCircuitTaskDetail`.
+  - Extracted `PrintConfirmDialog`.
+  - Extracted `DgReturnDialog`.
+  - Extracted `PhysicalReceiptDialog`.
+
 Risk: medium. The main risk is selected state, mobile spacing, and preserving row click behavior.
 
 ### Step 5 - Harden Dialogs With shadcn and React Hook Form
 
-Status: Not started.
+Status: Completed.
 
 Refactor one dialog at a time:
 
@@ -238,10 +274,23 @@ Refactor one dialog at a time:
 Use:
 
 - shadcn `Dialog`, `Button`, `Input`, `Textarea`, `Label`, `Select`, `Alert`
-- React Hook Form for required file/date/decision validation
+- React Hook Form and Zod for required file/date/decision validation.
 - A shared file field if we adapt `DocumentFileField` into admin, or a local admin equivalent
 - Sonner for action success/failure
 - Inline validation only for field-level correction
+
+Progress:
+
+- Completed on 2026-06-18:
+  - Installed `react-hook-form`, `zod`, and `@hookform/resolvers` in `apps/admin`.
+  - `DgReturnDialog` now uses shadcn `Field` primitives, React Hook Form, Zod validation, disabled fieldset state, scoped file validation, and a portal-inspired file upload surface with visible required/optional badges.
+  - Added an admin reusable `DocumentFileField` aligned with the portal upload field, and removed the DG-circuit-specific duplicate file field.
+  - Updated the portal `DocumentFileField` with the same invalid field state and fallback input ref behavior.
+  - Removed decision and observations from the DG return upload form. The form now captures only the signed DG document and an optional signature date.
+  - Backend and `Demandes` readiness guards now allow DN dossier opening once the signed DG courrier has been uploaded (`initial_dg_returned` / `returned_scanned`), without requiring an `oriented_to_dn` decision.
+  - `PhysicalReceiptDialog` now uses shadcn `Field` primitives, React Hook Form, Zod validation, disabled fieldset state, and per-field validation for date and scan.
+  - `PrintConfirmDialog` now uses a form submit path so Enter and submit-button behavior are consistent.
+  - `DgCircuitPage` now uses Sonner to show success/failure feedback for print preview, mise en circuit DG, signed DG document upload, physical receipt registration, and document preview.
 
 Risk: medium to high. File inputs and source-specific `FormData` fields are fragile.
 
@@ -273,6 +322,8 @@ Status: Not started.
 
 - Consider a single command endpoint per DG task, or a thin backend adapter, so frontend does not know source-specific field names.
 - Ensure `createDgReview` upsert cannot overwrite meaningful historical review data unexpectedly.
+- Initial request DG return upload now stops at signed-scan evidence (`initial_dg_returned` / `returned_scanned`) instead of recording `oriented_to_dn` or rejection from courrier roles. DN dossier opening uses that evidence as the gate.
+- Persist signed DG courrier uploads with the existing document enum value `dg_annotated_courrier` until document type enums are intentionally renamed/migrated. UI copy can still say "document signe DG".
 - Add tests for initial request transitions:
   - portal upload submitted -> print -> `initial_sent_to_dg`
   - physical declared -> physical receipt -> `initial_sent_to_dg`
@@ -315,10 +366,10 @@ Manual checks:
 - Log in as `dg_secretariat`, `reception`, `bureau_courrier`, and `admin`.
 - Submit an initial request from portal with uploaded courrier.
 - Confirm it appears in `/circuit-dg` under `A imprimer`.
-- Preview/download the outgoing courrier.
-- Confirm print/mise en circuit and verify it moves to `En circuit DG`.
-- Upload an oriented DG return and verify it becomes `Decision saisie`.
-- Confirm the request can then open a DN dossier.
+- Click `Imprimer` and verify it previews/downloads the outgoing courrier without changing status.
+- Click `Marquer en circuit DG`, confirm, and verify it moves to `En circuit DG`.
+- Upload the signed DG document and verify it becomes `Signe DG`.
+- Confirm `Demandes` or the future DN readiness surface shows that the signed courrier is available for DN appreciation before dossier opening.
 - Submit a request with physical deposit declared.
 - Register physical receipt with scan and verify it enters `En circuit DG`.
 - Verify `Demandes` does not offer duplicate/conflicting courrier actions after the canonical surface is chosen.

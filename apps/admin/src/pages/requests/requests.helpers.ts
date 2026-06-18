@@ -21,10 +21,10 @@ export const statusLabels: Record<AdminRequestStatus, string> = {
   submitted: 'Demande soumise',
   intake_in_review: 'Vérification interne',
   intake_requires_correction: 'Correction demandée',
-  initial_sent_to_dg: "En attente d'orientation DG",
-  initial_dg_returned: 'Retour DG reçu',
+  initial_sent_to_dg: "En attente signature DG",
+  initial_dg_returned: 'Courrier DG signe disponible',
   initial_dg_decision_recorded: 'Décision DG enregistrée',
-  oriented_to_dn: 'Orientée vers DN',
+  oriented_to_dn: 'Courrier DG signe disponible',
   rejected: 'Annulée par DG',
   reoriented: 'Legacy: hors MVP',
   dossier_opened: 'Dossier ouvert',
@@ -79,14 +79,14 @@ export function optional(value: string): string | undefined {
 export function statusBadgeVariant(
   status: AdminRequestStatus,
 ): 'default' | 'secondary' | 'destructive' | 'outline' {
-  if (status === 'initial_sent_to_dg' || status === 'oriented_to_dn') return 'default';
+  if (status === 'initial_sent_to_dg' || status === 'initial_dg_returned' || status === 'oriented_to_dn') return 'default';
   if (status === 'intake_requires_correction' || status === 'rejected') return 'destructive';
   if (status === 'intake_in_review') return 'secondary';
   return 'outline';
 }
 
 export function listCardAccentBorder(status: AdminRequestStatus): string {
-  if (status === 'oriented_to_dn' || status === 'dossier_opened') return 'border-l-emerald-400';
+  if (status === 'initial_dg_returned' || status === 'oriented_to_dn' || status === 'dossier_opened') return 'border-l-emerald-400';
   if (status === 'intake_requires_correction' || status === 'rejected') return 'border-l-red-400';
   if (status === 'initial_sent_to_dg') return 'border-l-blue-400';
   if (status === 'submitted' || status === 'intake_in_review') return 'border-l-amber-400';
@@ -105,8 +105,8 @@ export function hasEvidence(request: AdminRequest): boolean {
 export function isDgReturnComplete(request: AdminRequest, dgReview?: AdminDgReview): boolean {
   const review = dgReview ?? request.dgReview;
   return (
-    request.status === 'oriented_to_dn' &&
-    review?.decision === 'oriented_to_dn' &&
+    (request.status === 'initial_dg_returned' || request.status === 'oriented_to_dn') &&
+    (review?.status === 'returned_scanned' || review?.status === 'decision_recorded') &&
     Boolean(review.returnedScannedDocumentId)
   );
 }
@@ -140,8 +140,8 @@ export function isAwaitingDgAction(request: AdminRequest): boolean {
   return request.status === 'initial_sent_to_dg';
 }
 
-export function isOrientedToDn(request: AdminRequest): boolean {
-  return request.status === 'oriented_to_dn' || request.status === 'dossier_opened';
+export function isDgSignedAvailable(request: AdminRequest): boolean {
+  return request.status === 'initial_dg_returned' || request.status === 'oriented_to_dn' || request.status === 'dossier_opened';
 }
 
 export function isCancelledByDg(request: AdminRequest): boolean {

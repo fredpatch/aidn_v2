@@ -7,7 +7,7 @@ import { saveDocument } from "../../shared/utils/document.helpers.js";
 import { ensureObjectId, parseDate, toId, toIso } from "../../shared/utils/service.helpers.js";
 import { writeAuditLog } from "../audit/audit.service.js";
 import { CourrierModel } from "../courriers/courrier.model.js";
-import { createDgReview, recordDgDecision, recordDgReturn } from "../dg-circuit/dg-circuit.service.js";
+import { createDgReview, recordDgReturn } from "../dg-circuit/dg-circuit.service.js";
 import { DGReviewModel } from "../dg-reviews/dg-review.model.js";
 import { DocumentModel } from "../documents/document.model.js";
 import { DossierModel } from "../dossiers/dossier.model.js";
@@ -322,11 +322,11 @@ const sanitizeDgReview = (source: unknown) => {
 };
 
 const isDgReturnComplete = (request: RequestDgReturnGuardSource, dgReview: unknown) => {
-  const review = dgReview as (RequestRecord & { returnedScannedDocumentId?: unknown; decision?: unknown }) | undefined;
+  const review = dgReview as (RequestRecord & { returnedScannedDocumentId?: unknown; status?: unknown }) | undefined;
 
   return (
-    request.status === "oriented_to_dn" &&
-    review?.decision === "oriented_to_dn" &&
+    (request.status === "initial_dg_returned" || request.status === "oriented_to_dn") &&
+    (review?.status === "returned_scanned" || review?.status === "decision_recorded") &&
     Boolean(review.returnedScannedDocumentId)
   );
 };
@@ -1344,9 +1344,7 @@ export const recordAdminRequestDgReturn = async (
   requestId: string,
   file: Express.Multer.File | undefined,
   input: {
-    decision?: string;
     returnedAt?: string;
-    observations?: string;
   },
   actor: Actor,
 ) => {
@@ -1354,28 +1352,18 @@ export const recordAdminRequestDgReturn = async (
   const request = await getRequestForAdminMutation(requestId);
 
   if (request.status !== "initial_sent_to_dg") {
-    throw new HttpError(409, "DG return can only be recorded while awaiting DG orientation");
+    throw new HttpError(409, "DG return can only be recorded while awaiting DG signature");
   }
 
   if (!file) {
-    throw new HttpError(400, "Le scan du retour DG est obligatoire.");
-  }
-
-  const decision = trimmed(input.decision);
-  if (decision !== "oriented_to_dn" && decision !== "cancelled_by_dg") {
-    throw new HttpError(400, "decision is invalid");
+    throw new HttpError(400, "Le document signe par le DG est obligatoire.");
   }
 
   if (!ALLOWED_MIME_TYPES.includes(file.mimetype as (typeof ALLOWED_MIME_TYPES)[number])) {
     throw new HttpError(400, "Unsupported DG return file type");
   }
 
-  const now = new Date();
-  const returnedAt = parseDate(input.returnedAt, "returnedAt") ?? now;
-  const observations = validateMessage(input.observations);
-
-  const persistedDecision = decision === "oriented_to_dn" ? "oriented_to_dn" : "rejected";
-  const nextStatus = decision === "oriented_to_dn" ? "oriented_to_dn" : "rejected";
+  const returnedAt = parseDate(input.returnedAt, "returnedAt") ?? new Date();
 
   const existingReview = await getInitialDgReviewForRequest(request);
   if (!existingReview) throw new HttpError(409, "DG review introuvable pour cette demande");
@@ -1385,28 +1373,15 @@ export const recordAdminRequestDgReturn = async (
     file: file!,
     returnedFromDgAt: returnedAt,
     uploadedById: new Types.ObjectId(actor.id),
-    title: "Retour DG annoté",
+    title: "Document signe DG",
     documentType: "dg_annotated_courrier",
     ownerType: "request",
     ownerId: request._id,
     ownerPath: `requests/${request._id.toString()}/dg-return`,
   });
 
-  await recordDgDecision({
-    reviewId: existingReview._id as Types.ObjectId,
-    decision: persistedDecision,
-    orientedDirection: decision === "oriented_to_dn" ? "Direction de la Navigabilité" : undefined,
-    observations,
-    actorId: new Types.ObjectId(actor.id),
-    handledByRole: actor.role,
-    decidedAt: now,
-  });
-
-  request.status = nextStatus;
+  request.status = "initial_dg_returned";
   request.initialDgReviewId = existingReview._id as Types.ObjectId;
-  if (decision === "cancelled_by_dg") {
-    request.closedAt = returnedAt;
-  }
   await request.save();
 
   const [dgReview, document] = await Promise.all([
@@ -1420,9 +1395,8 @@ export const recordAdminRequestDgReturn = async (
     action: "admin.dg_return_recorded",
     entityType: "request",
     entityId: request._id,
-    after: { status: request.status, decision },
+    after: { status: request.status },
     metadata: {
-      decision,
       returnedAt: returnedAt.toISOString(),
       dgReviewId: existingReview._id.toString(),
       dgReturnDocumentId: dgReturnDocumentId.toString(),
@@ -1464,10 +1438,6 @@ export const openAdminDossierDn = async (
 ) => {
   ensureInternalActor(actor);
   const request = await getRequestForAdminMutation(requestId);
-
-  if (request.status !== "oriented_to_dn") {
-    throw new HttpError(409, "La demande n'est pas orientée vers DN.");
-  }
 
   const dgReview = await getInitialDgReviewForRequest(request);
   if (!isDgReturnComplete(request, dgReview)) {

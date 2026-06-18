@@ -1,9 +1,9 @@
 import { FileUp, X } from "lucide-react";
 import { useRef, type ReactNode, type RefObject } from "react";
 
-import { cn } from "../../lib/utils";
-import { Button } from "../ui/button";
-import { Field, FieldError, FieldLabel } from "../ui/field";
+import { Button } from "@/components/ui/button";
+import { Field, FieldError, FieldLabel } from "@/components/ui/field";
+import { cn } from "@/lib/utils";
 
 type DocumentFileFieldProps = {
   id: string;
@@ -80,7 +80,8 @@ export function DocumentFileField({
           <Button
             type="button"
             variant="ghost"
-            size="icon-sm"
+            size="icon"
+            className="h-8 w-8"
             disabled={disabled}
             aria-label="Retirer le fichier"
             onClick={() => {

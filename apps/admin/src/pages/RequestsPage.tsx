@@ -43,7 +43,7 @@ import {
   getStatusLabel,
   isCancelledByDg,
   isAwaitingDgAction,
-  isOrientedToDn,
+  isDgSignedAvailable,
   requestTypeLabels,
   sourceLabels,
   statusBadgeVariant,
@@ -98,7 +98,7 @@ export function RequestsPage() {
           item.physicalDeposit?.status === 'received',
       ).length,
       awaitingDg: items.filter(isAwaitingDgAction).length,
-      orientedToDn: items.filter(isOrientedToDn).length,
+      dgSignedAvailable: items.filter(isDgSignedAvailable).length,
       cancelledByDg: items.filter(isCancelledByDg).length,
     }),
     [items],
@@ -179,7 +179,7 @@ export function RequestsPage() {
         targetWindow.document.title = fileName;
       } catch {
         previewWindow?.close();
-        setError("Impossible d'ouvrir le courrier orienté.");
+        setError("Impossible d'ouvrir le courrier DG signe.");
       }
     })();
   };
@@ -196,7 +196,7 @@ export function RequestsPage() {
       <div className="page-header">
         <div>
           <h1 className="page-title">Demandes</h1>
-          <p className="page-subtitle">Suivi des demandes initiales avant orientation DG.</p>
+          <p className="page-subtitle">Suivi des demandes initiales avant signature DG.</p>
         </div>
         <button
           className="btn btn-secondary"
@@ -215,7 +215,7 @@ export function RequestsPage() {
         <KpiCard title="Dépôts prévus" value={stats.physicalDepositsPlanned} />
         <KpiCard title="Courriers reçus" value={stats.physicalDepositsReceived} />
         <KpiCard title="En attente DG" value={stats.awaitingDg} />
-        <KpiCard title="Orientées DN" value={stats.orientedToDn} />
+        <KpiCard title="Signes DG" value={stats.dgSignedAvailable} />
         <KpiCard title="Annulées DG" value={stats.cancelledByDg} />
       </section>
 
@@ -320,7 +320,7 @@ export function RequestsPage() {
                     className="border-emerald-200 bg-emerald-50 text-emerald-700"
                   >
                     <CheckCircle2 className="mr-1 h-3 w-3" aria-hidden="true" />
-                    Prêt pour phase préliminaire
+                    Courrier DG signe disponible
                   </Badge>
                 ) : null}
               </div>
@@ -361,7 +361,7 @@ export function RequestsPage() {
                     Vérification interne
                   </TabsTrigger>
                   <TabsTrigger value="orientation" className="px-2.5 py-1 text-xs">
-                    Orientation
+                    Signature DG
                   </TabsTrigger>
                 </TabsList>
 
@@ -493,24 +493,9 @@ export function RequestsPage() {
                       label="Date retour"
                       value={formatDate(dgReview?.returnedFromDgAt)}
                     />
-                    <DetailField
-                      label="Décision"
-                      value={
-                        dgReview?.decision === 'oriented_to_dn'
-                          ? 'Orientée vers DN'
-                          : dgReview?.decision === 'rejected'
-                            ? 'Annulée par DG'
-                            : undefined
-                      }
-                    />
-                    <DetailField
-                      label="Observations"
-                      value={dgReview?.observations}
-                      className="sm:col-span-2"
-                    />
                     <div className="sm:col-span-2">
                       <dt className="text-xs font-medium text-muted-foreground">
-                        Courrier orienté scanné
+                        Courrier DG signe
                       </dt>
                       {dgReview?.returnedScannedDocumentId ? (
                         <dd className="mt-1 flex flex-col gap-1.5">
@@ -525,7 +510,7 @@ export function RequestsPage() {
                             }
                           >
                             <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
-                            Consulter le courrier orienté
+                            Consulter le courrier DG signe
                           </button>
                           {canOpenDossier(request, dgReview) && (
                             <p className="text-xs text-muted-foreground">
@@ -535,7 +520,7 @@ export function RequestsPage() {
                         </dd>
                       ) : (
                         <dd className="mt-1 text-sm text-muted-foreground">
-                          Aucun courrier orienté scanné disponible.
+                          Aucun courrier DG signe disponible.
                         </dd>
                       )}
                     </div>

@@ -1,5 +1,7 @@
 name: aidnoma-prod
 
+x-public-api-base-url: &public-api-base-url "http://100.110.227.69:4400"
+
 services:
   mongo:
     image: mongo:4.4
@@ -9,12 +11,6 @@ services:
       - mongo_data:/data/db
     environment:
       MONGO_INITDB_DATABASE: aidn
-    healthcheck:
-      test:
-        ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
 
   api:
     build:
@@ -24,8 +20,7 @@ services:
     container_name: aidn-prod-api
     restart: unless-stopped
     depends_on:
-      mongo:
-        condition: service_healthy
+      - mongo
     ports:
       - "${API_PORT:-4400}:4400"
     env_file:
@@ -49,7 +44,7 @@ services:
         VITE_APP_VERSION: ${VITE_APP_VERSION:-0.1.1}
         VITE_ENV: production
         VITE_DATA_MODE: api
-        VITE_API_BASE_URL: ${PUBLIC_API_BASE_URL:?Set PUBLIC_API_BASE_URL before building production frontends}
+        VITE_API_BASE_URL: *public-api-base-url
         VITE_SPLASH_ENABLED: ${VITE_SPLASH_ENABLED:-true}
         VITE_SPLASH_MIN_MS: ${VITE_SPLASH_MIN_MS:-800}
         VITE_SPLASH_MAX_MS: ${VITE_SPLASH_MAX_MS:-2500}
@@ -66,7 +61,7 @@ services:
       dockerfile: infra/Dockerfile
       target: portal-prod
       args:
-        VITE_API_BASE_URL: ${PUBLIC_API_BASE_URL:?Set PUBLIC_API_BASE_URL before building production frontends}
+        VITE_API_BASE_URL: *public-api-base-url
     container_name: aidn-prod-portal
     restart: unless-stopped
     depends_on:

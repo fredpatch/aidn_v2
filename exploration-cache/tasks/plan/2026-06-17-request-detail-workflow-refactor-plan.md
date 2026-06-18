@@ -1,7 +1,7 @@
 # Request Detail Workflow Refactor Plan
 
 Date: 2026-06-17
-Status: Draft
+Status: In progress
 Scope: Portal request creation, request consultation, and cleanup of `RequestDetailPage.tsx`
 
 ## Objective
@@ -39,6 +39,7 @@ Create a request-detail folder:
 ```txt
 apps/portal/src/pages/request-detail/
   constants.ts
+  dossier.constants.ts
   formatters.ts
   helpers.ts
   types.ts
@@ -52,6 +53,9 @@ apps/portal/src/pages/request-detail/
   ProcessTimeline.tsx
   MeetingBlock.tsx
   Phase2DocumentChecklist.tsx
+  DossierOverviewPanel.tsx
+  PreliminaryPhasePanel.tsx
+  FormalRequestPhasePanel.tsx
   PreEvaluationUploadForm.tsx
   FormalRequestCourrierForm.tsx
 ```
@@ -63,6 +67,56 @@ Keep `RequestDetailPage.tsx` as the orchestrator only:
 - hold selected tab/sub-tab UI state
 - pass data and handlers to child components
 - render loading/not found/page shell
+
+Longer-term shape: `RequestDetailPage.tsx` should remain the entry point, while each OMA phase becomes distinguishable and independently maintainable. Phase I, Phase II, and Phase III should eventually live in separate components, with their own local display helpers and form components, so updates to one certification phase do not force engineers to re-read or risk the entire request detail workflow.
+
+## Progress
+
+Completed:
+
+- Extracted pure helpers, constants, formatters, and local types into `request-detail/`.
+- Extracted display components:
+  - `ProcessTimeline`
+  - `MeetingBlock`
+  - `RequestDetailHeader`
+  - `RequestWorkflowTabs`
+  - `RequestHistoryTab`
+- Extracted main workflow tabs:
+  - `RequestSummaryTab`
+  - `RequestCourrierTab`
+  - `RequestActionsTab`
+  - `RequestDossierTab`
+- Split dossier workflow internals:
+  - `DossierOverviewPanel`
+  - `PreliminaryPhasePanel`
+  - `FormalRequestPhasePanel`
+  - `Phase2DocumentChecklist`
+- Completed the first notice cleanup pass:
+  - action success feedback uses Sonner
+  - action/server failures for request update and submission use Sonner
+  - download failures use Sonner while still feeding existing local download error slots
+  - blocking form validation remains inline near the affected workflow
+  - unreadable encoded messages were cleaned from `RequestDetailPage.tsx`
+- Started form hardening:
+  - `RequestSummaryTab` draft metadata form now uses React Hook Form
+  - request type now uses shadcn `Select`
+  - subject uses shadcn `Input`
+  - form container and read-only submitted view use shadcn `Card`
+  - buttons use shadcn `Button`
+  - required/optional badges and the message character counter match the draft creation modal
+  - introduced reusable `DocumentFileField` for upload controls
+  - `RequestCourrierTab` now uses React Hook Form, shadcn `Card`, `Select`, `Input`, `Button`, and `DocumentFileField`
+  - courrier submission validates portal upload vs physical deposit fields before calling the parent submit handler
+- Kept `RequestDetailPage.tsx` as the current orchestrator for state, route params, loading, handlers, and API calls.
+- Reduced `RequestDetailPage.tsx` from about 1850 lines to about 539 lines.
+- Verified each slice with `npm run typecheck` and `npm run build`.
+
+Current state:
+
+- The structural split is largely complete.
+- The page still uses local server-state loading and mutation handlers.
+- Forms still mostly use plain controls and should be hardened one workflow at a time.
+- Form-local feedback still uses inline state where it helps the user fix the active upload or validation step.
 
 ## Query and API Plan
 
@@ -88,7 +142,9 @@ Invalidate narrowly:
 
 ### Step 1 - Extract Pure Helpers
 
-Move these out first because they are low risk:
+Status: Completed.
+
+Moved these out first because they are low risk:
 
 - `formatDate`
 - `formatDateTime`
@@ -112,7 +168,9 @@ Risk: low. The main risk is import churn or accidentally changing labels.
 
 ### Step 2 - Extract Display-Only Components
 
-Move components that do not own network calls:
+Status: Completed.
+
+Moved components that do not own network calls:
 
 - `ProcessTimeline`
 - `MeetingBlock`
@@ -126,6 +184,8 @@ Risk: low to medium. This is mostly JSX movement, but class names and props can 
 
 ### Step 3 - Convert Main Tabs to Components
 
+Status: Completed for the main tabs. Further internal splitting remains useful for forms.
+
 Split each tab into a focused file:
 
 - `RequestSummaryTab`
@@ -138,6 +198,8 @@ Each component should receive explicit props instead of reading page state indir
 Risk: medium. This is where state ownership can get confused. Keep handlers in the page at first, then move them after behavior is stable.
 
 ### Step 4 - Replace Inline Notices With Clear UI Rules
+
+Status: Completed for the first pass.
 
 Classify every message:
 
@@ -157,7 +219,11 @@ Urgent examples:
 
 Risk: medium. Removing the wrong inline message could hide important workflow state. Each message must be classified before removal.
 
+Result: action feedback now uses Sonner for request updates/submission, upload successes, and download failures. Persistent workflow guidance remains inline. Blocking validation and upload-form errors remain close to the affected workflow so users can fix the issue without hunting for context.
+
 ### Step 5 - Harden Forms With shadcn and React Hook Form
+
+Status: In progress.
 
 Refactor one form at a time:
 
@@ -166,14 +232,20 @@ Refactor one form at a time:
    - subject
    - message
 
+   Status: Completed.
+
 2. Courrier submission form
    - upload mode
    - file upload
    - physical deposit fields
 
+   Status: Completed.
+
 3. Pre-evaluation upload form
    - file input
    - constraints notice
+
+   Status: Next recommended form slice.
 
 4. Formal request courrier form
    - location select
@@ -200,6 +272,8 @@ Risk: medium to high. File inputs and multipart submissions are easy to break. K
 
 ### Step 6 - Introduce Query Hooks
 
+Status: Not started.
+
 After the UI is split, move network state into TanStack Query:
 
 - request detail loading
@@ -212,6 +286,8 @@ Risk: high. This changes data flow. Do it only after the component split makes e
 
 ### Step 7 - Improve Dossier Phase Navigation
 
+Status: Not started.
+
 Replace custom sub-tab classes with shadcn `Tabs`.
 
 Recommended shape:
@@ -223,6 +299,8 @@ Recommended shape:
 Risk: medium. Users may rely on current tab behavior, so preserve default tab selection logic.
 
 ### Step 8 - Cleanup and Remove Dead Page Paths
+
+Status: Not started.
 
 Once the modal creation flow is stable, review whether `NewRequestPage` still has a role.
 

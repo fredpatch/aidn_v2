@@ -141,6 +141,11 @@ docker exec aidn-api npx tsx src/scripts/seed-bootstrap-admin.ts
 docker exec aidn-api npx tsx src/scripts/seed-document-requirements.ts
 ```
 
+```bash
+docker exec aidn-prod-api node dist/scripts/seed-bootstrap-admin.js
+docker exec aidn-prod-api node dist/scripts/seed-document-requirement.js
+```
+
 For the test stack:
 
 ```bash

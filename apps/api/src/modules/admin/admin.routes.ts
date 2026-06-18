@@ -162,6 +162,7 @@ const requireDgCircuitTaskAccess = requireAnyPermission([
   Permissions.DG_CIRCUIT_HANDLE,
   Permissions.COURRIER_REGISTER_PHYSICAL,
   Permissions.PRE_EVAL_DG_CIRCUIT_HANDLE,
+  Permissions.DG_DECISION_RECORD,
 ]);
 
 adminRouter.get(

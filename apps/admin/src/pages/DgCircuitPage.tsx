@@ -42,7 +42,6 @@ import {
   sendFormalRequestToDg,
   sendPreEvalToDg,
 } from "@/lib/api/dossiers.api";
-import { RecordFormalDgDecisionDialog } from "@/pages/dossiers/formal-request-dialogs";
 
 type DgCircuitTaskCounts = {
   toTransmit: number;
@@ -56,7 +55,6 @@ type ModalState =
   | { kind: "print-confirm"; task: DgCircuitTask }
   | { kind: "dg-return"; task: DgCircuitTask }
   | { kind: "physical-receipt"; task: DgCircuitTask }
-  | { kind: "formal-dg-decision"; task: DgCircuitTask }
   | null;
 
 const bucketTabs: Array<{
@@ -391,7 +389,12 @@ function DgReturnDialog({
     } else {
       form.set("file", file);
     }
-    if (returnedAt) form.set("returnedAt", returnedAt);
+    if (returnedAt) {
+      form.set(
+        task.source === "formal_request" ? "returnedFromDgAt" : "returnedAt",
+        returnedAt,
+      );
+    }
     if (notes.trim()) {
       form.set("notes", notes.trim());
       form.set("observations", notes.trim());
@@ -1010,15 +1013,6 @@ export function DgCircuitPage(): React.JSX.Element {
           isSubmitting={isSubmitting}
           onClose={() => setModal(null)}
           onSubmit={(formData) => submitPhysicalReceipt(modal.task, formData)}
-        />
-      ) : null}
-
-      {modal?.kind === "formal-dg-decision" ? (
-        <RecordFormalDgDecisionDialog
-          open
-          onOpenChange={(open) => !open && setModal(null)}
-          dossierId={modal.task.dossierId!}
-          onSuccess={() => void load()}
         />
       ) : null}
     </div>

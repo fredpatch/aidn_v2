@@ -1,0 +1,79 @@
+name: aidnoma-prod
+
+services:
+  mongo:
+    image: mongo:4.4
+    container_name: aidn-prod-mongo
+    restart: unless-stopped
+    volumes:
+      - mongo_data:/data/db
+    environment:
+      MONGO_INITDB_DATABASE: aidn
+    healthcheck:
+      test:
+        ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  api:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile
+      target: api-prod
+    container_name: aidn-prod-api
+    restart: unless-stopped
+    depends_on:
+      mongo:
+        condition: service_healthy
+    ports:
+      - "${API_PORT:-4400}:4400"
+    env_file:
+      - path: ./api.prod.env
+        required: false
+    environment:
+      NODE_ENV: production
+      PORT: 4400
+      MONGODB_URI: mongodb://mongo:27017/aidn
+      UPLOAD_STORAGE_DIR: /app/storage
+    volumes:
+      - api_storage:/app/storage
+
+  admin:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile
+      target: admin-prod
+      args:
+        VITE_APP_NAME: ${VITE_APP_NAME:-AIDN}
+        VITE_APP_VERSION: ${VITE_APP_VERSION:-0.1.1}
+        VITE_ENV: production
+        VITE_DATA_MODE: api
+        VITE_API_BASE_URL: ${PUBLIC_API_BASE_URL:?Set PUBLIC_API_BASE_URL before building production frontends}
+        VITE_SPLASH_ENABLED: ${VITE_SPLASH_ENABLED:-true}
+        VITE_SPLASH_MIN_MS: ${VITE_SPLASH_MIN_MS:-800}
+        VITE_SPLASH_MAX_MS: ${VITE_SPLASH_MAX_MS:-2500}
+    container_name: aidn-prod-admin
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "${ADMIN_PORT:-8082}:80"
+
+  portal:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile
+      target: portal-prod
+      args:
+        VITE_API_BASE_URL: ${PUBLIC_API_BASE_URL:?Set PUBLIC_API_BASE_URL before building production frontends}
+    container_name: aidn-prod-portal
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "${PORTAL_PORT:-8081}:80"
+
+volumes:
+  mongo_data:
+  api_storage:

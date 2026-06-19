@@ -4,7 +4,7 @@ import { HttpError } from "../../shared/errors/http-error.js";
 import { toId, toIso } from "../../shared/utils/service.helpers.js";
 import { DossierModel } from "../dossiers/dossier.model.js";
 import { PostulantOrganizationModel } from "../organizations/postulant-organization.model.js";
-import { OmaPhaseModel } from "../oma-phases/oma-phase.model.js";
+import { OmaPhaseModel } from "../oma-phases/index.js";
 import { UserModel } from "../users/user.model.js";
 import { PhasePaymentModel } from "./phase-payment.model.js";
 
@@ -188,3 +188,4 @@ export const listPhasePaymentTasks = async (
 
   return { items, counts };
 };
+

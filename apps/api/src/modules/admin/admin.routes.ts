@@ -44,7 +44,7 @@ import {
   recordPreliminaryMeeting,
   sendPreEvalToDg,
   uploadClosureCourrier,
-} from "../oma-phases/oma-phase.service.js";
+} from "../oma-phases/index.js";
 import {
   createFormalMeeting,
   getAdminFormalRequestPhase,
@@ -59,15 +59,12 @@ import {
   uploadFormalRecevabilityCourrier,
   uploadFormalClosureCourrier,
   closeFormalRequestPhase,
-} from "../oma-phases/formal-request.service.js";
+} from "../oma-phases/index.js";
 import {
   createDocumentTemplate,
   listDocumentTemplates,
 } from "../document-templates/document-template.service.js";
-import {
-  downloadDgCircuitTaskDocument,
-  listDgCircuitTasks,
-} from "../dg-circuit/dg-circuit.service.js";
+import { dgCircuitRouter } from "../dg-circuit/dg-circuit.routes.js";
 import { getAdminDashboardSummary } from "../dashboard/dashboard.service.js";
 import {
   closeDocumentEvaluationPhase,
@@ -75,7 +72,7 @@ import {
   getDocumentEvaluations,
   reviewDocumentEvaluation,
   uploadStudyFeeInvoice,
-} from "../oma-phases/document-evaluation.service.js";
+} from "../oma-phases/index.js";
 import {
   listPhasePaymentTasks,
   type PhasePaymentTaskFilters,
@@ -135,35 +132,6 @@ const handleDgReturnUpload: RequestHandler = (req, res, next) => {
 };
 
 adminRouter.use(requireAuth({ scope: "admin" }));
-
-const requireAnyPermission =
-  (
-    permissions: Array<(typeof Permissions)[keyof typeof Permissions]>,
-  ): RequestHandler =>
-  (req, _res, next) => {
-    if (!req.user) {
-      next(new HttpError(401, "Authentication required"));
-      return;
-    }
-
-    if (
-      !permissions.some((permission) =>
-        req.user!.permissions.includes(permission),
-      )
-    ) {
-      next(new HttpError(403, "Missing required permission"));
-      return;
-    }
-
-    next();
-  };
-
-const requireDgCircuitTaskAccess = requireAnyPermission([
-  Permissions.DG_CIRCUIT_HANDLE,
-  Permissions.COURRIER_REGISTER_PHYSICAL,
-  Permissions.PRE_EVAL_DG_CIRCUIT_HANDLE,
-  Permissions.DG_DECISION_RECORD,
-]);
 
 adminRouter.get(
   "/dashboard",
@@ -309,47 +277,7 @@ adminRouter.get(
   }),
 );
 
-adminRouter.get(
-  "/dg-circuit/tasks",
-  requireDgCircuitTaskAccess,
-  asyncHandler(async (req, res) => {
-    const limit =
-      typeof req.query.limit === "string" ? Number(req.query.limit) : undefined;
-    res.json(
-      await listDgCircuitTasks(
-        {
-          bucket:
-            typeof req.query.bucket === "string" ? req.query.bucket : undefined,
-          source:
-            typeof req.query.source === "string" ? req.query.source : undefined,
-          search:
-            typeof req.query.search === "string" ? req.query.search : undefined,
-          limit: Number.isFinite(limit) ? limit : undefined,
-        },
-        req.user!,
-      ),
-    );
-  }),
-);
-
-adminRouter.get(
-  "/dg-circuit/tasks/:taskId/documents/:documentId",
-  requireDgCircuitTaskAccess,
-  asyncHandler(async (req, res) => {
-    const { buffer, mimeType, fileName } = await downloadDgCircuitTaskDocument(
-      String(req.params.taskId),
-      String(req.params.documentId),
-      req.user!,
-    );
-    res.set("Content-Type", mimeType);
-    res.set(
-      "Content-Disposition",
-      `attachment; filename="${encodeURIComponent(fileName)}"`,
-    );
-    res.set("Content-Length", String(buffer.length));
-    res.end(buffer);
-  }),
-);
+adminRouter.use("/dg-circuit", dgCircuitRouter);
 
 adminRouter.get(
   "/requests/:id",
@@ -1287,3 +1215,4 @@ adminRouter.post(
     );
   }),
 );
+

@@ -1,29 +1,28 @@
 import { Types } from "mongoose";
 
-import { HttpError } from "../../shared/errors/http-error.js";
-import { storageAdapter } from "../../shared/storage/storage.adapter.js";
-import { saveDocument } from "../../shared/utils/document.helpers.js";
-import { ensureObjectId, parseOptionalDate, toId, toIso } from "../../shared/utils/service.helpers.js";
-import { writeAuditLog } from "../audit/audit.service.js";
-import { CourrierModel } from "../courriers/courrier.model.js";
-import { DGReviewModel } from "../dg-reviews/dg-review.model.js";
-import { DocumentModel } from "../documents/document.model.js";
-import { DossierModel } from "../dossiers/dossier.model.js";
-import { MeetingModel } from "../meetings/meeting.model.js";
+import { HttpError } from "../../../shared/errors/http-error.js";
+import { storageAdapter } from "../../../shared/storage/storage.adapter.js";
+import { saveDocument } from "../../../shared/utils/document.helpers.js";
+import { ensureObjectId, parseOptionalDate, toId, toIso } from "../../../shared/utils/service.helpers.js";
+import { writeAuditLog } from "../../audit/audit.service.js";
+import { CourrierModel } from "../../courriers/courrier.model.js";
+import { DGReviewModel } from "../../dg-reviews/dg-review.model.js";
+import { DocumentModel } from "../../documents/document.model.js";
+import { DossierModel } from "../../dossiers/dossier.model.js";
+import { MeetingModel } from "../../meetings/meeting.model.js";
 import {
   getActivePreEvalTemplate,
   getActiveTemplatesByFormCodes,
-} from "../document-templates/document-template.service.js";
-import { DocumentRequirementModel } from "../documents/document-requirement.model.js";
-import { DocumentSubmissionModel } from "../documents/document-submission.model.js";
-import { OmaPhaseModel } from "./oma-phase.model.js";
-import { RequestModel } from "../requests/request.model.js";
-import { UserModel } from "../users/user.model.js";
-import { NotificationModel } from "../notifications/notification.model.js";
-import { PhasePaymentModel } from "../payments/phase-payment.model.js";
-
-type Actor = { id: string; role: string; userType: "internal" | "postulant" };
-type GenericRecord = Record<string, unknown> & { _id: Types.ObjectId };
+} from "../../document-templates/document-template.service.js";
+import { DocumentRequirementModel } from "../../documents/document-requirement.model.js";
+import { DocumentSubmissionModel } from "../../documents/document-submission.model.js";
+import { OmaPhaseModel } from "../models/oma-phase.model.js";
+import { ensureInternalActor } from "../helpers/access.helpers.js";
+import type { Actor, GenericRecord } from "../types/oma.types.js";
+import { RequestModel } from "../../requests/request.model.js";
+import { UserModel } from "../../users/user.model.js";
+import { NotificationModel } from "../../notifications/notification.model.js";
+import { PhasePaymentModel } from "../../payments/phase-payment.model.js";
 
 const ALLOWED_MIME_TYPES = [
   "application/pdf",
@@ -83,12 +82,6 @@ const ADMIN_PRELIMINARY_DOWNLOAD_FIELDS = [
   "preliminaryMeetingReportDocumentId",
   "closureCourrierDocumentId",
 ] as const;
-
-const ensureInternalActor = (actor: Actor) => {
-  if (actor.userType !== "internal") {
-    throw new HttpError(403, "Internal access required");
-  }
-};
 
 const notifyDossierPostulant = async (
   dossier: { postulantUserId?: unknown },
@@ -1485,3 +1478,7 @@ export const uploadCompletedPreEvaluationForm = async (
 
   return { ok: true };
 };
+
+
+
+

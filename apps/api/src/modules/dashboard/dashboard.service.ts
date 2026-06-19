@@ -8,8 +8,8 @@ import { DocumentRequirementModel } from "../documents/document-requirement.mode
 import { DocumentSubmissionModel } from "../documents/document-submission.model.js";
 import { DossierModel } from "../dossiers/dossier.model.js";
 import { MeetingModel } from "../meetings/meeting.model.js";
-import { OmaPhaseModel } from "../oma-phases/oma-phase.model.js";
-import { getAdminFormalRequestPhase } from "../oma-phases/formal-request.service.js";
+import { OmaPhaseModel } from "../oma-phases/index.js";
+import { getAdminFormalRequestPhase } from "../oma-phases/index.js";
 import { RequestModel } from "../requests/request.model.js";
 import {
   countElapsedBusinessDays,
@@ -685,3 +685,4 @@ export const getAdminDashboardSummary = async (
 
   return summary;
 };
+

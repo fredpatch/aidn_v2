@@ -27,18 +27,18 @@ import {
   downloadPortalDossierDocument,
   getPortalDossier,
   uploadCompletedPreEvaluationForm,
-} from "../oma-phases/oma-phase.service.js";
+} from "../oma-phases/index.js";
 import { downloadPortalFormalRequestTemplate } from "../document-templates/document-template.service.js";
 import {
   registerFormalRequestCourrier,
   uploadFormalRequestSupportingDocument,
-} from "../oma-phases/formal-request.service.js";
+} from "../oma-phases/index.js";
 import {
   getPortalDocumentEvaluationPaymentState,
   getPortalDocumentEvaluationState,
   uploadDocumentEvaluationCorrection,
   uploadStudyFeePaymentProof,
-} from "../oma-phases/document-evaluation.service.js";
+} from "../oma-phases/index.js";
 import {
   createPortalRequest,
   declarePortalPhysicalDeposit,
@@ -442,3 +442,4 @@ portalRouter.post(
     );
   }),
 );
+

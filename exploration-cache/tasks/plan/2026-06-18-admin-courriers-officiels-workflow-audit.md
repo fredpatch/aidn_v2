@@ -377,7 +377,7 @@ Risk: medium. Operators may already use `Demandes`; changing action location sho
 
 ### Step 8 - Backend Workflow Hardening
 
-Status: Not started.
+Status: Started.
 
 - Consider a single command endpoint per DG task, or a thin backend adapter, so frontend does not know source-specific field names.
 - Ensure `createDgReview` upsert cannot overwrite meaningful historical review data unexpectedly.
@@ -386,9 +386,32 @@ Status: Not started.
 - Add tests for initial request transitions:
   - portal upload submitted -> print -> `initial_sent_to_dg`
   - physical declared -> physical receipt -> `initial_sent_to_dg`
-  - DG return oriented -> `oriented_to_dn` with document
-  - DG return cancelled -> `rejected`
-  - open dossier requires oriented DG return and scanned document
+  - DG signed return uploaded -> `initial_dg_returned` with `returned_scanned` DG review and signed scan document
+  - open dossier requires the signed DG scan evidence
+
+Progress:
+
+- Started on 2026-06-19:
+  - Hardened `createDgReview` so sending an item to DG cannot overwrite an already returned, decision-recorded, or cancelled DG review.
+  - Updated DN dossier-opening guard copy to require the signed DG courrier rather than an annotated DG return.
+  - Split `apps/api/src/modules/dg-circuit/dg-circuit.service.ts` by extracting shared task types, permission/search helpers, and generic DG review write operations into `dg-circuit.types.ts`, `dg-circuit.helpers.ts`, and `dg-review.service.ts`.
+  - Preserved the public service exports (`canViewDgCircuitTasks`, `createDgReview`, `markSentToDg`, `recordDgReturn`, `recordDgDecision`) so request/formal-phase callers do not need to change during this refactor.
+  - Introduced the target backend module shape for DG circuit: `dg-circuit.routes.ts` owns Express routes/permissions, `dg-circuit.controller.ts` owns HTTP parsing and responses, `dg-circuit.service.ts` owns workflow composition and authorization, and `dg-circuit.repository.ts` owns model/storage reads.
+  - Mounted the DG circuit router from `admin.routes.ts`, removing the inline `/dg-circuit/tasks` handlers from the admin router.
+  - Started applying the same backend cleanup to `requests`: extracted request constants, shared types, validators, and response formatters from `request.service.ts`. The service remains behavior-compatible but dropped from 1628 to 1300 lines.
+  - Reorganized the request module into the target folder shape: `constants/`, `helpers/`, `types/`, `services/`, `repository/`, `controllers/`, and `routes/`. Existing admin/portal callers still import through the root `request.service.ts` compatibility barrel.
+  - Split the monolithic request service into `services/portal-request.service.ts` and `services/admin-request.service.ts`; `services/request.service.ts` is now a compatibility barrel.
+  - Added `repository/request.repository.ts` and moved shared request/DG-review/user reads behind it. The largest request service file is now the admin workflow service at roughly 765 lines, down from the original 1628-line mixed service.
+  - Next backend refactor target: `oma-phases`, currently the largest API module. Apply the same module shape (`constants/`, `helpers/`, `types/`, `services/`, `repository/`, `controllers/`, `routes/`) before splitting the large preliminary, formal request, and document-evaluation services.
+  - OMA refactor order: folder skeleton and compatibility barrels first, shared constants/types/helpers second, then focused services/repositories for preliminary phase, formal request phase, and document evaluation.
+  - Started OMA refactor: moved `oma-phase.service.ts`, `formal-request.service.ts`, and `document-evaluation.service.ts` into `oma-phases/services/`, keeping root compatibility barrels so existing imports continue to work.
+  - Added OMA folder skeleton: `constants/`, `helpers/`, `types/`, `services/`, `repository/`, `controllers/`, and `routes/`.
+  - Extracted shared OMA `Actor`/`GenericRecord` types and `ensureInternalActor` helper for preliminary, formal request, and document-evaluation services.
+  - Corrected OMA module root convention: the root now exposes only `index.ts`; service implementations live under `services/`, and `oma-phase.model.ts` moved under `models/`.
+  - Updated external OMA imports to use the root `oma-phases/index.ts` facade while internal OMA services import the model from `models/`.
+  - Started splitting OMA services one by one with `formal-request.service.ts`: extracted formal request status constants, supporting-document category mapping, file validation, requirement-status computation, and assertion guards into `constants/formal-request.constants.ts` and `helpers/formal-request.helpers.ts`.
+  - `formal-request.service.ts` remains behavior-compatible and now delegates pure formal workflow support helpers to the OMA helper/constants folders.
+  - No API test runner is currently configured in `apps/api`; verification uses `npm run typecheck`.
 
 Risk: high. Backend tests and contracts should be added before deeper endpoint consolidation.
 

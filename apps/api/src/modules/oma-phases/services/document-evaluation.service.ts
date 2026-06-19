@@ -1,31 +1,19 @@
 import { type HydratedDocument, Types } from "mongoose";
 
-import { HttpError } from "../../shared/errors/http-error.js";
-import { saveDocument } from "../../shared/utils/document.helpers.js";
-import { ensureObjectId, toId, toIso } from "../../shared/utils/service.helpers.js";
-import { writeAuditLog } from "../audit/audit.service.js";
-import { DocumentEvaluationModel } from "../document-evaluations/document-evaluation.model.js";
-import { DocumentRequirementModel } from "../documents/document-requirement.model.js";
-import { DocumentSubmissionModel } from "../documents/document-submission.model.js";
-import { DossierModel } from "../dossiers/dossier.model.js";
-import { NotificationModel } from "../notifications/notification.model.js";
-import { PhasePaymentModel } from "../payments/phase-payment.model.js";
+import { HttpError } from "../../../shared/errors/http-error.js";
+import { saveDocument } from "../../../shared/utils/document.helpers.js";
+import { ensureObjectId, toId, toIso } from "../../../shared/utils/service.helpers.js";
+import { writeAuditLog } from "../../audit/audit.service.js";
+import { DocumentEvaluationModel } from "../../document-evaluations/document-evaluation.model.js";
+import { DocumentRequirementModel } from "../../documents/document-requirement.model.js";
+import { DocumentSubmissionModel } from "../../documents/document-submission.model.js";
+import { DossierModel } from "../../dossiers/dossier.model.js";
+import { NotificationModel } from "../../notifications/notification.model.js";
+import { PhasePaymentModel } from "../../payments/phase-payment.model.js";
 import { getOwnedDossier } from "./oma-phase.service.js";
-import { OmaPhaseModel, type OmaPhase } from "./oma-phase.model.js";
-
-export type Actor = {
-  id: string;
-  role: string;
-  userType: "internal" | "postulant";
-};
-
-type GenericRecord = Record<string, unknown> & { _id: Types.ObjectId };
-
-const ensureInternalActor = (actor: Actor) => {
-  if (actor.userType !== "internal") {
-    throw new HttpError(403, "Accès interne requis.");
-  }
-};
+import { OmaPhaseModel, type OmaPhase } from "../models/oma-phase.model.js";
+import { ensureInternalActor } from "../helpers/access.helpers.js";
+import type { Actor, GenericRecord } from "../types/oma.types.js";
 
 // ── Internal helper: load Phase 3 or throw ────────────────────────────────────
 
@@ -1086,3 +1074,7 @@ export const getPortalDocumentEvaluationState = async (
     progress,
   };
 };
+
+
+
+

@@ -1,41 +1,45 @@
 import { Types } from "mongoose";
 
-import { HttpError } from "../../shared/errors/http-error.js";
-import { saveDocument } from "../../shared/utils/document.helpers.js";
+import { HttpError } from "../../../shared/errors/http-error.js";
+import { saveDocument } from "../../../shared/utils/document.helpers.js";
 import {
   ensureObjectId,
   toId,
   toIso,
-} from "../../shared/utils/service.helpers.js";
-import { writeAuditLog } from "../audit/audit.service.js";
+} from "../../../shared/utils/service.helpers.js";
+import { writeAuditLog } from "../../audit/audit.service.js";
 import {
   createDgReview,
   recordDgDecision,
   recordDgReturn,
-} from "../dg-circuit/dg-circuit.service.js";
-import { CourrierModel } from "../courriers/courrier.model.js";
-import { DGReviewModel } from "../dg-reviews/dg-review.model.js";
-import { DocumentModel } from "../documents/document.model.js";
-import { DocumentRequirementModel } from "../documents/document-requirement.model.js";
-import { DocumentSubmissionModel } from "../documents/document-submission.model.js";
-import { DossierModel } from "../dossiers/dossier.model.js";
-import { MeetingModel } from "../meetings/meeting.model.js";
-import { NotificationModel } from "../notifications/notification.model.js";
+} from "../../dg-circuit/dg-circuit.service.js";
+import { CourrierModel } from "../../courriers/courrier.model.js";
+import { DGReviewModel } from "../../dg-reviews/dg-review.model.js";
+import { DocumentModel } from "../../documents/document.model.js";
+import { DocumentRequirementModel } from "../../documents/document-requirement.model.js";
+import { DocumentSubmissionModel } from "../../documents/document-submission.model.js";
+import { DossierModel } from "../../dossiers/dossier.model.js";
+import { MeetingModel } from "../../meetings/meeting.model.js";
+import { NotificationModel } from "../../notifications/notification.model.js";
 import { getOwnedDossier } from "./oma-phase.service.js";
-import { OmaPhaseModel } from "./oma-phase.model.js";
-
-export type Actor = {
-  id: string;
-  role: string;
-  userType: "internal" | "postulant";
-};
-type GenericRecord = Record<string, unknown> & { _id: Types.ObjectId };
-
-const ensureInternalActor = (actor: Actor) => {
-  if (actor.userType !== "internal") {
-    throw new HttpError(403, "Internal access required");
-  }
-};
+import { OmaPhaseModel } from "../models/oma-phase.model.js";
+import { ensureInternalActor } from "../helpers/access.helpers.js";
+import {
+  assertFormalDgDecisionRecorded,
+  assertFormalRequestGateExists,
+  assertNoFormalDgReviewYet,
+  assertNoFormalMeetingYet,
+  assertPhaseNotClosed,
+  computeRequirementStatus,
+  mapRequirementToDocumentCategory,
+  validateFormalRequestFile as validateFile,
+} from "../helpers/formal-request.helpers.js";
+import {
+  ACTIVE_SUBMISSION_STATUS_SET,
+  FORMAL_DG_EVIDENCE_STATUSES,
+  REVIEW_STATUSES,
+} from "../constants/formal-request.constants.js";
+import type { Actor, GenericRecord } from "../types/oma.types.js";
 
 const notifyDossierPostulant = async (
   dossier: unknown,
@@ -58,47 +62,6 @@ const notifyDossierPostulant = async (
     relatedId: input.relatedId,
     status: "unread",
   });
-};
-
-const validateFile = (file: Express.Multer.File | undefined) => {
-  if (!file) throw new HttpError(400, "Un fichier est requis.");
-};
-
-const ACTIVE_SUBMISSION_STATUSES = new Set([
-  "submitted",
-  "under_review",
-  "validated",
-  "requires_correction",
-  "incomplete",
-]);
-
-/**
- * Phase 2 statuses that confirm DG evidence is recorded.
- * Used by both canClosePhase and the closeFormalRequestPhase guard
- * so they always apply the same rule.
- */
-const FORMAL_DG_EVIDENCE_STATUSES = new Set([
-  "formal_dg_returned",
-  "formal_dg_decision_recorded",
-  "formal_meeting_invited",
-  "formal_meeting_held",
-  "formal_recevability_recorded",
-  "formal_ready_to_close",
-  "formal_requires_correction",
-  "formal_closed",
-]);
-
-const computeRequirementStatus = (submissions: GenericRecord[]): string => {
-  const active = submissions
-    .filter((s) => ACTIVE_SUBMISSION_STATUSES.has(String(s.status)))
-    .sort((a, b) => {
-      const aTime = a.createdAt ? new Date(String(a.createdAt)).getTime() : 0;
-      const bTime = b.createdAt ? new Date(String(b.createdAt)).getTime() : 0;
-      return bTime - aTime;
-    });
-
-  if (active.length === 0) return "missing";
-  return String(active[0].status);
 };
 
 export const getAdminFormalRequestPhase = async (
@@ -543,34 +506,6 @@ const loadFormalRequestPhaseOrThrow = async (dossierId: Types.ObjectId) => {
   return phase;
 };
 
-const assertPhaseNotClosed = (phase: { status: unknown }) => {
-  if (phase.status === "closed") {
-    throw new HttpError(409, "La phase de demande formelle est déjà clôturée.");
-  }
-};
-
-const assertFormalRequestGateExists = (phase: {
-  formalRequestCourrierId?: unknown;
-}) => {
-  if (!phase.formalRequestCourrierId) {
-    throw new HttpError(
-      409,
-      "Le courrier de demande formelle n'a pas encore été enregistré.",
-    );
-  }
-};
-
-const assertNoFormalDgReviewYet = (phase: {
-  formalRequestDgReviewId?: unknown;
-}) => {
-  if (phase.formalRequestDgReviewId) {
-    throw new HttpError(
-      409,
-      "La demande formelle a déjà été transmise au circuit DG.",
-    );
-  }
-};
-
 const loadFormalRequestDgReviewOrThrow = async (phase: {
   formalRequestDgReviewId?: unknown;
   _id: Types.ObjectId;
@@ -791,30 +726,6 @@ export const recordFormalRequestDgDecision = async (
 };
 
 // ── OMA-FORMAL-4: Formal meeting helpers ─────────────────────────────────────
-
-const assertFormalDgDecisionRecorded = (phase: {
-  formalRequestStatus?: unknown;
-}) => {
-  // MVP: scanned DG return is the decision evidence - accept both statuses
-  const status = phase.formalRequestStatus as string | undefined;
-  const dgEvidenceReady =
-    status === "formal_dg_decision_recorded" || status === "formal_dg_returned";
-  if (!dgEvidenceReady) {
-    throw new HttpError(
-      409,
-      "Le retour DG scanné doit être enregistré avant de planifier la réunion formelle.",
-    );
-  }
-};
-
-const assertNoFormalMeetingYet = (phase: { formalMeetingId?: unknown }) => {
-  if (phase.formalMeetingId) {
-    throw new HttpError(
-      409,
-      "Une réunion formelle a déjà été planifiée pour cette phase.",
-    );
-  }
-};
 
 const loadFormalMeetingOrThrow = async (phase: {
   formalMeetingId?: unknown;
@@ -1038,23 +949,6 @@ export const uploadFormalMeetingReport = async (
 };
 
 // ── OMA-FORMAL-5: Supporting document uploads ─────────────────────────────────
-
-const SUPPORTING_DOC_CATEGORY: Record<string, string> = {
-  oma_approval_form: "form",
-  management_personnel_acceptance: "form",
-  compliance_statement: "form",
-};
-
-const mapRequirementToDocumentCategory = (reqDocType: string): string =>
-  SUPPORTING_DOC_CATEGORY[reqDocType] ?? "other";
-
-const ACTIVE_SUBMISSION_STATUS_SET = new Set([
-  "submitted",
-  "under_review",
-  "validated",
-  "requires_correction",
-  "incomplete",
-]);
 
 export const uploadFormalRequestSupportingDocument = async (
   dossierId: string,
@@ -1589,12 +1483,6 @@ export const closeFormalRequestPhase = async (
 
 // ── OMA-FORMAL-6: DN document review ─────────────────────────────────────────
 
-const REVIEW_STATUSES = new Set([
-  "validated",
-  "requires_correction",
-  "incomplete",
-]);
-
 export const reviewFormalRequestDocumentSubmission = async (
   submissionId: string,
   actor: Actor,
@@ -1753,3 +1641,7 @@ export const reviewFormalRequestDocumentSubmission = async (
     },
   };
 };
+
+
+
+

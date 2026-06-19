@@ -1,7 +1,7 @@
 import type React from "react";
 import { CheckCircle2, Clock, FileCheck2, Printer } from "lucide-react";
 
-import type { DgCircuitBucket } from "@/lib/api/dg-circuit";
+import type { DgCircuitBucket, DgCircuitSource } from "@/lib/api/dg-circuit";
 
 import type { DgCircuitTaskCounts } from "./types";
 
@@ -21,6 +21,16 @@ export const sourceLabels: Record<string, string> = {
   pre_evaluation: "Formulaire de pre-evaluation",
   formal_request: "Demande formelle",
 };
+
+export const sourceOptions: Array<{
+  key: DgCircuitSource | "all";
+  label: string;
+}> = [
+  { key: "all", label: "Toutes sources" },
+  { key: "initial_request", label: sourceLabels.initial_request },
+  { key: "pre_evaluation", label: sourceLabels.pre_evaluation },
+  { key: "formal_request", label: sourceLabels.formal_request },
+];
 
 export const bucketStyle: Record<
   DgCircuitBucket,

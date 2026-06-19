@@ -1,9 +1,8 @@
-import { FolderOpen, MessageSquareWarning, Printer } from 'lucide-react';
+import { FolderOpen, MessageSquareWarning } from 'lucide-react';
 import { useState } from 'react';
 
 import { isMockMode } from '../../lib/data/data-mode';
 import {
-  markPrintedForDg,
   openDossierDn,
   requestCorrection,
   type AdminRequest,
@@ -11,7 +10,7 @@ import {
 import { optional } from './requests.helpers';
 
 export type ActionDialogState = {
-  kind: 'open_dossier' | 'correction' | 'print';
+  kind: 'open_dossier' | 'correction';
   request: AdminRequest;
 };
 
@@ -45,13 +44,6 @@ export function ActionDialog({
       success: 'Correction demandée au postulant.',
       icon: MessageSquareWarning,
     },
-    print: {
-      title: 'Imprimer',
-      label: 'Notes',
-      button: 'Imprimer',
-      success: "Demande en attente d'orientation DG.",
-      icon: Printer,
-    },
   }[state.kind];
   const Icon = copy.icon;
 
@@ -70,8 +62,6 @@ export function ActionDialog({
           await openDossierDn(state.request.id, { notes: optional(text) });
         } else if (state.kind === 'correction') {
           await requestCorrection(state.request.id, { reason: text.trim() });
-        } else if (state.kind === 'print') {
-          await markPrintedForDg(state.request.id, { notes: optional(text) });
         }
       }
       await onDone(state.request.id, copy.success);

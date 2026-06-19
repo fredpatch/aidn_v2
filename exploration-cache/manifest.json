@@ -85,6 +85,9 @@
         "apps/admin/src/features/items/api/utils.ts",
         "apps/admin/src/features/items/api/index.ts",
         "apps/admin/src/features/aidn/api/index.ts",
+        "apps/admin/src/pages/requests/RequestDetailPanel.tsx",
+        "apps/admin/src/pages/requests/RequestsKpis.tsx",
+        "apps/admin/src/pages/requests/RequestsListPanel.tsx",
         "exploration-cache/tasks/plan/2026-06-18-admin-courriers-officiels-workflow-audit.md"
       ],
       "updated": [
@@ -92,6 +95,10 @@
         "apps/admin/package-lock.json",
         "apps/admin/src/lib/api/client.ts",
         "apps/admin/src/main.tsx",
+        "apps/admin/src/pages/RequestsPage.tsx",
+        "apps/admin/src/pages/requests/ActionDialog.tsx",
+        "apps/admin/src/pages/dg-circuit/DgCircuitFilters.tsx",
+        "apps/admin/src/pages/dg-circuit/constants.tsx",
         "apps/admin/src/pages/DgCircuitPage.tsx",
         "apps/admin/src/pages/dg-circuit/actions.ts",
         "apps/admin/src/features/README.md",
@@ -109,9 +116,11 @@
         "apps/admin/src/lib/api/payments.api.ts",
         "apps/admin/src/lib/api/requests.api.ts",
         "apps/admin/src/features/items/api/items.api.ts",
-        "apps/admin/src/features/aidn/api/aidn.api.ts"
+        "apps/admin/src/features/aidn/api/aidn.api.ts",
+        "apps/admin/src/pages/requests/DgReturnDialog.tsx",
+        "apps/admin/src/pages/requests/RegisterPhysicalDialog.tsx"
       ],
-      "notes": "Admin API/query refactor: installed Axios, rewired admin API client internals while preserving helper semantics, split all shared admin API domains into folder modules, migrated imports off legacy *.api.ts barrels, added admin Query client/keys/queries structure, moved DG circuit list and mutations to TanStack Query, and converted feature-local API adapters to api/index.ts. Admin build PASS."
+      "notes": "Admin API/query refactor: installed Axios, rewired admin API client internals while preserving helper semantics, split all shared admin API domains into folder modules, migrated imports off legacy *.api.ts barrels, added admin Query client/keys/queries structure, moved DG circuit list and mutations to TanStack Query, converted feature-local API adapters to api/index.ts, added DG circuit source/deep-link filtering, retired duplicate courrier actions from Demandes in favor of Courriers officiels navigation, and split RequestsPage into orchestration/list/detail/KPI components. Admin build PASS."
     },
     {
       "date": "2026-06-17",

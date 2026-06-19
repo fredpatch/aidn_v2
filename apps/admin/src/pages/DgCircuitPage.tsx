@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { RefreshCcw } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { SplitView } from "@/components/ui/split-view";
 import { useAppToast } from "@/hooks/useAppToast";
 import {
   type DgCircuitBucket,
+  type DgCircuitSource,
   type DgCircuitTask,
 } from "@/lib/api/dg-circuit";
 import {
@@ -28,11 +30,45 @@ import { PhysicalReceiptDialog } from "./dg-circuit/PhysicalReceiptDialog";
 import { PrintConfirmDialog } from "./dg-circuit/PrintConfirmDialog";
 import type { DgCircuitModalState } from "./dg-circuit/types";
 
+const validBuckets: Array<DgCircuitBucket | "all"> = [
+  "all",
+  "to_transmit",
+  "awaiting_return",
+  "returns_to_register",
+  "returned_scanned",
+  "decision_recorded",
+  "processed",
+];
+
+const validSources: Array<DgCircuitSource | "all"> = [
+  "all",
+  "initial_request",
+  "pre_evaluation",
+  "formal_request",
+];
+
+function readBucketParam(value: string | null): DgCircuitBucket | "all" {
+  return validBuckets.includes(value as DgCircuitBucket | "all")
+    ? (value as DgCircuitBucket | "all")
+    : "all";
+}
+
+function readSourceParam(value: string | null): DgCircuitSource | "all" {
+  return validSources.includes(value as DgCircuitSource | "all")
+    ? (value as DgCircuitSource | "all")
+    : "all";
+}
 
 export function DgCircuitPage(): React.JSX.Element {
   const toast = useAppToast();
-  const [bucket, setBucket] = useState<DgCircuitBucket | "all">("all");
-  const [search, setSearch] = useState("");
+  const [searchParams] = useSearchParams();
+  const [bucket, setBucket] = useState<DgCircuitBucket | "all">(() =>
+    readBucketParam(searchParams.get("bucket")),
+  );
+  const [source, setSource] = useState<DgCircuitSource | "all">(() =>
+    readSourceParam(searchParams.get("source")),
+  );
+  const [search, setSearch] = useState(() => searchParams.get("search") ?? "");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [actionError, setActionError] = useState("");
   const [selected, setSelected] = useState<DgCircuitTask | null>(null);
@@ -41,9 +77,10 @@ export function DgCircuitPage(): React.JSX.Element {
   const filters = useMemo(
     () => ({
       bucket: bucket === "all" ? undefined : bucket,
+      source: source === "all" ? undefined : source,
       search: search.trim() || undefined,
     }),
-    [bucket, search],
+    [bucket, search, source],
   );
 
   const tasksQuery = useDgCircuitTasks(filters);
@@ -57,9 +94,17 @@ export function DgCircuitPage(): React.JSX.Element {
   useEffect(() => {
     if (!data) return;
     setSelected((current) =>
-      current ? data.items.find((task) => task.id === current.id) ?? null : current,
+      current
+        ? data.items.find((task) => task.id === current.id) ?? data.items[0] ?? null
+        : data.items[0] ?? null,
     );
   }, [data]);
+
+  useEffect(() => {
+    setBucket(readBucketParam(searchParams.get("bucket")));
+    setSource(readSourceParam(searchParams.get("source")));
+    setSearch(searchParams.get("search") ?? "");
+  }, [searchParams]);
 
   const runAction = async (
     action: () => Promise<unknown>,
@@ -176,8 +221,10 @@ export function DgCircuitPage(): React.JSX.Element {
               bucket={bucket}
               counts={data?.counts}
               search={search}
+              source={source}
               onBucketChange={setBucket}
               onSearchChange={setSearch}
+              onSourceChange={setSource}
             />
             <DgCircuitTaskList
               isLoading={isLoading}

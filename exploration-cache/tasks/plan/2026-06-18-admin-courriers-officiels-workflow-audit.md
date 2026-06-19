@@ -35,11 +35,11 @@ Primary UI surfaces:
 
 Primary API surfaces:
 
-- `apps/admin/src/lib/api/dg-circuit.api.ts`
+- `apps/admin/src/lib/api/dg-circuit/`
   - Lists DG circuit tasks and downloads task documents.
-- `apps/admin/src/lib/api/requests.api.ts`
+- `apps/admin/src/lib/api/requests/`
   - Initial request mutations: `markPrintedForDg`, `registerPhysicalCourrier`, `recordDgReturn`, `openDossierDn`.
-- `apps/admin/src/lib/api/dossiers.api.ts`
+- `apps/admin/src/lib/api/dossiers/`
   - Later OMA-phase DG circuit mutations: pre-evaluation and formal request send/return.
 
 Backend workflow services:
@@ -304,7 +304,7 @@ Risk: medium to high. File inputs and source-specific `FormData` fields are frag
 
 ### Step 6 - Introduce Query Hooks
 
-Status: Started.
+Status: Completed.
 
 First split the DG circuit API module, then move loading/mutation state to query hooks after the component split is stable.
 
@@ -347,6 +347,8 @@ Progress:
     `account-requests`, `admin`, `auth`, `dashboard`, `dev`, `document-templates`, and `payments`.
   - Repointed admin app imports from `*.api.ts` barrels to the new domain folders.
   - Removed the temporary compatibility barrels for admin API domains.
+  - Added source filtering and URL-param support to `DgCircuitPage` for deep links such as `/circuit-dg?source=initial_request&bucket=to_transmit&search=<subject>`.
+  - `DgCircuitPage` now selects the first visible task after load when no selected task exists.
   - Verified with `npm run build` in `apps/admin`.
 
 The selected task should be preserved by ID after refetch. If the selected task disappears because it changed bucket, select the next actionable task or show a calm "processed" empty state.
@@ -355,13 +357,21 @@ Risk: high. This changes data flow and refresh behavior.
 
 ### Step 7 - Retire Duplicated Request Actions
 
-Status: Not started.
+Status: Completed.
 
 Review `RequestsPage` and decide:
 
 - Keep read-only request detail plus correction/open-dossier actions.
 - Replace print/physical/DG return actions with navigation to `/circuit-dg` filtered by request.
 - Or keep actions temporarily behind a feature flag while `/circuit-dg` is verified.
+
+Decision:
+
+- Completed on 2026-06-19. `Demandes` keeps request detail, correction, signed-DG evidence display, and `Demarrer la phase preliminaire`.
+- Duplicate courrier actions were removed from `Demandes`: print/mise en circuit, physical receipt registration, and DG return upload.
+- The old request-level physical receipt and DG return dialogs were deleted.
+- Eligible courrier actions now show `Voir dans Courriers officiels` and navigate to `/circuit-dg` with `source=initial_request`, the relevant bucket, and the request subject as the search filter.
+- `RequestsPage` was reduced to an orchestrator by extracting `RequestsKpis`, `RequestsListPanel`, and `RequestDetailPanel`.
 
 Risk: medium. Operators may already use `Demandes`; changing action location should be paired with clear navigation.
 

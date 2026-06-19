@@ -1,3 +1,5 @@
+import axios, { AxiosError, type AxiosRequestConfig } from 'axios';
+
 import { API_BASE_URL } from '../../config/app';
 
 export class ApiError extends Error {
@@ -43,113 +45,158 @@ function getUnsafeApiHeaders(): Record<string, string> {
   };
 }
 
-async function readJson<T>(response: Response): Promise<T> {
-  if (response.status === 204) {
-    return undefined as T;
-  }
-
-  const text = await response.text();
-  if (!text) {
-    return undefined as T;
+function normalizeJsonResponse<T>(data: unknown): T {
+  if (typeof data !== 'string') {
+    return data as T;
   }
 
   try {
-    return JSON.parse(text) as T;
+    return (data ? JSON.parse(data) : undefined) as T;
   } catch {
-    throw new ApiError(response.status, 'Reponse API illisible');
+    throw new ApiError(500, 'Reponse API illisible');
   }
 }
 
-async function assertOk(response: Response): Promise<void> {
-  if (response.ok) {
-    return;
-  }
-
-  let message = 'Connexion impossible.';
-  try {
-    const payload = await readJson<{
+function normalizeErrorPayload(data: unknown):
+  | {
       message?: string;
       error?: string | { message?: string };
-    }>(response);
-    message =
-      (typeof payload.error === 'string' ? payload.error : payload.error?.message) ||
-      payload.message ||
-      message;
-  } catch {
-    // Keep the generic French message when the backend response is not JSON.
+    }
+  | undefined {
+  if (!data) {
+    return undefined;
   }
 
-  throw new ApiError(response.status, message);
+  if (typeof data === 'string') {
+    try {
+      return JSON.parse(data) as {
+        message?: string;
+        error?: string | { message?: string };
+      };
+    } catch {
+      return { message: data };
+    }
+  }
+
+  return data as {
+    message?: string;
+    error?: string | { message?: string };
+  };
+}
+
+function extractErrorMessage(
+  payload:
+    | {
+        message?: string;
+        error?: string | { message?: string };
+      }
+    | undefined,
+): string {
+  if (!payload) {
+    return 'Connexion impossible.';
+  }
+
+  if (typeof payload.error === 'string') {
+    return payload.error;
+  }
+
+  return payload.error?.message ?? payload.message ?? 'Connexion impossible.';
+}
+
+function toApiError(error: unknown): ApiError {
+  if (error instanceof ApiError) {
+    return error;
+  }
+
+  if (error instanceof AxiosError) {
+    return new ApiError(
+      error.response?.status ?? 0,
+      extractErrorMessage(normalizeErrorPayload(error.response?.data)),
+    );
+  }
+
+  return new ApiError(0);
+}
+
+export const adminClient = axios.create({
+  baseURL: API_BASE_URL,
+  withCredentials: true,
+  headers: {
+    Accept: 'application/json',
+  },
+});
+
+async function requestJson<T>(config: AxiosRequestConfig): Promise<T> {
+  assertApiConfigured();
+
+  try {
+    const response = await adminClient.request<T>(config);
+    return normalizeJsonResponse<T>(response.data);
+  } catch (error) {
+    throw toApiError(error);
+  }
 }
 
 export async function apiGet<T>(path: string): Promise<T> {
-  assertApiConfigured();
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    credentials: 'include',
+  return requestJson<T>({
+    method: 'GET',
+    url: path,
     headers: getApiHeaders(),
   });
-  await assertOk(response);
-  return readJson<T>(response);
 }
 
 export async function apiGetBlob(path: string): Promise<{ blob: Blob; fileName: string }> {
   assertApiConfigured();
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    credentials: 'include',
-    headers: getApiHeaders(),
-  });
-  await assertOk(response);
 
-  const disposition = response.headers.get('Content-Disposition') ?? '';
-  const encodedFileName = disposition.match(/filename="([^"]+)"/)?.[1];
-  const fileName = encodedFileName ? decodeURIComponent(encodedFileName) : 'document';
+  try {
+    const response = await adminClient.get<Blob>(path, {
+      headers: getApiHeaders(),
+      responseType: 'blob',
+    });
 
-  return { blob: await response.blob(), fileName };
+    const disposition = String(response.headers['content-disposition'] ?? '');
+    const encodedFileName = disposition.match(/filename="([^"]+)"/)?.[1];
+    const fileName = encodedFileName ? decodeURIComponent(encodedFileName) : 'document';
+
+    return { blob: response.data, fileName };
+  } catch (error) {
+    throw toApiError(error);
+  }
 }
 
 export async function apiPost<T>(path: string, body: unknown): Promise<T> {
-  assertApiConfigured();
-  const response = await fetch(`${API_BASE_URL}${path}`, {
+  return requestJson<T>({
     method: 'POST',
-    credentials: 'include',
+    url: path,
     headers: getUnsafeApiHeaders(),
-    body: JSON.stringify(body),
+    data: body,
   });
-  await assertOk(response);
-  return readJson<T>(response);
 }
 
 export async function apiPostForm<T>(path: string, body: FormData): Promise<T> {
-  assertApiConfigured();
   const csrfToken = getCookie('aidn_admin_csrf');
-  const response = await fetch(`${API_BASE_URL}${path}`, {
+
+  return requestJson<T>({
     method: 'POST',
-    credentials: 'include',
+    url: path,
     headers: csrfToken ? { 'X-CSRF-Token': csrfToken } : undefined,
-    body,
+    data: body,
   });
-  await assertOk(response);
-  return readJson<T>(response);
 }
 
 export async function apiPatch<T>(path: string, body: unknown): Promise<T> {
-  assertApiConfigured();
-  const response = await fetch(`${API_BASE_URL}${path}`, {
+  return requestJson<T>({
     method: 'PATCH',
-    credentials: 'include',
+    url: path,
     headers: getUnsafeApiHeaders(),
-    body: JSON.stringify(body),
+    data: body,
   });
-  await assertOk(response);
-  return readJson<T>(response);
 }
 
 export async function apiDelete(path: string): Promise<void> {
-  assertApiConfigured();
-  const response = await fetch(`${API_BASE_URL}${path}`, {
+  return requestJson<void>({
     method: 'DELETE',
-    credentials: 'include',
+    url: path,
     headers: getUnsafeApiHeaders(),
   });
-  await assertOk(response);
 }

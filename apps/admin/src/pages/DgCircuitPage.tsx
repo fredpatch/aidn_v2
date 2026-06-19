@@ -4,17 +4,19 @@ import { Button } from "@/components/ui/button";
 import { SplitView } from "@/components/ui/split-view";
 import { useAppToast } from "@/hooks/useAppToast";
 import {
-  listDgCircuitTasks,
   type DgCircuitBucket,
   type DgCircuitTask,
-} from "@/lib/api/dg-circuit.api";
+} from "@/lib/api/dg-circuit";
+import {
+  useDgCircuitTasks,
+  useMarkDgCircuitTaskTransmitted,
+  useRecordDgCircuitPhysicalReceipt,
+  useRecordDgCircuitSignedDocument,
+} from "@/lib/query";
 import {
   canPreviewOutgoingDocument,
-  markDgCircuitTaskTransmitted,
   previewDgCircuitTaskDocument,
   previewOutgoingDgCircuitDocument,
-  recordDgCircuitPhysicalReceipt,
-  recordDgCircuitSignedDocument,
 } from "./dg-circuit/actions";
 import { formatApiError } from "./dg-circuit/formatters";
 import { DgReturnDialog } from "./dg-circuit/DgReturnDialog";
@@ -24,23 +26,15 @@ import { DgCircuitTaskDetail } from "./dg-circuit/DgCircuitTaskDetail";
 import { DgCircuitTaskList } from "./dg-circuit/DgCircuitTaskList";
 import { PhysicalReceiptDialog } from "./dg-circuit/PhysicalReceiptDialog";
 import { PrintConfirmDialog } from "./dg-circuit/PrintConfirmDialog";
-import type {
-  DgCircuitModalState,
-  DgCircuitTaskCounts,
-} from "./dg-circuit/types";
+import type { DgCircuitModalState } from "./dg-circuit/types";
 
 
 export function DgCircuitPage(): React.JSX.Element {
   const toast = useAppToast();
   const [bucket, setBucket] = useState<DgCircuitBucket | "all">("all");
   const [search, setSearch] = useState("");
-  const [data, setData] = useState<{
-    items: DgCircuitTask[];
-    counts: DgCircuitTaskCounts;
-  } | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState("");
+  const [actionError, setActionError] = useState("");
   const [selected, setSelected] = useState<DgCircuitTask | null>(null);
   const [modal, setModal] = useState<DgCircuitModalState>(null);
 
@@ -52,50 +46,36 @@ export function DgCircuitPage(): React.JSX.Element {
     [bucket, search],
   );
 
-  const load = async () => {
-    setIsLoading(true);
-    setError("");
-    try {
-      const fresh = await listDgCircuitTasks(filters);
-      setData(fresh);
-      if (selected) {
-        const freshSelected =
-          fresh.items.find((t) => t.id === selected.id) ?? null;
-        setSelected(freshSelected);
-      }
-    } catch (err) {
-      setError(formatApiError(err));
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const tasksQuery = useDgCircuitTasks(filters);
+  const markTransmittedMutation = useMarkDgCircuitTaskTransmitted();
+  const recordSignedDocumentMutation = useRecordDgCircuitSignedDocument();
+  const recordPhysicalReceiptMutation = useRecordDgCircuitPhysicalReceipt();
+  const data = tasksQuery.data ?? null;
+  const isLoading = tasksQuery.isLoading || tasksQuery.isFetching;
+  const error = actionError || (tasksQuery.error ? formatApiError(tasksQuery.error) : "");
 
   useEffect(() => {
-    void load();
-  }, [filters]);
+    if (!data) return;
+    setSelected((current) =>
+      current ? data.items.find((task) => task.id === current.id) ?? null : current,
+    );
+  }, [data]);
 
   const runAction = async (
     action: () => Promise<unknown>,
     messages?: { success?: string; error?: string },
   ) => {
     setIsSubmitting(true);
-    setError("");
+    setActionError("");
     try {
       await action();
       setModal(null);
-      const fresh = await listDgCircuitTasks(filters);
-      setData(fresh);
-      if (selected) {
-        const freshSelected =
-          fresh.items.find((t) => t.id === selected.id) ?? null;
-        setSelected(freshSelected);
-      }
       if (messages?.success) {
         toast.success(messages.success);
       }
     } catch (err) {
       const message = formatApiError(err);
-      setError(message);
+      setActionError(message);
       toast.error(messages?.error ?? message);
     } finally {
       setIsSubmitting(false);
@@ -110,14 +90,14 @@ export function DgCircuitPage(): React.JSX.Element {
     if (!canPreviewOutgoingDocument(task)) return;
 
     setIsSubmitting(true);
-    setError("");
+    setActionError("");
     try {
       await previewOutgoingDgCircuitDocument(task, previewWindow);
       toast.success("Document ouvert pour impression.");
     } catch (err) {
       previewWindow?.close();
       const message = formatApiError(err);
-      setError(message);
+      setActionError(message);
       toast.error(message);
     } finally {
       setIsSubmitting(false);
@@ -125,7 +105,7 @@ export function DgCircuitPage(): React.JSX.Element {
   };
 
   const markTransmitted = (task: DgCircuitTask) => {
-    void runAction(() => markDgCircuitTaskTransmitted(task), {
+    void runAction(() => markTransmittedMutation.mutateAsync({ task }), {
       success: "Courrier marque en circuit DG.",
       error: "Impossible de marquer le courrier en circuit DG.",
     });
@@ -148,14 +128,14 @@ export function DgCircuitPage(): React.JSX.Element {
   };
 
   const submitReturn = (task: DgCircuitTask, formData: FormData) => {
-    void runAction(() => recordDgCircuitSignedDocument(task, formData), {
+    void runAction(() => recordSignedDocumentMutation.mutateAsync({ task, formData }), {
       success: "Document signe DG enregistre.",
       error: "Impossible d'enregistrer le document signe DG.",
     });
   };
 
   const submitPhysicalReceipt = (task: DgCircuitTask, formData: FormData) => {
-    void runAction(() => recordDgCircuitPhysicalReceipt(task, formData), {
+    void runAction(() => recordPhysicalReceiptMutation.mutateAsync({ task, formData }), {
       success: "Reception physique enregistree.",
       error: "Impossible d'enregistrer la reception physique.",
     });
@@ -173,7 +153,7 @@ export function DgCircuitPage(): React.JSX.Element {
         <Button
           type="button"
           variant="outline"
-          onClick={() => void load()}
+          onClick={() => void tasksQuery.refetch()}
           disabled={isLoading}
         >
           <RefreshCcw className="mr-2 h-4 w-4" />

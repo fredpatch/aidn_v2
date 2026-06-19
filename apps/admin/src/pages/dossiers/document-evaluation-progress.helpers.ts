@@ -4,7 +4,7 @@ import type {
   AdminDocumentEvaluationState,
   DocumentEvaluationStatus,
   PhasePaymentStatus,
-} from "@/lib/api/dossiers.api";
+} from "@/lib/api/dossiers";
 
 export type DocEvalStep = {
   key: string;

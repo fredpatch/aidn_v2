@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState, SkeletonCard } from "@/components/states";
 import { SplitView } from "@/components/ui/split-view";
-import { downloadDossierDocument } from "@/lib/api/dossiers.api";
+import { downloadDossierDocument } from "@/lib/api/dossiers";
 import { hasPermission } from "@/lib/auth/permissions";
 import { extractError } from "@/lib/utils/error";
 import { openBlobInNewTab } from "@/lib/utils/blob";
@@ -14,7 +14,7 @@ import {
   type PhasePaymentTask,
   type PhasePaymentTaskList,
   type PhasePaymentTaskStatus,
-} from "@/lib/api/payments.api";
+} from "@/lib/api/payments";
 import { UploadInvoiceDialog } from "./dossiers/document-evaluation-dialogs";
 import {
   ActionError,

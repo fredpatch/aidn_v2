@@ -7,7 +7,7 @@ import {
   type AdminFormalRequestPhaseState,
   type AdminOmaPhase,
   type OmaPhaseKey,
-} from "@/lib/api/dossiers.api";
+} from "@/lib/api/dossiers";
 import { extractError } from "@/lib/utils/error";
 import { PHASE_ORDER, phaseKeyLabels } from "./dossier-detail.labels";
 import {

@@ -7,7 +7,7 @@ import {
   ShieldCheck,
   UserRound,
 } from "lucide-react";
-import { listAuditLogs, type AuditLog } from "../lib/api/admin.api";
+import { listAuditLogs, type AuditLog } from "../lib/api/admin";
 import { Badge } from "../components/ui/badge";
 import {
   Table,

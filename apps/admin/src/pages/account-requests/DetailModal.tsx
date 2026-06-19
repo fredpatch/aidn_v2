@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-import type { AccountRequestListItem } from "../../lib/api/account-requests.api";
+import type { AccountRequestListItem } from "../../lib/api/account-requests";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
 import {

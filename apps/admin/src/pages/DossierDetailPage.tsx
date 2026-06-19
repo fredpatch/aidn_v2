@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EmptyState, SkeletonCard } from "@/components/states";
-import { getDossier, type AdminDossierDetail } from "@/lib/api/dossiers.api";
+import { getDossier, type AdminDossierDetail } from "@/lib/api/dossiers";
 import {
   dossierStatusLabels,
   dossierTypeLabels,

@@ -1,5 +1,5 @@
 import { Badge } from '../../components/ui/badge';
-import type { AdminRequest } from '../../lib/api/requests.api';
+import type { AdminRequest } from '../../lib/api/requests';
 import {
   formatDate,
   getStatusLabel,

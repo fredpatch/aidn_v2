@@ -33,7 +33,7 @@ import {
   type AdminFormalRequestDgDecision,
   type AdminFormalRequestPhaseState,
   type AdminFormalRequestRequirement,
-} from "@/lib/api/dossiers.api";
+} from "@/lib/api/dossiers";
 import { extractError } from "@/lib/utils/error";
 import { ActionError } from "./dossier-detail.helpers";
 

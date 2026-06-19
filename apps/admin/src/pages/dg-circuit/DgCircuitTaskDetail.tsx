@@ -2,7 +2,7 @@ import { Download, FileUp, Printer, Send } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import type { DgCircuitTask } from "@/lib/api/dg-circuit.api";
+import type { DgCircuitTask } from "@/lib/api/dg-circuit";
 
 import { sourceLabels } from "./constants";
 import { CourrierTimeline } from "./CourrierTimeline";

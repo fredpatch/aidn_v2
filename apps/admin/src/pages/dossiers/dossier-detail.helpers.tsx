@@ -1,7 +1,7 @@
 import { CheckCircle2, Clock, Info, XCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import type { AdminMeetingSummary } from "@/lib/api/dossiers.api";
+import type { AdminMeetingSummary } from "@/lib/api/dossiers";
 import { formatDate, meetingStatusLabels, phaseStatusLabels } from "./dossier-detail.labels";
 
 export function PhaseStatusBadge({

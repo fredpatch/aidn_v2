@@ -1,5 +1,3 @@
-import { apiGet } from './client';
-
 export type DashboardPreset = 'today' | '7d' | 'month' | 'year' | 'custom';
 
 export type DashboardProfile = 'dn_full' | 'courrier_dg';
@@ -78,18 +76,8 @@ export type AdminDashboardResponse = {
   };
 };
 
-export function getAdminDashboard(paramsInput: {
+export type AdminDashboardParams = {
   preset?: DashboardPreset;
   from?: string;
   to?: string;
-} = {}): Promise<AdminDashboardResponse> {
-  const params = new URLSearchParams();
-  if (paramsInput.preset) params.set('preset', paramsInput.preset);
-  if (paramsInput.from) params.set('from', paramsInput.from);
-  if (paramsInput.to) params.set('to', paramsInput.to);
-  const query = params.toString();
-
-  return apiGet<AdminDashboardResponse>(
-    `/api/v1/admin/dashboard${query ? `?${query}` : ''}`,
-  );
-}
+};

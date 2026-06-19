@@ -1,4 +1,4 @@
-import type { AdminOmaPhase, PreliminaryStatus } from "@/lib/api/dossiers.api";
+import type { AdminOmaPhase, PreliminaryStatus } from "@/lib/api/dossiers";
 
 export type PreliminaryStep = {
   key: string;

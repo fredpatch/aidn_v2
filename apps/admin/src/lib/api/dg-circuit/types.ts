@@ -1,5 +1,3 @@
-import { apiGet, apiGetBlob } from './client';
-
 export type DgCircuitBucket =
   | 'to_transmit'
   | 'awaiting_return'
@@ -36,7 +34,6 @@ export type DgCircuitTask = {
   transmittedAt?: string;
   returnedAt?: string;
   processedAt?: string;
-  // History / traceability fields
   sentToDgAt?: string;
   returnedFromDgAt?: string;
   decisionRecordedAt?: string;
@@ -54,31 +51,12 @@ export type DgCircuitTasksResponse = {
     awaitingReturn: number;
     returnedScanned: number;
     decisionRecorded: number;
-    processed: number; // = returnedScanned + decisionRecorded
+    processed: number;
   };
 };
 
-export function listDgCircuitTasks(filters: {
+export type DgCircuitTaskFilters = {
   bucket?: string;
   source?: string;
   search?: string;
-}): Promise<DgCircuitTasksResponse> {
-  const params = new URLSearchParams();
-  if (filters.bucket) params.set('bucket', filters.bucket);
-  if (filters.source) params.set('source', filters.source);
-  if (filters.search) params.set('search', filters.search);
-
-  const query = params.toString();
-  return apiGet<DgCircuitTasksResponse>(
-    `/api/v1/admin/dg-circuit/tasks${query ? `?${query}` : ''}`,
-  );
-}
-
-export function downloadDgCircuitTaskDocument(
-  taskId: string,
-  documentId: string,
-): Promise<{ blob: Blob; fileName: string }> {
-  return apiGetBlob(
-    `/api/v1/admin/dg-circuit/tasks/${encodeURIComponent(taskId)}/documents/${documentId}`,
-  );
-}
+};

@@ -1,5 +1,3 @@
-import { apiGet, apiGetBlob, apiPost, apiPostForm } from './client';
-
 export type AdminRequestType =
   | 'oma_approval'
   | 'oma_recognition'
@@ -142,82 +140,9 @@ export type AdminRequestDetail = {
   dgReview?: AdminDgReview;
 };
 
-export function listRequests(paramsInput: {
+export type ListRequestsParams = {
   status?: string;
   requestType?: string;
   courrierSource?: string;
   search?: string;
-}): Promise<{ items: AdminRequest[] }> {
-  const params = new URLSearchParams();
-  if (paramsInput.status) params.set('status', paramsInput.status);
-  if (paramsInput.requestType) params.set('requestType', paramsInput.requestType);
-  if (paramsInput.courrierSource) params.set('courrierSource', paramsInput.courrierSource);
-  if (paramsInput.search) params.set('search', paramsInput.search);
-  const query = params.toString();
-
-  return apiGet<{ items: AdminRequest[] }>(
-    `/api/v1/admin/requests${query ? `?${query}` : ''}`,
-  );
-}
-
-export function getRequest(id: string): Promise<AdminRequestDetail> {
-  return apiGet<AdminRequestDetail>(`/api/v1/admin/requests/${id}`);
-}
-
-export function startIntake(
-  id: string,
-  payload: { notes?: string },
-): Promise<{ request: AdminRequest }> {
-  return apiPost(`/api/v1/admin/requests/${id}/start-intake`, payload);
-}
-
-export function requestCorrection(
-  id: string,
-  payload: { reason: string },
-): Promise<{ request: AdminRequest }> {
-  return apiPost(`/api/v1/admin/requests/${id}/request-correction`, payload);
-}
-
-export function registerPhysicalCourrier(
-  id: string,
-  formData: FormData,
-): Promise<AdminRequestDetail> {
-  return apiPostForm(`/api/v1/admin/requests/${id}/register-physical-courrier`, formData);
-}
-
-export function markPrintedForDg(
-  id: string,
-  payload: { notes?: string },
-): Promise<{ request: AdminRequest }> {
-  return apiPost(`/api/v1/admin/requests/${id}/mark-printed-for-dg`, payload);
-}
-
-export function recordDgReturn(
-  id: string,
-  formData: FormData,
-): Promise<AdminRequestDetail> {
-  return apiPostForm(`/api/v1/admin/requests/${id}/record-dg-return`, formData);
-}
-
-export function openDossierDn(
-  id: string,
-  payload: { notes?: string },
-): Promise<{ request: AdminRequest; dossier: AdminDossier }> {
-  return apiPost(`/api/v1/admin/requests/${id}/open-dossier-dn`, payload);
-}
-
-export function sendToDg(
-  id: string,
-  payload: { notes?: string },
-): Promise<{ request: AdminRequest }> {
-  return apiPost(`/api/v1/admin/requests/${id}/send-to-dg`, payload);
-}
-
-export function downloadRequestOrientationDocument(
-  requestId: string,
-  documentId: string,
-): Promise<{ blob: Blob; fileName: string }> {
-  return apiGetBlob(
-    `/api/v1/admin/requests/${encodeURIComponent(requestId)}/documents/${encodeURIComponent(documentId)}`,
-  );
-}
+};

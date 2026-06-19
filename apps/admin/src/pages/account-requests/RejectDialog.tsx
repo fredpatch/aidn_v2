@@ -4,7 +4,7 @@ import { XCircle } from 'lucide-react';
 import {
   rejectAccountRequest,
   type AccountRequestListItem,
-} from '../../lib/api/account-requests.api';
+} from '../../lib/api/account-requests';
 import { isMockMode } from '../../lib/data/data-mode';
 
 export function RejectDialog({

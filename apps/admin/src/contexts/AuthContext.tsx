@@ -8,7 +8,7 @@ import {
   loginInternal,
   logoutAdmin,
   type AuthUser,
-} from '../lib/api/auth.api';
+} from '../lib/api/auth';
 
 export type { AuthUser };
 

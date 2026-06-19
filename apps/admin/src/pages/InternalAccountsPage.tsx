@@ -1,6 +1,6 @@
 import { useEffect, useState, type ComponentType, type FormEvent, type ReactNode } from 'react';
 import { CalendarCheck, Clock, Hash, ShieldCheck, UserCog, UserRound } from 'lucide-react';
-import { listInternalAccounts, type InternalAccount } from '../lib/api/admin.api';
+import { listInternalAccounts, type InternalAccount } from '../lib/api/admin';
 import { Badge } from '../components/ui/badge';
 import {
   Table,

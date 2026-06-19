@@ -9,7 +9,7 @@ import type {
   AdminFormalRequestRequirement,
   AdminOmaPhase,
   FormalSubmissionStatus,
-} from "@/lib/api/dossiers.api";
+} from "@/lib/api/dossiers";
 import { hasPermission } from "@/lib/auth/permissions";
 import {
   ActionError,

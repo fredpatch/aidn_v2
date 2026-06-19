@@ -2,7 +2,7 @@ import { FileCheck2 } from 'lucide-react';
 import { useState } from 'react';
 
 import { isMockMode } from '../../lib/data/data-mode';
-import { recordDgReturn, type AdminRequest } from '../../lib/api/requests.api';
+import { recordDgReturn, type AdminRequest } from '../../lib/api/requests';
 
 export function DgReturnDialog({
   request,

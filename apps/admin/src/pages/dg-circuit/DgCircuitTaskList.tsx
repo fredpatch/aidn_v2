@@ -1,5 +1,5 @@
 import { EmptyState, SkeletonCard } from "@/components/states";
-import type { DgCircuitTask } from "@/lib/api/dg-circuit.api";
+import type { DgCircuitTask } from "@/lib/api/dg-circuit";
 
 import { CourrierTaskRow } from "./CourrierTaskRow";
 

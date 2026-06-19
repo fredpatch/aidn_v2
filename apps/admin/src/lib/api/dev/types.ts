@@ -1,5 +1,3 @@
-import { apiPost } from './client';
-
 export type ResetTestDataPayload = {
   confirmation: string;
   deleteUploadedFiles?: boolean;
@@ -12,7 +10,3 @@ export type ResetTestDataResult = {
   counts: Record<string, number>;
   deletedFiles: number;
 };
-
-export function resetTestData(payload: ResetTestDataPayload): Promise<ResetTestDataResult> {
-  return apiPost<ResetTestDataResult>('/api/v1/admin/dev/reset-test-data', payload);
-}

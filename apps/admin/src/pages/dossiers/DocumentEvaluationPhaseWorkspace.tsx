@@ -12,7 +12,7 @@ import {
   type AdminDocumentEvaluationPaymentState,
   type AdminDocumentEvaluationState,
   type AdminOmaPhase,
-} from "@/lib/api/dossiers.api";
+} from "@/lib/api/dossiers";
 import { hasPermission } from "@/lib/auth/permissions";
 import { openBlobInNewTab } from "@/lib/utils/blob";
 import { extractError } from "@/lib/utils/error";

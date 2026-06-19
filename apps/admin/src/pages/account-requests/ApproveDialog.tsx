@@ -7,7 +7,7 @@ import {
   type AccountRequestListItem,
   type MemberRole,
   type PostulantOrganization,
-} from "../../lib/api/account-requests.api";
+} from "../../lib/api/account-requests";
 import { Button } from "../../components/ui/button";
 import {
   Card,

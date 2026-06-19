@@ -1,7 +1,7 @@
 import type React from "react";
 import { CheckCircle2, Clock, FileCheck2, Printer } from "lucide-react";
 
-import type { DgCircuitBucket } from "@/lib/api/dg-circuit.api";
+import type { DgCircuitBucket } from "@/lib/api/dg-circuit";
 
 import type { DgCircuitTaskCounts } from "./types";
 

@@ -9,7 +9,7 @@ import { ApiError } from "@/lib/api/client";
 import {
   listDgCircuitTasks,
   type DgCircuitTask,
-} from "@/lib/api/dg-circuit.api";
+} from "@/lib/api/dg-circuit";
 
 const sourceLabels: Record<string, string> = {
   initial_request: "Demande initiale",

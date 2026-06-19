@@ -26,12 +26,12 @@ import { Label } from "@/components/ui/label";
 import { useTheme, type Palette, type Theme } from "@/contexts/ThemeContext";
 import { useAuth } from "../hooks/useAuth";
 import { hasPermission } from "../lib/auth/permissions";
-import { resetTestData, type ResetTestDataResult } from "../lib/api/dev.api";
+import { resetTestData, type ResetTestDataResult } from "../lib/api/dev";
 import {
   listDocumentTemplates,
   uploadDocumentTemplate,
   type DocumentTemplate,
-} from "../lib/api/document-templates.api";
+} from "../lib/api/document-templates";
 import { cn } from "@/lib/utils";
 
 type EnvBadgeVariant = "default" | "secondary" | "outline" | "destructive";

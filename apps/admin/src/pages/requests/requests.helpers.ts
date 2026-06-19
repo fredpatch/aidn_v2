@@ -5,7 +5,7 @@ import type {
   AdminRequestStatus,
   AdminRequestType,
   CourrierSource,
-} from '../../lib/api/requests.api';
+} from '../../lib/api/requests';
 
 export const requestTypeLabels: Record<AdminRequestType, string> = {
   oma_recognition: 'Certificat de reconnaissance OMA',

@@ -153,7 +153,15 @@ Keep `DgCircuitPage.tsx` as the orchestrator:
 
 ## Query and API Plan
 
-Add query hooks under `apps/admin/src/lib/query` or the existing admin query convention if one is introduced:
+Before introducing Query deeper into the workflow, split the admin API layer using the portal pattern:
+
+- Move domain API modules from flat `*.api.ts` files into folders with `index.ts`, `types.ts`, and `utils.ts` where useful.
+- Keep the existing `*.api.ts` files as compatibility barrels during migration so page imports can move gradually.
+- Start with `dg-circuit` because it is the active workflow and has the freshest test coverage from the refactor.
+- Preserve current request helper signatures while replacing the `fetch` implementation with Axios later. This limits blast radius because callers can keep using `apiGet`, `apiPost`, `apiPostForm`, `apiPatch`, `apiDelete`, and `apiGetBlob`.
+- Keep downloads imperative for now; React Query should own workflow data and mutations, not cached blob URLs.
+
+Add query hooks using the existing admin convention from `features/*/hooks` unless a shared query folder becomes necessary:
 
 - `useDgCircuitTasks(filters)`
 - `useDownloadDgCircuitTaskDocument()`
@@ -296,9 +304,50 @@ Risk: medium to high. File inputs and source-specific `FormData` fields are frag
 
 ### Step 6 - Introduce Query Hooks
 
-Status: Not started.
+Status: Started.
 
-Move loading/mutation state to query hooks after the component split is stable.
+First split the DG circuit API module, then move loading/mutation state to query hooks after the component split is stable.
+
+API split sequence:
+
+- Create `apps/admin/src/lib/api/dg-circuit/types.ts`.
+- Create `apps/admin/src/lib/api/dg-circuit/utils.ts` for query string/path helpers.
+- Create `apps/admin/src/lib/api/dg-circuit/index.ts` for exported request functions.
+- Keep `apps/admin/src/lib/api/dg-circuit.api.ts` as a compatibility barrel.
+- After the DG circuit split is verified, repeat the pattern for `admin.api.ts`, `requests.api.ts`, and `dossiers.api.ts`.
+- Once the domain split is stable, install/add Axios in admin and rewrite only the low-level API client internals while preserving exported helper names.
+
+Progress:
+
+- Started on 2026-06-19:
+  - Added `apps/admin/src/lib/api/dg-circuit/types.ts`.
+  - Added `apps/admin/src/lib/api/dg-circuit/utils.ts`.
+  - Added `apps/admin/src/lib/api/dg-circuit/index.ts`.
+  - Converted `apps/admin/src/lib/api/dg-circuit.api.ts` into a compatibility barrel.
+  - Added `apps/admin/src/lib/query/client/query-client.ts`.
+  - Added `apps/admin/src/lib/query/keys/dg-circuit.keys.ts`.
+  - Added `apps/admin/src/lib/query/queries/dg-circuit.queries.ts`.
+  - Added query barrels under `apps/admin/src/lib/query`.
+  - Added `apps/admin/src/lib/api/dg-circuit/workflow.ts` for source-specific DG circuit mutation adapters.
+  - Moved `DgCircuitPage` list loading from manual `useEffect` API calls to `useDgCircuitTasks`.
+  - Added mutation hooks for marking a task in DG circuit, recording a signed DG document, and recording a physical receipt.
+  - Mutating DG circuit actions now invalidate `dgCircuitKeys.lists()` through query hooks instead of manually fetching the task list.
+  - `apps/admin/src/pages/dg-circuit/actions.ts` now keeps browser preview helpers only.
+  - Installed `axios` in `apps/admin`.
+  - Replaced the `fetch` implementation in `apps/admin/src/lib/api/client.ts` with an Axios client while preserving `apiGet`, `apiGetBlob`, `apiPost`, `apiPostForm`, `apiPatch`, `apiDelete`, and `ApiError`.
+  - Added `apps/admin/src/lib/api/requests/types.ts`.
+  - Added `apps/admin/src/lib/api/requests/utils.ts`.
+  - Added `apps/admin/src/lib/api/requests/index.ts`.
+  - Converted `apps/admin/src/lib/api/requests.api.ts` into a compatibility barrel.
+  - Added `apps/admin/src/lib/api/dossiers/types.ts`.
+  - Added `apps/admin/src/lib/api/dossiers/utils.ts`.
+  - Added `apps/admin/src/lib/api/dossiers/index.ts`.
+  - Converted `apps/admin/src/lib/api/dossiers.api.ts` into a compatibility barrel.
+  - Split the remaining admin API domains into folder modules with compatibility barrels:
+    `account-requests`, `admin`, `auth`, `dashboard`, `dev`, `document-templates`, and `payments`.
+  - Repointed admin app imports from `*.api.ts` barrels to the new domain folders.
+  - Removed the temporary compatibility barrels for admin API domains.
+  - Verified with `npm run build` in `apps/admin`.
 
 The selected task should be preserved by ID after refetch. If the selected task disappears because it changed bucket, select the next actionable task or show a calm "processed" empty state.
 

@@ -1,6 +1,6 @@
 import { CheckCircle2, Circle, MoveRight } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { AdminFormalRequestPhaseState } from "@/lib/api/dossiers.api";
+import type { AdminFormalRequestPhaseState } from "@/lib/api/dossiers";
 import {
   getFormalRequestProgress,
   type FormalRequestStep,

@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { itemsApi } from '../api/items.api';
+import { itemsApi } from '../api';
 
 export function useCreateItem() {
   const queryClient = useQueryClient();

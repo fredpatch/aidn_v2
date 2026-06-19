@@ -24,7 +24,7 @@ import {
   listRequests,
   type AdminRequest,
   type AdminRequestDetail,
-} from '../lib/api/requests.api';
+} from '../lib/api/requests';
 
 import { SplitView } from '../components/ui/split-view';
 import { ActionDialog, type ActionDialogState } from './requests/ActionDialog';

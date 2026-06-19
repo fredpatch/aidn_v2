@@ -1,4 +1,4 @@
-import type { DgCircuitTask } from "@/lib/api/dg-circuit.api";
+import type { DgCircuitTask } from "@/lib/api/dg-circuit";
 
 import { formatDate } from "./formatters";
 

@@ -1,5 +1,3 @@
-import { apiGet, apiPost } from './client';
-
 export type AccountRequestStatus =
   | 'submitted'
   | 'under_review'
@@ -91,62 +89,14 @@ export type RejectAccountRequestResponse = {
   };
 };
 
-export function listAccountRequests(paramsInput: {
+export type ListAccountRequestsParams = {
   status?: string;
   search?: string;
   from?: string;
   to?: string;
-}): Promise<{ items: AccountRequestListItem[] }> {
-  const params = new URLSearchParams();
-  if (paramsInput.status) params.set('status', paramsInput.status);
-  if (paramsInput.search) params.set('search', paramsInput.search);
-  if (paramsInput.from) params.set('from', paramsInput.from);
-  if (paramsInput.to) params.set('to', paramsInput.to);
-  const query = params.toString();
+};
 
-  return apiGet<{ items: AccountRequestListItem[] }>(
-    `/api/v1/admin/account-requests${query ? `?${query}` : ''}`,
-  );
-}
-
-export function getAccountRequest(
-  id: string,
-): Promise<{ request: AccountRequestListItem }> {
-  return apiGet<{ request: AccountRequestListItem }>(
-    `/api/v1/admin/account-requests/${id}`,
-  );
-}
-
-export function approveAccountRequest(
-  id: string,
-  payload: ApproveAccountRequestPayload,
-): Promise<ApproveAccountRequestResponse> {
-  return apiPost<ApproveAccountRequestResponse>(
-    `/api/v1/admin/account-requests/${id}/approve`,
-    payload,
-  );
-}
-
-export function rejectAccountRequest(
-  id: string,
-  payload: { reason: string },
-): Promise<RejectAccountRequestResponse> {
-  return apiPost<RejectAccountRequestResponse>(
-    `/api/v1/admin/account-requests/${id}/reject`,
-    payload,
-  );
-}
-
-export function listPostulantOrganizations(paramsInput: {
+export type ListPostulantOrganizationsParams = {
   search?: string;
   status?: string;
-}): Promise<{ items: PostulantOrganization[] }> {
-  const params = new URLSearchParams();
-  if (paramsInput.search) params.set('search', paramsInput.search);
-  if (paramsInput.status) params.set('status', paramsInput.status);
-  const query = params.toString();
-
-  return apiGet<{ items: PostulantOrganization[] }>(
-    `/api/v1/admin/organizations${query ? `?${query}` : ''}`,
-  );
-}
+};

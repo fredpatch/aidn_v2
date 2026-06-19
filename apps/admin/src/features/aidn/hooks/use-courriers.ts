@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { aidnApi } from '../api/aidn.api';
+import { aidnApi } from '../api';
 
 export function useCourriers() {
   return useQuery({

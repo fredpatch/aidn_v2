@@ -2,7 +2,7 @@ import { Search } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import type { DgCircuitBucket } from "@/lib/api/dg-circuit.api";
+import type { DgCircuitBucket } from "@/lib/api/dg-circuit";
 
 import { bucketTabs } from "./constants";
 import type { DgCircuitTaskCounts } from "./types";

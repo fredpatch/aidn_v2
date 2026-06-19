@@ -3,7 +3,7 @@ import type {
   DossierType,
   OmaPhaseKey,
   PreliminaryStatus,
-} from "@/lib/api/dossiers.api";
+} from "@/lib/api/dossiers";
 
 export const dossierTypeLabels: Record<DossierType, string> = {
   oma_recognition: "Certificat de reconnaissance OMA",

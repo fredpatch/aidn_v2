@@ -2,7 +2,7 @@ import { FileCheck2 } from 'lucide-react';
 import { useState } from 'react';
 
 import { isMockMode } from '../../lib/data/data-mode';
-import { registerPhysicalCourrier, type AdminRequest } from '../../lib/api/requests.api';
+import { registerPhysicalCourrier, type AdminRequest } from '../../lib/api/requests';
 
 export function RegisterPhysicalDialog({
   request,

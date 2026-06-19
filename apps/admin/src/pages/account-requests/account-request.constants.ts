@@ -2,7 +2,7 @@ import type {
   AccountRequestListItem,
   AccountRequestStatus,
   MemberRole,
-} from '../../lib/api/account-requests.api';
+} from '../../lib/api/account-requests';
 
 export const statusLabels: Record<AccountRequestStatus, string> = {
   submitted: 'Soumise',

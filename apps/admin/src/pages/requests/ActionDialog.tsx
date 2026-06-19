@@ -7,7 +7,7 @@ import {
   openDossierDn,
   requestCorrection,
   type AdminRequest,
-} from '../../lib/api/requests.api';
+} from '../../lib/api/requests';
 import { optional } from './requests.helpers';
 
 export type ActionDialogState = {

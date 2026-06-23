@@ -22,25 +22,22 @@ import {
   type PortalRequestType,
 } from "../lib/api/requests";
 import { portalRoutes } from "../lib/routes";
-import { getErrorMessage } from "./request-detail/helpers";
-import { RequestActionsTab } from "./request-detail/RequestActionsTab";
-import { RequestCourrierTab } from "./request-detail/RequestCourrierTab";
-import { RequestDetailHeader } from "./request-detail/RequestDetailHeader";
 import {
+  getErrorMessage,
+  RequestActionsTab,
+  RequestCourrierTab,
+  RequestDetailHeader,
   RequestDossierTab,
-  type DossierSubTab,
-} from "./request-detail/RequestDossierTab";
-import { RequestHistoryTab } from "./request-detail/RequestHistoryTab";
-import {
+  RequestHistoryTab,
   RequestSummaryTab,
+  RequestWorkflowTabs,
+  shouldShowActionRequired,
+  type CourrierMode,
+  type RequestDetail,
+  type RequestDetailTab,
   type RequestSummaryFormValues,
-} from "./request-detail/RequestSummaryTab";
-import { RequestWorkflowTabs } from "./request-detail/RequestWorkflowTabs";
-import type {
-  CourrierMode,
-  RequestDetail,
-  RequestDetailTab,
-} from "./request-detail/types";
+} from "./request-detail";
+import type { DossierSubTab } from "./request-detail/RequestDossierTab";
 
 const subjectRequiredMessage =
   "Objet de la demande requis, minimum 3 caractères.";
@@ -77,8 +74,7 @@ export function RequestDetailPage(): React.JSX.Element {
   const [dossierLoading, setDossierLoading] = useState(false);
   const [dossierError, setDossierError] = useState("");
   const [downloadError, setDownloadError] = useState("");
-  const [dossierSubTab, setDossierSubTab] =
-    useState<DossierSubTab>("phase1");
+  const [dossierSubTab, setDossierSubTab] = useState<DossierSubTab>("phase1");
 
   const preEvalFileRef = useRef<HTMLInputElement>(null);
   const formalRequestFileRef = useRef<HTMLInputElement>(null);
@@ -116,11 +112,7 @@ export function RequestDetailPage(): React.JSX.Element {
           requirement.status === "rejected"),
     ) ?? false;
 
-  const hasActionRequired =
-    request?.status === "intake_requires_correction" ||
-    dossierDetail?.preliminary.canSubmitForm === true ||
-    dossierDetail?.formalRequest?.canUploadFormalRequestCourrier === true ||
-    hasFormalDocRequired;
+  const hasActionRequired = shouldShowActionRequired(request, dossierDetail);
 
   const loadDossier = useCallback(async (dossierId: string) => {
     setDossierLoading(true);
@@ -303,7 +295,9 @@ export function RequestDetailPage(): React.JSX.Element {
     }
   };
 
-  const handleFormalRequestUpload = async (event: FormEvent<HTMLFormElement>) => {
+  const handleFormalRequestUpload = async (
+    event: FormEvent<HTMLFormElement>,
+  ) => {
     event.preventDefault();
     const file = formalRequestFileRef.current?.files?.[0];
     if (!file || !request?.dossierId) {
@@ -435,7 +429,7 @@ export function RequestDetailPage(): React.JSX.Element {
 
   return (
     <section className="flex flex-col gap-6">
-      <RequestDetailHeader request={request} backTo={portalRoutes.requests} />
+      <RequestDetailHeader request={request} dossierDetail={dossierDetail} backTo={portalRoutes.requests} />
 
       {error ? (
         <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">

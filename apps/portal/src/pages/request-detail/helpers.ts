@@ -1,6 +1,10 @@
 import type { PortalDossierDetail } from "../../lib/api/dossiers";
 import { PortalApiError } from "../../lib/api/http";
 import type { PortalRequest } from "../../lib/api/requests";
+import {
+  getPreliminaryStatusLabel,
+  isPreliminaryWaiting,
+} from "./status.helpers";
 import type { ProcessStep } from "./types";
 
 export function getErrorMessage(caught: unknown): string {
@@ -25,6 +29,7 @@ export function buildProcessSteps(
     dossierStatus,
   );
   const phase3Active = dossierStatus === "document_evaluation_phase";
+  const prelimWaiting = isPreliminaryWaiting(dossierDetail?.preliminary);
 
   return [
     {
@@ -46,13 +51,19 @@ export function buildProcessSteps(
     {
       id: "preliminaire",
       label: "Phase préliminaire",
-      subtitle: prelimClosed ? "Phase préliminaire clôturée." : undefined,
+      subtitle: prelimClosed
+        ? "Phase préliminaire clôturée."
+        : prelimWaiting && hasDossier
+          ? getPreliminaryStatusLabel(dossierDetail?.preliminary.status ?? null)
+          : undefined,
       state: prelimClosed ? "done" : hasDossier ? "active" : "locked",
     },
     {
       id: "formelle",
       label: "Phase de demande formelle",
-      subtitle: formalClosed ? "Phase de demande formelle clôturée." : undefined,
+      subtitle: formalClosed
+        ? "Phase de demande formelle clôturée."
+        : undefined,
       state: formalClosed ? "done" : prelimClosed ? "active" : "locked",
     },
     {

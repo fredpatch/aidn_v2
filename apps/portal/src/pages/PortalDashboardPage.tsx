@@ -2,7 +2,7 @@ import {
   ArrowRight,
   Bell,
   CalendarDays,
-  CheckCircle2,
+  Clock,
   ClipboardList,
   ListChecks,
 } from "lucide-react";
@@ -36,6 +36,7 @@ function deriveStats(
     actionsRequises: requests.filter(
       (r) => r.status === "intake_requires_correction",
     ).length,
+    enCours: requests.filter((r) => r.status === "dossier_opened").length,
     notifications: unreadCount,
     nextMeetingLabel: nextMeeting?.scheduledAt
       ? new Intl.DateTimeFormat("fr-FR", {
@@ -75,6 +76,13 @@ function buildCards(stats: Stats): KpiCard[] {
       icon: ListChecks,
       to: portalRoutes.requests,
       urgent: stats.actionsRequises > 0,
+    },
+    {
+      title: "En cours de traitement",
+      value: stats.enCours,
+      icon: Clock,
+      to: portalRoutes.requests,
+      attention: stats.enCours > 0,
     },
     {
       title: "Notifications non lues",
@@ -123,7 +131,7 @@ export function PortalDashboardPage(): React.JSX.Element {
       </div>
 
       {/* KPI grid */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         {cards.map((card) => {
           const Icon = card.icon;
           return (
@@ -214,23 +222,23 @@ export function PortalDashboardPage(): React.JSX.Element {
           </Link>
         </div>
       ) : stats.lastActiveRequest ? (
-        <div className="flex items-start gap-4 rounded-xl border border-slate-200 bg-slate-50 p-5">
-          <CheckCircle2
+        <div className="flex items-start gap-4 rounded-xl border border-sky-200 bg-sky-50 p-5">
+          <Clock
             size={20}
-            className="mt-0.5 flex-shrink-0 text-emerald-500"
+            className="mt-0.5 flex-shrink-0 text-sky-600"
             aria-hidden="true"
           />
           <div className="min-w-0 flex-1">
-            <p className="font-semibold text-slate-800">
-              Aucune action requise pour le moment
+            <p className="font-semibold text-sky-900">
+              Votre demande est en cours de traitement
             </p>
-            <p className="mt-0.5 truncate text-sm text-slate-500">
+            <p className="mt-0.5 truncate text-sm text-sky-700">
               {stats.lastActiveRequest.portalStatusLabel}
             </p>
           </div>
           <Link
             to={portalRoutes.requests}
-            className="btn btn-secondary flex-shrink-0"
+            className="btn btn-secondary flex-shrink-0 border-sky-300 bg-white text-sky-800 hover:bg-sky-100"
           >
             Voir ma demande
           </Link>

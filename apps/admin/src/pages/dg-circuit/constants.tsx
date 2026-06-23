@@ -85,3 +85,14 @@ export const bucketStyle: Record<
       "bg-emerald-100 text-emerald-900 border-emerald-300 hover:bg-emerald-200",
   },
 };
+
+export const timelineStepStyles = {
+  completed: {
+    indicator: "border-emerald-500 bg-emerald-500",
+    label: "text-slate-900 dark:text-white font-medium",
+  },
+  pending: {
+    indicator: "border-slate-300 bg-white dark:bg-slate-950",
+    label: "text-slate-400 dark:text-slate-500 font-medium",
+  },
+};

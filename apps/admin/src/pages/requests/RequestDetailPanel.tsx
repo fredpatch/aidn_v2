@@ -3,27 +3,37 @@ import {
   ExternalLink,
   FolderOpen,
   MessageSquareWarning,
-} from 'lucide-react';
+} from "lucide-react";
 
-import { Badge } from '../../components/ui/badge';
-import { Card, CardContent, CardFooter, CardHeader } from '../../components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
-import type { AdminRequest, AdminRequestDetail } from '../../lib/api/requests';
-import { DetailField } from './DetailField';
-import type { ActionDialogState } from './ActionDialog';
+import { Badge } from "../../components/ui/badge";
+import { Button } from "../../components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardFooter,
+  CardHeader,
+} from "../../components/ui/card";
+import { Separator } from "../../components/ui/separator";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "../../components/ui/tabs";
+import type { AdminRequest, AdminRequestDetail } from "../../lib/api/requests";
+import { DetailField } from "./DetailField";
+import type { ActionDialogState } from "./ActionDialog";
+import { requestTypeLabels, sourceLabels } from "./requests.constants";
 import {
   canMarkPrinted,
   canOpenDossier,
   canRecordDgReturn,
   canRegisterPhysical,
   canRequestCorrection,
-  documentSummary,
-  formatDate,
   getStatusLabel,
-  requestTypeLabels,
-  sourceLabels,
   statusBadgeVariant,
-} from './requests.helpers';
+} from "./requests.helpers";
+import { documentSummary, formatDate } from "./requests.utils";
 
 export type RequestPagePermissions = {
   canReview: boolean;
@@ -41,16 +51,21 @@ export function RequestDetailPanel({
   detail: AdminRequestDetail | null;
   permissions: RequestPagePermissions;
   onConsultOrientationCourrier: (requestId: string, documentId: string) => void;
-  onOpenDgCircuit: (request: AdminRequest, bucket: 'to_transmit' | 'awaiting_return') => void;
+  onOpenDgCircuit: (
+    request: AdminRequest,
+    bucket: "to_transmit" | "awaiting_return",
+  ) => void;
   onSetDialog: (dialog: ActionDialogState) => void;
 }) {
   const { request, courrier, document: doc, dgReview } = detail ?? {};
 
   if (!request) {
     return (
-      <div className="mt-4 flex items-center justify-center rounded-md border border-dashed p-8 text-sm text-muted-foreground lg:mt-0">
-        Selectionnez une demande dans la liste pour voir les details.
-      </div>
+      <Card className="mt-4 flex items-center justify-center lg:mt-0">
+        <CardContent className="py-8 text-center text-sm text-muted-foreground">
+          Sélectionnez une demande dans la liste pour voir les détails.
+        </CardContent>
+      </Card>
     );
   }
 
@@ -58,7 +73,9 @@ export function RequestDetailPanel({
     <Card className="mt-4 lg:mt-0">
       <CardHeader className="px-4 pb-3 pt-4">
         <div className="flex flex-wrap items-center gap-1.5">
-          <Badge variant={statusBadgeVariant(request.status)}>{getStatusLabel(request)}</Badge>
+          <Badge variant={statusBadgeVariant(request.status)}>
+            {getStatusLabel(request)}
+          </Badge>
           {canOpenDossier(request, dgReview) ? (
             <Badge
               variant="outline"
@@ -77,7 +94,7 @@ export function RequestDetailPanel({
             {request.organization?.canonicalName ?? request.organizationId}
           </p>
           <p className="text-xs text-muted-foreground">
-            {request.submittedBy?.fullName ?? request.submittedBy?.email ?? '-'}
+            {request.submittedBy?.fullName ?? request.submittedBy?.email ?? "-"}
             {request.courrierSource ? (
               <span className="ml-2 text-slate-400">
                 - {sourceLabels[request.courrierSource]}
@@ -103,7 +120,7 @@ export function RequestDetailPanel({
               Courrier
             </TabsTrigger>
             <TabsTrigger value="verification" className="px-2.5 py-1 text-xs">
-              Verification interne
+              Vérification interne
             </TabsTrigger>
             <TabsTrigger value="orientation" className="px-2.5 py-1 text-xs">
               Signature DG
@@ -112,12 +129,29 @@ export function RequestDetailPanel({
 
           <TabsContent value="demande">
             <dl className="grid gap-3 pt-3 sm:grid-cols-2">
-              <DetailField label="Type" value={requestTypeLabels[request.requestType]} />
+              <DetailField
+                label="Type"
+                value={requestTypeLabels[request.requestType]}
+              />
               <DetailField label="Statut" value={getStatusLabel(request)} />
-              <DetailField label="Creation" value={formatDate(request.createdAt)} />
-              <DetailField label="Soumission" value={formatDate(request.submittedAt)} />
-              <DetailField label="Objet" value={request.subject} className="sm:col-span-2" />
-              <DetailField label="Message" value={request.message} className="sm:col-span-2" />
+              <DetailField
+                label="Création"
+                value={formatDate(request.createdAt)}
+              />
+              <DetailField
+                label="Soumission"
+                value={formatDate(request.submittedAt)}
+              />
+              <DetailField
+                label="Objet"
+                value={request.subject}
+                className="sm:col-span-2"
+              />
+              <DetailField
+                label="Message"
+                value={request.message}
+                className="sm:col-span-2"
+              />
             </dl>
           </TabsContent>
 
@@ -125,7 +159,10 @@ export function RequestDetailPanel({
             <dl className="grid gap-3 pt-3 sm:grid-cols-2">
               <DetailField label="Nom" value={request.submittedBy?.fullName} />
               <DetailField label="Email" value={request.submittedBy?.email} />
-              <DetailField label="Telephone" value={request.submittedBy?.phone} />
+              <DetailField
+                label="Téléphone"
+                value={request.submittedBy?.phone}
+              />
             </dl>
           </TabsContent>
 
@@ -137,9 +174,12 @@ export function RequestDetailPanel({
                 className="sm:col-span-2"
               />
               <DetailField label="Email" value={request.organization?.email} />
-              <DetailField label="Telephone" value={request.organization?.phone} />
               <DetailField
-                label="Adresse legale"
+                label="Téléphone"
+                value={request.organization?.phone}
+              />
+              <DetailField
+                label="Adresse légale"
                 value={request.organization?.legalAddress}
                 className="sm:col-span-2"
               />
@@ -159,15 +199,19 @@ export function RequestDetailPanel({
                 }
               />
               <DetailField label="Document" value={documentSummary(doc)} />
-              <DetailField label="Reference officielle" value={courrier?.officialReference} />
               <DetailField
-                label="Date depot physique reel"
+                label="Référence officielle"
+                value={courrier?.officialReference}
+              />
+              <DetailField
+                label="Date dépôt physique réel"
                 value={formatDate(
-                  courrier?.physicalDepositDate ?? request.physicalDeposit?.physicalDepositDate,
+                  courrier?.physicalDepositDate ??
+                    request.physicalDeposit?.physicalDepositDate,
                 )}
               />
               <DetailField
-                label="Date prevue depot"
+                label="Date prévue dépôt"
                 value={formatDate(request.physicalDeposit?.expectedDepositDate)}
               />
               <DetailField
@@ -180,13 +224,19 @@ export function RequestDetailPanel({
 
           <TabsContent value="verification">
             <dl className="grid gap-3 pt-3 sm:grid-cols-2">
-              <DetailField label="Demarree le" value={formatDate(request.intake?.startedAt)} />
               <DetailField
-                label="Demarree par"
-                value={request.intake?.startedBy?.fullName ?? request.intake?.startedById}
+                label="Démarrée le"
+                value={formatDate(request.intake?.startedAt)}
               />
               <DetailField
-                label="Correction demandee le"
+                label="Démarrée par"
+                value={
+                  request.intake?.startedBy?.fullName ??
+                  request.intake?.startedById
+                }
+              />
+              <DetailField
+                label="Correction demandée le"
                 value={formatDate(request.intake?.correctionRequestedAt)}
               />
               <DetailField
@@ -194,31 +244,46 @@ export function RequestDetailPanel({
                 value={request.intake?.correctionReason}
                 className="sm:col-span-2"
               />
-              <DetailField label="Imprime le" value={formatDate(request.intake?.printedForDgAt)} />
               <DetailField
-                label="Imprime par"
-                value={request.intake?.printedForDgBy?.fullName ?? request.intake?.printedForDgById}
+                label="Imprimé le"
+                value={formatDate(request.intake?.printedForDgAt)}
+              />
+              <DetailField
+                label="Imprimé par"
+                value={
+                  request.intake?.printedForDgBy?.fullName ??
+                  request.intake?.printedForDgById
+                }
               />
               <DetailField
                 label="Circuit DG depuis"
-                value={formatDate(request.intake?.sentToDgAt ?? request.intake?.printedForDgAt)}
+                value={formatDate(
+                  request.intake?.sentToDgAt ?? request.intake?.printedForDgAt,
+                )}
               />
-              <DetailField label="Notes" value={request.intake?.notes} className="sm:col-span-2" />
+              <DetailField
+                label="Notes"
+                value={request.intake?.notes}
+                className="sm:col-span-2"
+              />
             </dl>
           </TabsContent>
 
           <TabsContent value="orientation">
             <dl className="grid gap-3 pt-3 sm:grid-cols-2">
-              <DetailField label="Date retour" value={formatDate(dgReview?.returnedFromDgAt)} />
+              <DetailField
+                label="Date retour"
+                value={formatDate(dgReview?.returnedFromDgAt)}
+              />
               <div className="sm:col-span-2">
                 <dt className="text-xs font-medium text-muted-foreground">
-                  Courrier DG signe
+                  Courrier DG signé
                 </dt>
                 {dgReview?.returnedScannedDocumentId ? (
                   <dd className="mt-1 flex flex-col gap-1.5">
-                    <button
-                      type="button"
-                      className="btn btn-secondary inline-flex w-fit items-center gap-1.5 text-xs"
+                    <Button
+                      variant="outline"
+                      size="sm"
                       onClick={() =>
                         onConsultOrientationCourrier(
                           request.id,
@@ -226,18 +291,22 @@ export function RequestDetailPanel({
                         )
                       }
                     >
-                      <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
-                      Consulter le courrier DG signe
-                    </button>
+                      <ExternalLink
+                        className="mr-1.5 h-4 w-4"
+                        aria-hidden="true"
+                      />
+                      Consulter le courrier DG signé
+                    </Button>
                     {canOpenDossier(request, dgReview) && (
                       <p className="text-xs text-muted-foreground">
-                        Consultation facultative avant demarrage de la phase preliminaire.
+                        Consultation facultative avant démarrage de la phase
+                        préliminaire.
                       </p>
                     )}
                   </dd>
                 ) : (
                   <dd className="mt-1 text-sm text-muted-foreground">
-                    Aucun courrier DG signe disponible.
+                    Aucun courrier DG signé disponible.
                   </dd>
                 )}
               </div>
@@ -246,56 +315,64 @@ export function RequestDetailPanel({
         </Tabs>
       </CardContent>
 
-      <CardFooter className="flex flex-wrap justify-end gap-2 px-4 pb-4 pt-4">
-        {permissions.canReview && canRequestCorrection(request) ? (
-          <button
-            className="btn btn-danger"
-            type="button"
-            onClick={() => onSetDialog({ kind: 'correction', request })}
-          >
-            <MessageSquareWarning className="h-4 w-4" aria-hidden="true" />
-            Demander correction
-          </button>
-        ) : null}
-        {permissions.canRegister && canRegisterPhysical(request) ? (
-          <button
-            className="btn btn-secondary"
-            type="button"
-            onClick={() => onOpenDgCircuit(request, 'to_transmit')}
-          >
-            <ExternalLink className="h-4 w-4" aria-hidden="true" />
-            Voir dans Courriers officiels
-          </button>
-        ) : null}
-        {permissions.canHandleDg && canMarkPrinted(request) ? (
-          <button
-            className="btn btn-secondary"
-            type="button"
-            onClick={() => onOpenDgCircuit(request, 'to_transmit')}
-          >
-            <ExternalLink className="h-4 w-4" aria-hidden="true" />
-            Voir dans Courriers officiels
-          </button>
-        ) : null}
-        {permissions.canHandleDg && canRecordDgReturn(request) ? (
-          <button
-            className="btn btn-primary"
-            type="button"
-            onClick={() => onOpenDgCircuit(request, 'awaiting_return')}
-          >
-            <ExternalLink className="h-4 w-4" aria-hidden="true" />
-            Voir dans Courriers officiels
-          </button>
-        ) : null}
+      <Separator />
+
+      <CardFooter className="flex flex-wrap justify-between gap-2 px-4 pb-4 pt-4">
+        <div className="flex flex-wrap gap-2">
+          {permissions.canReview && canRequestCorrection(request) ? (
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => onSetDialog({ kind: "correction", request })}
+            >
+              <MessageSquareWarning
+                className="mr-1.5 h-4 w-4"
+                aria-hidden="true"
+              />
+              Demander correction
+            </Button>
+          ) : null}
+          {permissions.canRegister && canRegisterPhysical(request) ? (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onOpenDgCircuit(request, "to_transmit")}
+            >
+              <ExternalLink className="mr-1.5 h-4 w-4" aria-hidden="true" />
+              Voir dans Courriers officiels
+            </Button>
+          ) : null}
+          {permissions.canHandleDg && canMarkPrinted(request) ? (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onOpenDgCircuit(request, "to_transmit")}
+            >
+              <ExternalLink className="mr-1.5 h-4 w-4" aria-hidden="true" />
+              Voir dans Courriers officiels
+            </Button>
+          ) : null}
+          {permissions.canHandleDg && canRecordDgReturn(request) ? (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onOpenDgCircuit(request, "awaiting_return")}
+            >
+              <ExternalLink className="mr-1.5 h-4 w-4" aria-hidden="true" />
+              Voir dans Courriers officiels
+            </Button>
+          ) : null}
+        </div>
+
         {permissions.canReview && canOpenDossier(request, dgReview) ? (
-          <button
-            className="btn btn-primary"
-            type="button"
-            onClick={() => onSetDialog({ kind: 'open_dossier', request })}
+          <Button
+            size="sm"
+            onClick={() => onSetDialog({ kind: "open_dossier", request })}
+            className="bg-emerald-600 hover:bg-emerald-700"
           >
-            <FolderOpen className="h-4 w-4" aria-hidden="true" />
-            Demarrer la phase preliminaire
-          </button>
+            <FolderOpen className="mr-1.5 h-4 w-4" aria-hidden="true" />
+            Démarrer la phase préliminaire
+          </Button>
         ) : null}
       </CardFooter>
     </Card>

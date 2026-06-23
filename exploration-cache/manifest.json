@@ -44,6 +44,17 @@
   "recentExplorationCacheUpdates": [
     {
       "date": "2026-06-23",
+      "phase": "ADMIN-DEMANDES-DN-PHASE-AUDIT",
+      "created": [
+        "exploration-cache/tasks/plan/2026-06-23-admin-demandes-dn-phase-audit.md"
+      ],
+      "updated": [
+        "exploration-cache/manifest.json"
+      ],
+      "notes": "Comprehensive audit of RequestsPage (Demandes section) where DN agent starts preliminary phase. Identified API layer inconsistencies (fetch vs axios), React Query gaps (no query hooks/invalidation), UI/UX issues (inconsistent shadcn hardening, tab overload, no visual prominence for primary action). Created 5-phase refactoring plan: Phase 1 (Fetch→Axios migration), Phase 2 (Query keys & hooks), Phase 3 (RequestsPage integration), Phase 4 (shadcn UI polish), Phase 5 (helpers extraction). Estimate: 13–19 hours. Includes risk mitigation, verification checklist, and inline implementation guidance."
+    },
+    {
+      "date": "2026-06-23",
       "phase": "OMA-PHASES-REPOSITORY-EXTRACTION",
       "created": [
         "apps/api/src/modules/oma-phases/repository/document-evaluation.repository.ts",

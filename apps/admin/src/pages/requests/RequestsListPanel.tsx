@@ -1,10 +1,19 @@
-import { Search } from 'lucide-react';
-import type { FormEvent } from 'react';
+import { Search } from "lucide-react";
+import type { FormEvent } from "react";
 
-import { EmptyState, SkeletonCard } from '../../components/states';
-import type { AdminRequest } from '../../lib/api/requests';
-import { RequestListCard } from './RequestListCard';
-import { requestTypeLabels, visibleStatusOptions } from './requests.helpers';
+import { Button } from "../../components/ui/button";
+import { Input } from "../../components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../../components/ui/select";
+import { EmptyState, SkeletonCard } from "../../components/states";
+import type { AdminRequest } from "../../lib/api/requests";
+import { RequestListCard } from "./RequestListCard";
+import { requestTypeLabels, visibleStatusOptions } from "./requests.constants";
 
 export function RequestsListPanel({
   courrierSource,
@@ -37,55 +46,60 @@ export function RequestsListPanel({
 }) {
   return (
     <div className="space-y-3">
-      <form className="space-y-2" onSubmit={onFilter}>
+      <form className="space-y-3" onSubmit={onFilter}>
         <div className="relative">
           <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-          <input
-            className="control pl-9"
+          <Input
             placeholder="Organisme, postulant, objet..."
             value={search}
             onChange={(event) => onSearchChange(event.target.value)}
+            className="pl-9"
           />
         </div>
         <div className="grid grid-cols-3 gap-2">
-          <select
-            className="control"
-            value={status}
-            onChange={(event) => onStatusChange(event.target.value)}
-          >
-            <option value="">Tous statuts</option>
-            {visibleStatusOptions.map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </select>
-          <select
-            className="control"
-            value={requestType}
-            onChange={(event) => onRequestTypeChange(event.target.value)}
-          >
-            <option value="">Tous types</option>
-            {Object.entries(requestTypeLabels).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </select>
-          <select
-            className="control"
-            value={courrierSource}
-            onChange={(event) => onCourrierSourceChange(event.target.value)}
-          >
-            <option value="">Toutes sources</option>
-            <option value="portal_upload">Portail</option>
-            <option value="physical_deposit">Physique</option>
-          </select>
+          <Select value={status} onValueChange={onStatusChange}>
+            <SelectTrigger>
+              <SelectValue placeholder="Tous statuts" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="">Tous statuts</SelectItem>
+              {visibleStatusOptions.map(([value, label]) => (
+                <SelectItem key={value} value={value}>
+                  {label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select value={requestType} onValueChange={onRequestTypeChange}>
+            <SelectTrigger>
+              <SelectValue placeholder="Tous types" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="">Tous types</SelectItem>
+              {Object.entries(requestTypeLabels).map(([value, label]) => (
+                <SelectItem key={value} value={value}>
+                  {label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select value={courrierSource} onValueChange={onCourrierSourceChange}>
+            <SelectTrigger>
+              <SelectValue placeholder="Toutes sources" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="">Toutes sources</SelectItem>
+              <SelectItem value="portal_upload">Portail</SelectItem>
+              <SelectItem value="physical_deposit">Physique</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
-        <button className="btn btn-primary w-full" type="submit" disabled={isLoading}>
-          <Search className="h-4 w-4" aria-hidden="true" />
+        <Button type="submit" disabled={isLoading} className="w-full">
+          <Search className="mr-1.5 h-4 w-4" aria-hidden="true" />
           Filtrer
-        </button>
+        </Button>
       </form>
 
       {isLoading ? (

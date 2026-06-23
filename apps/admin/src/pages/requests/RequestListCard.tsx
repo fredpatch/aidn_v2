@@ -1,12 +1,12 @@
-import { Badge } from '../../components/ui/badge';
-import type { AdminRequest } from '../../lib/api/requests';
+import { Badge } from "../../components/ui/badge";
+import type { AdminRequest } from "../../lib/api/requests";
+import { sourceLabels } from "./requests.constants";
 import {
-  formatDate,
   getStatusLabel,
   listCardAccentBorder,
-  sourceLabels,
   statusBadgeVariant,
-} from './requests.helpers';
+} from "./requests.helpers";
+import { formatDate } from "./requests.utils";
 
 export function RequestListCard({
   item,
@@ -23,12 +23,12 @@ export function RequestListCard({
       type="button"
       onClick={onClick}
       className={[
-        'w-full rounded-md border border-l-4 bg-background p-3 text-left transition-colors',
-        'hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+        "w-full rounded-md border border-l-4 bg-background p-3 text-left transition-colors",
+        "hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
         isSelected
-          ? 'border-primary ring-1 ring-primary'
+          ? "border-primary ring-1 ring-primary"
           : `border-slate-200 dark:border-slate-800 ${accentBorder}`,
-      ].join(' ')}
+      ].join(" ")}
     >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
@@ -36,7 +36,7 @@ export function RequestListCard({
             {item.organization?.canonicalName ?? item.organizationId}
           </p>
           <p className="truncate text-xs text-muted-foreground">
-            {item.submittedBy?.fullName ?? item.submittedBy?.email ?? '-'}
+            {item.submittedBy?.fullName ?? item.submittedBy?.email ?? "-"}
           </p>
           <p className="mt-1 truncate text-xs text-slate-600 dark:text-slate-300">
             {item.subject}

@@ -1,16 +1,26 @@
-import { FolderOpen, MessageSquareWarning } from 'lucide-react';
-import { useState } from 'react';
+import { AlertCircle, FolderOpen, MessageSquareWarning } from "lucide-react";
+import { useState } from "react";
 
-import { isMockMode } from '../../lib/data/data-mode';
+import { Alert, AlertDescription } from "../../components/ui/alert";
+import { Badge } from "../../components/ui/badge";
+import { Button } from "../../components/ui/button";
 import {
-  openDossierDn,
-  requestCorrection,
-  type AdminRequest,
-} from '../../lib/api/requests';
-import { optional } from './requests.helpers';
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "../../components/ui/dialog";
+import { Label } from "../../components/ui/label";
+import { Textarea } from "../../components/ui/textarea";
+import { useAppToast } from "../../hooks/useAppToast";
+import { isMockMode } from "../../lib/data/data-mode";
+import { useOpenDossierDn, useRequestCorrection } from "../../lib/query";
+import { type AdminRequest } from "../../lib/api/requests";
+import { optional } from "./requests.utils";
 
 export type ActionDialogState = {
-  kind: 'open_dossier' | 'correction';
+  kind: "open_dossier" | "correction";
   request: AdminRequest;
 };
 
@@ -18,106 +28,152 @@ export function ActionDialog({
   state,
   onClose,
   onDone,
-  onError,
 }: {
   state: ActionDialogState;
   onClose: () => void;
-  onDone: (id: string, message: string) => Promise<void>;
-  onError: (message: string) => void;
+  onDone: (id: string, message: string) => void;
 }) {
-  const [text, setText] = useState('');
-  const [localError, setLocalError] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [text, setText] = useState("");
+  const [localError, setLocalError] = useState("");
+  const toast = useAppToast();
+
+  const openDossierMutation = useOpenDossierDn();
+  const correctionMutation = useRequestCorrection();
 
   const copy = {
     open_dossier: {
-      title: 'Démarrer la phase préliminaire',
-      label: 'Notes',
-      button: 'Démarrer la phase préliminaire',
-      success: 'Phase préliminaire démarrée.',
+      title: "Démarrer la phase préliminaire",
+      description:
+        "Confirmer le démarrage de la phase préliminaire pour cette demande",
+      label: "Notes",
+      button: "Démarrer la phase préliminaire",
+      success: "Phase préliminaire démarrée.",
       icon: FolderOpen,
     },
     correction: {
-      title: 'Demander correction',
-      label: 'Motif',
-      button: 'Demander correction',
-      success: 'Correction demandée au postulant.',
+      title: "Demander correction",
+      description: "Indiquer le motif de correction à envoyer au postulant",
+      label: "Motif de correction",
+      button: "Demander correction",
+      success: "Correction demandée au postulant.",
       icon: MessageSquareWarning,
     },
   }[state.kind];
   const Icon = copy.icon;
 
-  const handleSubmit = async () => {
-    setLocalError('');
+  const isSubmitting =
+    openDossierMutation.isPending || correctionMutation.isPending;
 
-    if (state.kind === 'correction' && !text.trim()) {
-      setLocalError('Le motif est requis.');
+  const handleSubmit = async () => {
+    setLocalError("");
+
+    if (state.kind === "correction" && !text.trim()) {
+      setLocalError("Le motif est requis.");
       return;
     }
 
-    setIsSubmitting(true);
     try {
-      if (!isMockMode()) {
-        if (state.kind === 'open_dossier') {
-          await openDossierDn(state.request.id, { notes: optional(text) });
-        } else if (state.kind === 'correction') {
-          await requestCorrection(state.request.id, { reason: text.trim() });
-        }
+      if (isMockMode()) {
+        toast.success(copy.success);
+        onDone(state.request.id, copy.success);
+        return;
       }
-      await onDone(state.request.id, copy.success);
-    } catch {
-      onError('Action impossible sur cette demande.');
-    } finally {
-      setIsSubmitting(false);
+
+      if (state.kind === "open_dossier") {
+        await openDossierMutation.mutateAsync({
+          id: state.request.id,
+          payload: { notes: optional(text) },
+        });
+      } else if (state.kind === "correction") {
+        await correctionMutation.mutateAsync({
+          id: state.request.id,
+          payload: { reason: text.trim() },
+        });
+      }
+
+      toast.success(copy.success);
+      onDone(state.request.id, copy.success);
+    } catch (error) {
+      const errorMessage = "Action impossible sur cette demande.";
+      setLocalError(errorMessage);
+      toast.error(errorMessage);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-[60] grid place-items-center bg-slate-950/50 px-4">
-      <section className="surface w-full max-w-lg rounded-lg p-6">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h2 className="flex items-center gap-2 text-lg font-bold text-slate-950 dark:text-white">
-              <Icon className="h-5 w-5" aria-hidden="true" />
-              {copy.title}
-            </h2>
-            <p className="mt-1 text-sm text-slate-500">{state.request.subject}</p>
+    <Dialog open={true} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Icon className="h-5 w-5" aria-hidden="true" />
+            {copy.title}
+          </DialogTitle>
+          <DialogDescription>{copy.description}</DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          <div className="space-y-1 rounded-lg border bg-muted/30 p-3">
+            <p className="text-sm font-medium text-slate-600 dark:text-slate-300">
+              Demande
+            </p>
+            <p className="text-sm text-slate-900 dark:text-white">
+              {state.request.subject}
+            </p>
           </div>
-          <button className="btn btn-secondary" type="button" onClick={onClose}>
-            Annuler
-          </button>
+
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <Label htmlFor="action-notes">{copy.label}</Label>
+              {state.kind === "open_dossier" ? (
+                <Badge variant="secondary">Optionnel</Badge>
+              ) : (
+                <Badge variant="destructive">Obligatoire</Badge>
+              )}
+            </div>
+            <Textarea
+              id="action-notes"
+              placeholder={
+                state.kind === "open_dossier"
+                  ? "Ajouter des notes facultatives..."
+                  : "Expliquer les corrections demandées..."
+              }
+              value={text}
+              onChange={(event) => setText(event.target.value)}
+              disabled={isSubmitting}
+              className="min-h-32"
+            />
+          </div>
+
+          {localError ? (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{localError}</AlertDescription>
+            </Alert>
+          ) : null}
         </div>
 
-        <label className="mt-5 block text-sm font-medium text-slate-700 dark:text-slate-200">
-          {copy.label}
-          <textarea
-            className="control mt-1 min-h-28"
-            value={text}
-            onChange={(event) => setText(event.target.value)}
-          />
-        </label>
-
-        {localError ? (
-          <p className="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-            {localError}
-          </p>
-        ) : null}
-
-        <div className="mt-5 flex justify-end gap-2">
-          <button className="btn btn-secondary" type="button" onClick={onClose}>
-            Annuler
-          </button>
-          <button
-            className="btn btn-primary"
-            type="button"
-            onClick={() => void handleSubmit()}
+        <div className="flex justify-end gap-2 pt-4">
+          <Button
+            variant="destructive"
+            onClick={onClose}
             disabled={isSubmitting}
           >
-            <Icon className="h-4 w-4" aria-hidden="true" />
-            {isSubmitting ? 'Traitement...' : copy.button}
-          </button>
+            Annuler
+          </Button>
+          <Button
+            onClick={() => void handleSubmit()}
+            disabled={isSubmitting}
+            className={
+              state.kind === "open_dossier"
+                ? "bg-emerald-600 hover:bg-emerald-700"
+                : undefined
+            }
+          >
+            <Icon className="mr-1.5 h-4 w-4" aria-hidden="true" />
+            {isSubmitting ? "Traitement..." : copy.button}
+          </Button>
         </div>
-      </section>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

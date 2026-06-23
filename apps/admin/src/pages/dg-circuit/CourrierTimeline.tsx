@@ -31,14 +31,20 @@ export function CourrierTimeline({
   return (
     <ol className="space-y-3">
       {steps.map((step, i) => {
-        const styles = step.done ? timelineStepStyles.completed : timelineStepStyles.pending;
+        const styles = step.done
+          ? timelineStepStyles.completed
+          : timelineStepStyles.pending;
         return (
           <li key={i} className="flex items-start gap-3">
-            <div className={`mt-0.5 h-4 w-4 flex-shrink-0 rounded-full border-2 ${styles.indicator}`} />
+            <div
+              className={`mt-0.5 h-4 w-4 flex-shrink-0 rounded-full border-2 ${styles.indicator}`}
+            />
             <div>
               <p className={`text-sm ${styles.label}`}>{step.label}</p>
               {step.date ? (
-                <p className="text-xs text-muted-foreground">{formatDate(step.date)}</p>
+                <p className="text-xs text-muted-foreground">
+                  {formatDate(step.date)}
+                </p>
               ) : null}
             </div>
           </li>

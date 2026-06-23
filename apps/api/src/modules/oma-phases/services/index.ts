@@ -16,4 +16,8 @@ export * from "./formal-request-documents.service.js";
 export * from "./formal-request-overview.service.js";
 export * from "./formal-request-meeting.service.js";
 export * from "./formal-request-review.service.js";
+export * from "./document-evaluation-closure.service.js";
+export * from "./document-evaluation-correction.service.js";
+export * from "./document-evaluation-payment.service.js";
+export * from "./document-evaluation-review.service.js";
 export * from "./document-evaluation.service.js";

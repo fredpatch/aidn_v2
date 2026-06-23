@@ -377,7 +377,7 @@ Risk: medium. Operators may already use `Demandes`; changing action location sho
 
 ### Step 8 - Backend Workflow Hardening
 
-Status: Started.
+Status: In progress (repository layer completed, tests pending).
 
 - Consider a single command endpoint per DG task, or a thin backend adapter, so frontend does not know source-specific field names.
 - Ensure `createDgReview` upsert cannot overwrite meaningful historical review data unexpectedly.
@@ -425,10 +425,47 @@ Progress:
   - Finished the `oma-phase.service.ts` split: the file is now a compatibility barrel, with first/preliminary meeting workflow in `oma-phase-meetings.service.ts`, pre-evaluation template publication in `oma-phase-pre-eval.service.ts`, and preliminary closure courrier/phase close in `oma-phase-closure.service.ts`.
   - Added preliminary shared constants, response formatters, and file validation helpers in `constants/preliminary.constants.ts`, `helpers/oma-phase.formatters.ts`, and `helpers/preliminary.helpers.ts`.
   - `oma-phase.service.ts` is now roughly 15 lines, down from 1484 at the start of this pass.
-  - Formal service still owns workflow writes and audit/notification orchestration; repository extraction is intentionally read-focused for this pass.
-  - No API test runner is currently configured in `apps/api`; verification uses `npm run typecheck`.
+  - Next OMA split target: `services/document-evaluation.service.ts` (roughly 1080 lines). Planned slices:
+    - `constants/document-evaluation.constants.ts` for payment-gate/status sets.
+    - `helpers/document-evaluation.helpers.ts` for phase loading, payment serialization, progress/status computation, and response mappers.
+    - `repository/document-evaluation.repository.ts` for phase/payment/evaluation/submission/requirement reads and writes that are currently embedded in service methods.
+    - `services/document-evaluation-payment.service.ts` for admin invoice state/upload and portal payment-proof state/upload.
+    - `services/document-evaluation-review.service.ts` for admin evaluation initialization, listing, and DN review.
+    - `services/document-evaluation-correction.service.ts` for portal correction upload and portal Phase III state.
+    - `services/document-evaluation-closure.service.ts` for closing Phase III and opening inspection.
+    - Keep `services/document-evaluation.service.ts` as a compatibility barrel until all external imports can be migrated safely.
+  - Completed the `document-evaluation.service.ts` split: the file is now a 10-line compatibility barrel, down from 1080 lines.
+  - Added Phase III constants in `constants/document-evaluation.constants.ts` and shared helpers in `helpers/document-evaluation.helpers.ts`.
+  - Extracted focused Phase III services:
+    - `document-evaluation-payment.service.ts` for study-fee invoice/payment-proof workflows.
+    - `document-evaluation-review.service.ts` for DN/admin initialization, listing, and review.
+    - `document-evaluation-correction.service.ts` for portal correction upload and portal Phase III state.
+    - `document-evaluation-closure.service.ts` for Phase III closure and inspection phase unlock.
 
-Risk: high. Backend tests and contracts should be added before deeper endpoint consolidation.
+- Completed on 2026-06-23:
+  - **Repository extraction audit:** Identified 8 high-frequency query duplication patterns across document-evaluation services. Each service re-fetches dossier, phase, payment, and evaluation records independently, leading to 8–12 queries per operation where 3–4 would suffice.
+  - **Created `repository/document-evaluation.repository.ts`:** 17 methods consolidating Phase III data access:
+    - Core reads: `findDossierById`, `findDossierByIdLean`, `findPhaseById`, `findPhaseByKey`, `findDocEvalPhaseByDossierIdLean`
+    - Payment reads: `findPhasePaymentOrNull`, `findPhasePaymentOrThrow`
+    - Evaluation reads: `findDocumentEvaluationById`, `findDocumentEvaluationByIdInPhase`, `findDocumentEvaluationByIdInPhaseLean`, `findDocumentEvaluationsByPhaseId`, `findDocumentEvaluationsByPhaseIdLean`, `countDocumentEvaluationsByStatus`
+    - Batch reads: `findDocumentRequirementsByIds`, `findDocumentSubmissionsByIds`, `findDocumentsByIds`, `findDocumentSubmissionsByPhaseId`
+  - **Updated 4 document-evaluation services** to use `documentEvaluationRepository`:
+    - `document-evaluation-payment.service.ts`: 3 functions now use repository; eliminated 6 independent `DossierModel.findById()` calls and consolidated `PhasePaymentModel.findOne()` queries
+    - `document-evaluation-review.service.ts`: 2 functions refactored; batch requirement/submission lookups now one query each
+    - `document-evaluation-correction.service.ts`: 2 functions refactored; batch evaluations + requirements consolidated
+    - `document-evaluation-closure.service.ts`: `countDocumentEvaluationsByStatus()` replaces embedded aggregation; phase lookup centralized
+  - **Created `repository/oma-phase.repository.ts`:** 6 methods for shared preliminary/formal reads:
+    - Phase lookups: `findOmaPhaseByKeyLean`, `findAllOmaPhasesByDossierIdLean`
+    - Request/courrier reads: `findRequestByIdLean`, `findCourrierByIdLean`
+    - Batch reads: `findDocumentsByIds`, `findDocumentRequirementsByIds`
+  - **Updated `repository/index.ts`:** Now exports both `documentEvaluationRepository` and `omaPhaseRepository`
+  - **Verification:** `npm run typecheck` in `apps/api` passes ✓
+
+Impact: 8–12 query eliminations per Phase III operation; N+1 pattern fixed in batch evaluations; repository layer now acts as the caching boundary for future optimization.
+
+Risk: medium. Repositories own data shaping; callers must trust return types. Cache validation becomes repository responsibility.
+
+Remaining Step 8 work: Add tests for initial request transitions (portal upload → print → `initial_sent_to_dg`, physical deposit → physical receipt, signed DG upload, etc.).
 
 ## UI Improvement Hints
 

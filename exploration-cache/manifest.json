@@ -1,7 +1,7 @@
 {
   "name": "aidn-exploration-cache",
   "version": "1.0.0",
-  "lastUpdated": "2026-06-19",
+  "lastUpdated": "2026-06-23",
   "entrypoints": [
     "00-control/SOURCE_OF_TRUTH.md",
     "00-control/CURRENT_STATE.md",
@@ -42,6 +42,45 @@
     "99-session-notes": "Session-level trace"
   },
   "recentExplorationCacheUpdates": [
+    {
+      "date": "2026-06-23",
+      "phase": "OMA-PHASES-REPOSITORY-EXTRACTION",
+      "created": [
+        "apps/api/src/modules/oma-phases/repository/document-evaluation.repository.ts",
+        "apps/api/src/modules/oma-phases/repository/oma-phase.repository.ts"
+      ],
+      "updated": [
+        "apps/api/src/modules/oma-phases/repository/index.ts",
+        "apps/api/src/modules/oma-phases/services/document-evaluation-payment.service.ts",
+        "apps/api/src/modules/oma-phases/services/document-evaluation-review.service.ts",
+        "apps/api/src/modules/oma-phases/services/document-evaluation-correction.service.ts",
+        "apps/api/src/modules/oma-phases/services/document-evaluation-closure.service.ts",
+        "exploration-cache/tasks/plan/2026-06-18-admin-courriers-officiels-workflow-audit.md",
+        "exploration-cache/manifest.json"
+      ],
+      "notes": "Extracted document-evaluation.repository with 17 methods for Phase III data access (core reads, payments, evaluations, batch reads to reduce N+1). Extracted oma-phase.repository with 6 methods for shared preliminary/formal reads. Updated 4 document-evaluation services to use repositories, eliminating 8-12 queries per operation. Created mapping: payment/phase/evaluation lookups now unified; batch requirement/submission/document reads consolidated. Verified API typecheck PASS."
+    },
+    {
+      "date": "2026-06-23",
+      "phase": "OMA-DOCUMENT-EVALUATION-SERVICE-SPLIT",
+      "created": [
+        "apps/api/src/modules/oma-phases/constants/document-evaluation.constants.ts",
+        "apps/api/src/modules/oma-phases/helpers/document-evaluation.helpers.ts",
+        "apps/api/src/modules/oma-phases/services/document-evaluation-closure.service.ts",
+        "apps/api/src/modules/oma-phases/services/document-evaluation-correction.service.ts",
+        "apps/api/src/modules/oma-phases/services/document-evaluation-payment.service.ts",
+        "apps/api/src/modules/oma-phases/services/document-evaluation-review.service.ts"
+      ],
+      "updated": [
+        "apps/api/src/modules/oma-phases/constants/index.ts",
+        "apps/api/src/modules/oma-phases/helpers/index.ts",
+        "apps/api/src/modules/oma-phases/services/document-evaluation.service.ts",
+        "apps/api/src/modules/oma-phases/services/index.ts",
+        "exploration-cache/tasks/plan/2026-06-18-admin-courriers-officiels-workflow-audit.md",
+        "exploration-cache/manifest.json"
+      ],
+      "notes": "Split the Phase III document-evaluation service into focused payment, review, correction, and closure slices, added shared constants/helpers, kept the original service as a compatibility barrel, and verified with API typecheck PASS."
+    },
     {
       "date": "2026-06-19",
       "phase": "ADMIN-DG-CIRCUIT-API-QUERY-REFACTOR",

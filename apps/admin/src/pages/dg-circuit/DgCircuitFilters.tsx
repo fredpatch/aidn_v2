@@ -2,6 +2,13 @@ import { Search } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import type { DgCircuitBucket, DgCircuitSource } from "@/lib/api/dg-circuit";
 
@@ -59,17 +66,18 @@ export function DgCircuitFilters({
             onChange={(event) => onSearchChange(event.target.value)}
           />
         </div>
-        <select
-          className="control"
-          value={source}
-          onChange={(event) => onSourceChange(event.target.value as DgCircuitSource | "all")}
-        >
-          {sourceOptions.map((option) => (
-            <option key={option.key} value={option.key}>
-              {option.label}
-            </option>
-          ))}
-        </select>
+        <Select value={source} onValueChange={onSourceChange}>
+          <SelectTrigger className="w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {sourceOptions.map((option) => (
+              <SelectItem key={option.key} value={option.key}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
     </>
   );

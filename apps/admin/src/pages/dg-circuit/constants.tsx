@@ -11,14 +11,14 @@ export const bucketTabs: Array<{
   countKey?: keyof DgCircuitTaskCounts;
 }> = [
   { key: "all", label: "Tous" },
-  { key: "to_transmit", label: "A imprimer", countKey: "toTransmit" },
+  { key: "to_transmit", label: "À imprimer", countKey: "toTransmit" },
   { key: "awaiting_return", label: "En circuit", countKey: "awaitingReturn" },
-  { key: "processed", label: "Signe DG", countKey: "processed" },
+  { key: "processed", label: "Signé", countKey: "processed" },
 ];
 
 export const sourceLabels: Record<string, string> = {
   initial_request: "Demande initiale",
-  pre_evaluation: "Formulaire de pre-evaluation",
+  pre_evaluation: "Formulaire de pré-évaluation",
   formal_request: "Demande formelle",
 };
 
@@ -34,13 +34,19 @@ export const sourceOptions: Array<{
 
 export const bucketStyle: Record<
   DgCircuitBucket,
-  { icon: React.ReactNode; accentBorder: string; iconBg: string; buttonClass: string }
+  {
+    icon: React.ReactNode;
+    accentBorder: string;
+    iconBg: string;
+    buttonClass: string;
+  }
 > = {
   to_transmit: {
     icon: <Printer className="h-4 w-4 text-amber-600 dark:text-amber-400" />,
     accentBorder: "border-l-amber-400",
     iconBg: "bg-amber-50 dark:bg-amber-950/40",
-    buttonClass: "bg-amber-100 text-amber-900 border-amber-300 hover:bg-amber-200",
+    buttonClass:
+      "bg-amber-100 text-amber-900 border-amber-300 hover:bg-amber-200",
   },
   awaiting_return: {
     icon: <Clock className="h-4 w-4 text-blue-600 dark:text-blue-400" />,
@@ -66,7 +72,8 @@ export const bucketStyle: Record<
     ),
     accentBorder: "border-l-emerald-400",
     iconBg: "bg-emerald-50 dark:bg-emerald-950/40",
-    buttonClass: "bg-emerald-100 text-emerald-900 border-emerald-300 hover:bg-emerald-200",
+    buttonClass:
+      "bg-emerald-100 text-emerald-900 border-emerald-300 hover:bg-emerald-200",
   },
   processed: {
     icon: (
@@ -74,6 +81,7 @@ export const bucketStyle: Record<
     ),
     accentBorder: "border-l-emerald-400",
     iconBg: "bg-emerald-50 dark:bg-emerald-950/40",
-    buttonClass: "bg-emerald-100 text-emerald-900 border-emerald-300 hover:bg-emerald-200",
+    buttonClass:
+      "bg-emerald-100 text-emerald-900 border-emerald-300 hover:bg-emerald-200",
   },
 };

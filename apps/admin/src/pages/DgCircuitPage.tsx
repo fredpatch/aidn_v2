@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { RefreshCcw } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { SplitView } from "@/components/ui/split-view";
 import { useAppToast } from "@/hooks/useAppToast";
@@ -95,12 +96,18 @@ export function DgCircuitPage(): React.JSX.Element {
     if (!data) return;
 
     const nextSelected = selected
-      ? data.items.find((task) => task.id === selected.id) ?? data.items[0] ?? null
-      : data.items[0] ?? null;
+      ? (data.items.find((task) => task.id === selected.id) ??
+        data.items[0] ??
+        null)
+      : (data.items[0] ?? null);
 
     // If we had a selected task but it's gone from the current filtered list
-    if (selected && !data.items.find((task) => task.id === selected.id) && prevSelectedId === selected.id) {
-      toast.info("Le courrier a ete traite ou deplace vers un autre statut.");
+    if (
+      selected &&
+      !data.items.find((task) => task.id === selected.id) &&
+      prevSelectedId === selected.id
+    ) {
+      toast.info("Le courrier a été traité ou déplacé vers un autre statut.");
     }
 
     setSelected(nextSelected);
@@ -170,12 +177,13 @@ export function DgCircuitPage(): React.JSX.Element {
   const downloadDocument = (task: DgCircuitTask, documentId?: string) => {
     if (!documentId) return;
     const previewWindow = window.open("about:blank", "_blank");
-    void runAction(() =>
-      previewDgCircuitTaskDocument({
-        task,
-        documentId,
-        previewWindow,
-      }),
+    void runAction(
+      () =>
+        previewDgCircuitTaskDocument({
+          task,
+          documentId,
+          previewWindow,
+        }),
       {
         success: "Document ouvert.",
         error: "Impossible d'ouvrir le document.",
@@ -184,17 +192,23 @@ export function DgCircuitPage(): React.JSX.Element {
   };
 
   const submitReturn = (task: DgCircuitTask, formData: FormData) => {
-    void runAction(() => recordSignedDocumentMutation.mutateAsync({ task, formData }), {
-      success: "Document signe DG enregistre.",
-      error: "Impossible d'enregistrer le document signe DG.",
-    });
+    void runAction(
+      () => recordSignedDocumentMutation.mutateAsync({ task, formData }),
+      {
+        success: "Document signe DG enregistre.",
+        error: "Impossible d'enregistrer le document signe DG.",
+      },
+    );
   };
 
   const submitPhysicalReceipt = (task: DgCircuitTask, formData: FormData) => {
-    void runAction(() => recordPhysicalReceiptMutation.mutateAsync({ task, formData }), {
-      success: "Reception physique enregistree.",
-      error: "Impossible d'enregistrer la reception physique.",
-    });
+    void runAction(
+      () => recordPhysicalReceiptMutation.mutateAsync({ task, formData }),
+      {
+        success: "Reception physique enregistree.",
+        error: "Impossible d'enregistrer la reception physique.",
+      },
+    );
   };
 
   return (
@@ -203,7 +217,8 @@ export function DgCircuitPage(): React.JSX.Element {
         <div>
           <h1 className="page-title">Courriers officiels</h1>
           <p className="page-subtitle">
-            Impression, mise en circuit DG et televersement des documents signes.
+            Impression, mise en circuit DG et televersement des documents
+            signes.
           </p>
         </div>
         <Button
@@ -218,12 +233,15 @@ export function DgCircuitPage(): React.JSX.Element {
       </div>
 
       {queryError ? (
-        <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-          {queryError}
-        </div>
+        <Alert variant="destructive">
+          <AlertTitle>Erreur de chargement</AlertTitle>
+          <AlertDescription>{queryError}</AlertDescription>
+        </Alert>
       ) : null}
 
-      {data ? <DgCircuitKpis total={data.items.length} counts={data.counts} /> : null}
+      {data ? (
+        <DgCircuitKpis total={data.items.length} counts={data.counts} />
+      ) : null}
 
       <SplitView
         left={

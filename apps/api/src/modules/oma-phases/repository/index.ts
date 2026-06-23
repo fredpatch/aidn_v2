@@ -1,1 +1,1 @@
-export {};
+export * from "./formal-request.repository.js";

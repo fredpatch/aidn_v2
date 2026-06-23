@@ -115,13 +115,21 @@
         "apps/api/src/modules/oma-phases/helpers/access.helpers.ts",
         "apps/api/src/modules/oma-phases/helpers/formal-request.helpers.ts",
         "apps/api/src/modules/oma-phases/helpers/index.ts",
+        "apps/api/src/modules/oma-phases/helpers/notification.helpers.ts",
         "apps/api/src/modules/oma-phases/index.ts",
         "apps/api/src/modules/oma-phases/models/index.ts",
         "apps/api/src/modules/oma-phases/models/oma-phase.model.ts",
         "apps/api/src/modules/oma-phases/repository/index.ts",
+        "apps/api/src/modules/oma-phases/repository/formal-request.repository.ts",
         "apps/api/src/modules/oma-phases/routes/index.ts",
         "apps/api/src/modules/oma-phases/services/index.ts",
         "apps/api/src/modules/oma-phases/services/oma-phase.service.ts",
+        "apps/api/src/modules/oma-phases/services/formal-request-closure.service.ts",
+        "apps/api/src/modules/oma-phases/services/formal-request-dg.service.ts",
+        "apps/api/src/modules/oma-phases/services/formal-request-documents.service.ts",
+        "apps/api/src/modules/oma-phases/services/formal-request-overview.service.ts",
+        "apps/api/src/modules/oma-phases/services/formal-request-meeting.service.ts",
+        "apps/api/src/modules/oma-phases/services/formal-request-review.service.ts",
         "apps/api/src/modules/oma-phases/services/formal-request.service.ts",
         "apps/api/src/modules/oma-phases/services/document-evaluation.service.ts",
         "apps/api/src/modules/oma-phases/types/index.ts",
@@ -161,7 +169,7 @@
         "apps/admin/src/pages/requests/DgReturnDialog.tsx",
         "apps/admin/src/pages/requests/RegisterPhysicalDialog.tsx"
       ],
-      "notes": "Admin API/query refactor: installed Axios, rewired admin API client internals while preserving helper semantics, split all shared admin API domains into folder modules, migrated imports off legacy *.api.ts barrels, added admin Query client/keys/queries structure, moved DG circuit list and mutations to TanStack Query, converted feature-local API adapters to api/index.ts, added DG circuit source/deep-link filtering, retired duplicate courrier actions from Demandes in favor of Courriers officiels navigation, split RequestsPage into orchestration/list/detail/KPI components, hardened DG review creation so returned/decision-recorded reviews cannot be overwritten by a later send-to-DG action, split backend DG circuit service helpers/types/review writes into focused modules while preserving public exports, introduced router/controller/service/repository layering for the DG circuit API, reorganized the request module into constants/helpers/types/services/repository/controllers/routes folders, split request services into portal/admin workflow services, added a shared request repository with compatibility barrels preserved, started the OMA module refactor with root index facade, services/models folders, and shared OMA actor/record/access helpers, and extracted formal request constants/helpers from the formal service. Admin build PASS; API typecheck PASS."
+      "notes": "Admin API/query refactor: installed Axios, rewired admin API client internals while preserving helper semantics, split all shared admin API domains into folder modules, migrated imports off legacy *.api.ts barrels, added admin Query client/keys/queries structure, moved DG circuit list and mutations to TanStack Query, converted feature-local API adapters to api/index.ts, added DG circuit source/deep-link filtering, retired duplicate courrier actions from Demandes in favor of Courriers officiels navigation, split RequestsPage into orchestration/list/detail/KPI components, hardened DG review creation so returned/decision-recorded reviews cannot be overwritten by a later send-to-DG action, split backend DG circuit service helpers/types/review writes into focused modules while preserving public exports, introduced router/controller/service/repository layering for the DG circuit API, reorganized the request module into constants/helpers/types/services/repository/controllers/routes folders, split request services into portal/admin workflow services, added a shared request repository with compatibility barrels preserved, started the OMA module refactor with root index facade, services/models folders, shared OMA actor/record/access helpers, extracted formal request constants/helpers, added formal request repository read helpers, extracted formal request overview composition, formal DG circuit workflow, formal supporting-document workflow, formal meeting workflow, formal closure workflow, and DN review workflow into focused services, and moved OMA postulant notification creation into a helper. Admin build PASS; API typecheck PASS."
     },
     {
       "date": "2026-06-17",

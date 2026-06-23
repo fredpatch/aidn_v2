@@ -411,6 +411,16 @@ Progress:
   - Updated external OMA imports to use the root `oma-phases/index.ts` facade while internal OMA services import the model from `models/`.
   - Started splitting OMA services one by one with `formal-request.service.ts`: extracted formal request status constants, supporting-document category mapping, file validation, requirement-status computation, and assertion guards into `constants/formal-request.constants.ts` and `helpers/formal-request.helpers.ts`.
   - `formal-request.service.ts` remains behavior-compatible and now delegates pure formal workflow support helpers to the OMA helper/constants folders.
+  - Continued `formal-request.service.ts` split by adding `repository/formal-request.repository.ts` and moving formal phase, dossier, DG review, meeting, requirement, submission, and document read helpers behind repository methods.
+  - Extracted the read-only formal request overview builder into `services/formal-request-overview.service.ts`; the main formal workflow service now delegates post-mutation response composition instead of owning the full admin view mapper.
+  - Extracted the formal DG circuit workflow (`sendFormalRequestToDg`, `recordFormalRequestDgReturn`, `recordFormalRequestDgDecision`) into `services/formal-request-dg.service.ts`.
+  - Extracted formal supporting-document uploads and replacement/archive handling into `services/formal-request-documents.service.ts`.
+  - Extracted the formal meeting workflow (`createFormalMeeting`, `markFormalMeetingHeld`, `uploadFormalMeetingReport`) into `services/formal-request-meeting.service.ts`.
+  - Extracted recevability courrier upload, closure courrier upload, and final Phase II closure into `services/formal-request-closure.service.ts`.
+  - Extracted DN review of the formal OMA approval form into `services/formal-request-review.service.ts` and moved postulant notification creation to `helpers/notification.helpers.ts`.
+  - `formal-request.service.ts` is now roughly 224 lines, down from 1627 at the start of this formal-request split pass; it now focuses on formal request courrier intake/registration while the related workflows live in focused services.
+  - Added file-level slice comments to the formal request service/repository/helper/constants files to document ownership, workflow rules, and where each slice is expected to be used.
+  - Formal service still owns workflow writes and audit/notification orchestration; repository extraction is intentionally read-focused for this pass.
   - No API test runner is currently configured in `apps/api`; verification uses `npm run typecheck`.
 
 Risk: high. Backend tests and contracts should be added before deeper endpoint consolidation.

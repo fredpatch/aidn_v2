@@ -1,3 +1,10 @@
+/**
+ * Formal request constants.
+ *
+ * Shared Phase II status sets and document-category labels used by services,
+ * helpers, and overview gates. Keep workflow-specific branching in services so
+ * constants remain passive vocabulary.
+ */
 export const ACTIVE_SUBMISSION_STATUSES = new Set([
   "submitted",
   "under_review",

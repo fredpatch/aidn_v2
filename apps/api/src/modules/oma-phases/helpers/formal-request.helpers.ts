@@ -1,3 +1,10 @@
+/**
+ * Formal request helper rules.
+ *
+ * Pure validation, status computation, category mapping, and guard assertions
+ * shared by Phase II service slices. Keep persistence and audit side effects in
+ * services/repository, not here.
+ */
 import { HttpError } from "../../../shared/errors/http-error.js";
 import type { GenericRecord } from "../types/oma.types.js";
 import {
@@ -26,9 +33,8 @@ export const computeRequirementStatus = (
   return String(active[0].status);
 };
 
-export const mapRequirementToDocumentCategory = (
-  reqDocType: string,
-): string => SUPPORTING_DOC_CATEGORY[reqDocType] ?? "other";
+export const mapRequirementToDocumentCategory = (reqDocType: string): string =>
+  SUPPORTING_DOC_CATEGORY[reqDocType] ?? "other";
 
 export const assertPhaseNotClosed = (phase: { status: unknown }) => {
   if (phase.status === "closed") {

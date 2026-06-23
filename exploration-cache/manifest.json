@@ -45,13 +45,26 @@
     {
       "date": "2026-06-23",
       "phase": "ADMIN-DEMANDES-DN-PHASE-AUDIT",
+      "status": "complete",
       "created": [
-        "exploration-cache/tasks/plan/2026-06-23-admin-demandes-dn-phase-audit.md"
+        "exploration-cache/tasks/plan/2026-06-23-admin-demandes-dn-phase-audit.md",
+        "apps/admin/src/lib/query/keys/requests.keys.ts",
+        "apps/admin/src/lib/query/queries/requests.queries.ts",
+        "apps/admin/src/pages/requests/requests.constants.ts",
+        "apps/admin/src/pages/requests/requests.utils.ts"
       ],
       "updated": [
+        "apps/admin/src/pages/RequestsPage.tsx",
+        "apps/admin/src/pages/requests/ActionDialog.tsx",
+        "apps/admin/src/pages/requests/RequestDetailPanel.tsx",
+        "apps/admin/src/pages/requests/RequestsListPanel.tsx",
+        "apps/admin/src/pages/requests/RequestListCard.tsx",
+        "apps/admin/src/pages/requests/requests.helpers.ts",
+        "apps/admin/src/lib/query/keys/index.ts",
+        "apps/admin/src/lib/query/queries/index.ts",
         "exploration-cache/manifest.json"
       ],
-      "notes": "Comprehensive audit of RequestsPage (Demandes section) where DN agent starts preliminary phase. Identified API layer inconsistencies (fetch vs axios), React Query gaps (no query hooks/invalidation), UI/UX issues (inconsistent shadcn hardening, tab overload, no visual prominence for primary action). Created 5-phase refactoring plan: Phase 1 (Fetch→Axios migration), Phase 2 (Query keys & hooks), Phase 3 (RequestsPage integration), Phase 4 (shadcn UI polish), Phase 5 (helpers extraction). Estimate: 13–19 hours. Includes risk mitigation, verification checklist, and inline implementation guidance."
+      "notes": "✅ COMPLETE: Executed 5-phase Demandes refactoring. Phase 1 (axios) pre-done. Phase 2: Created requests.keys.ts with TanStack Query factory pattern, requests.queries.ts with useRequests/useRequestDetail/useOpenDossierDn/useRequestCorrection hooks. Phase 3: Integrated hooks into RequestsPage, removed manual state, added query invalidation. Phase 4: Hardened UI with shadcn Alert/Button/Badge/Dialog/Input/Select/Textarea/Separator/Card, added Sonner toast notifications, kept dialog open on error. Phase 5: Extracted requests.constants.ts (status labels, predicates), requests.utils.ts (formatDate, documentSummary, optional). Error feedback now via inline dialog alert + Sonner toast. Commit: ui(admin): complete Demandes refactoring with React Query and shadcn components."
     },
     {
       "date": "2026-06-23",

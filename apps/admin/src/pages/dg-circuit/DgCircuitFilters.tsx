@@ -2,9 +2,10 @@ import { Search } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
 import type { DgCircuitBucket, DgCircuitSource } from "@/lib/api/dg-circuit";
 
-import { bucketTabs, sourceOptions } from "./constants";
+import { bucketStyle, bucketTabs, sourceOptions } from "./constants";
 import type { DgCircuitTaskCounts } from "./types";
 
 export function DgCircuitFilters({
@@ -27,18 +28,25 @@ export function DgCircuitFilters({
   return (
     <>
       <div className="flex flex-wrap gap-2">
-        {bucketTabs.map((tab) => (
-          <Button
-            key={tab.key}
-            type="button"
-            variant={bucket === tab.key ? "default" : "outline"}
-            size="sm"
-            onClick={() => onBucketChange(tab.key)}
-          >
-            {tab.label}
-            {tab.countKey ? ` (${counts?.[tab.countKey] ?? 0})` : ""}
-          </Button>
-        ))}
+        {bucketTabs.map((tab) => {
+          const isActive = bucket === tab.key;
+          const style = tab.key !== "all" ? bucketStyle[tab.key as DgCircuitBucket] : null;
+          return (
+            <Button
+              key={tab.key}
+              type="button"
+              variant={isActive && style ? "outline" : isActive ? "default" : "outline"}
+              size="sm"
+              className={
+                isActive && style ? cn("border", style.buttonClass) : undefined
+              }
+              onClick={() => onBucketChange(tab.key)}
+            >
+              {tab.label}
+              {tab.countKey ? ` (${counts?.[tab.countKey] ?? 0})` : ""}
+            </Button>
+          );
+        })}
       </div>
 
       <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_13rem]">

@@ -70,7 +70,8 @@ export function DgCircuitPage(): React.JSX.Element {
   );
   const [search, setSearch] = useState(() => searchParams.get("search") ?? "");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [actionError, setActionError] = useState("");
+  const [queryError, setQueryError] = useState("");
+  const [prevSelectedId, setPrevSelectedId] = useState<string | null>(null);
   const [selected, setSelected] = useState<DgCircuitTask | null>(null);
   const [modal, setModal] = useState<DgCircuitModalState>(null);
 
@@ -89,16 +90,30 @@ export function DgCircuitPage(): React.JSX.Element {
   const recordPhysicalReceiptMutation = useRecordDgCircuitPhysicalReceipt();
   const data = tasksQuery.data ?? null;
   const isLoading = tasksQuery.isLoading || tasksQuery.isFetching;
-  const error = actionError || (tasksQuery.error ? formatApiError(tasksQuery.error) : "");
 
   useEffect(() => {
     if (!data) return;
-    setSelected((current) =>
-      current
-        ? data.items.find((task) => task.id === current.id) ?? data.items[0] ?? null
-        : data.items[0] ?? null,
-    );
-  }, [data]);
+
+    const nextSelected = selected
+      ? data.items.find((task) => task.id === selected.id) ?? data.items[0] ?? null
+      : data.items[0] ?? null;
+
+    // If we had a selected task but it's gone from the current filtered list
+    if (selected && !data.items.find((task) => task.id === selected.id) && prevSelectedId === selected.id) {
+      toast.info("Le courrier a ete traite ou deplace vers un autre statut.");
+    }
+
+    setSelected(nextSelected);
+    setPrevSelectedId(nextSelected?.id ?? null);
+  }, [data, toast]);
+
+  useEffect(() => {
+    if (tasksQuery.error) {
+      setQueryError(formatApiError(tasksQuery.error));
+    } else if (data) {
+      setQueryError("");
+    }
+  }, [tasksQuery.error, data]);
 
   useEffect(() => {
     setBucket(readBucketParam(searchParams.get("bucket")));
@@ -111,7 +126,6 @@ export function DgCircuitPage(): React.JSX.Element {
     messages?: { success?: string; error?: string },
   ) => {
     setIsSubmitting(true);
-    setActionError("");
     try {
       await action();
       setModal(null);
@@ -120,7 +134,6 @@ export function DgCircuitPage(): React.JSX.Element {
       }
     } catch (err) {
       const message = formatApiError(err);
-      setActionError(message);
       toast.error(messages?.error ?? message);
     } finally {
       setIsSubmitting(false);
@@ -135,14 +148,12 @@ export function DgCircuitPage(): React.JSX.Element {
     if (!canPreviewOutgoingDocument(task)) return;
 
     setIsSubmitting(true);
-    setActionError("");
     try {
       await previewOutgoingDgCircuitDocument(task, previewWindow);
       toast.success("Document ouvert pour impression.");
     } catch (err) {
       previewWindow?.close();
       const message = formatApiError(err);
-      setActionError(message);
       toast.error(message);
     } finally {
       setIsSubmitting(false);
@@ -206,9 +217,9 @@ export function DgCircuitPage(): React.JSX.Element {
         </Button>
       </div>
 
-      {error ? (
+      {queryError ? (
         <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-          {error}
+          {queryError}
         </div>
       ) : null}
 

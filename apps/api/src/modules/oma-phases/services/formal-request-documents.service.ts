@@ -24,7 +24,7 @@ import {
 import { ACTIVE_SUBMISSION_STATUS_SET } from "../constants/formal-request.constants.js";
 import { formalRequestRepository } from "../repository/formal-request.repository.js";
 import type { Actor, GenericRecord } from "../types/oma.types.js";
-import { getOwnedDossier } from "./oma-phase.service.js";
+import { getOwnedDossier } from "./oma-phase-access.service.js";
 import { getAdminFormalRequestPhase } from "./formal-request-overview.service.js";
 
 const loadFormalRequestPhaseOrThrow = async (dossierId: Types.ObjectId) => {

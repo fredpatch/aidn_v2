@@ -16,7 +16,7 @@ import { CourrierModel } from "../../courriers/courrier.model.js";
 import { DocumentSubmissionModel } from "../../documents/document-submission.model.js";
 import { DossierModel } from "../../dossiers/dossier.model.js";
 import { getAdminFormalRequestPhase } from "./formal-request-overview.service.js";
-import { getOwnedDossier } from "./oma-phase.service.js";
+import { getOwnedDossier } from "./oma-phase-access.service.js";
 import { ensureInternalActor } from "../helpers/access.helpers.js";
 import {
   assertPhaseNotClosed,

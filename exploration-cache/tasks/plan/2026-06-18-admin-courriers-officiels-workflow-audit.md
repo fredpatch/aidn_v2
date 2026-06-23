@@ -420,6 +420,11 @@ Progress:
   - Extracted DN review of the formal OMA approval form into `services/formal-request-review.service.ts` and moved postulant notification creation to `helpers/notification.helpers.ts`.
   - `formal-request.service.ts` is now roughly 224 lines, down from 1627 at the start of this formal-request split pass; it now focuses on formal request courrier intake/registration while the related workflows live in focused services.
   - Added file-level slice comments to the formal request service/repository/helper/constants files to document ownership, workflow rules, and where each slice is expected to be used.
+  - Started splitting `oma-phase.service.ts`: extracted portal dossier ownership checks to `services/oma-phase-access.service.ts`, admin list/detail/download reads to `services/oma-phase-admin-read.service.ts`, portal dossier view/download/completed-form upload to `services/oma-phase-portal.service.ts`, and preliminary DG send/return flow to `services/oma-phase-dg.service.ts`.
+  - Split the portal OMA phase surface again: `oma-phase-portal.service.ts` is now a compatibility barrel, with portal dossier overview in `oma-phase-portal-overview.service.ts`, portal download guards in `oma-phase-portal-documents.service.ts`, and completed pre-evaluation upload in `oma-phase-portal-pre-eval.service.ts`.
+  - Finished the `oma-phase.service.ts` split: the file is now a compatibility barrel, with first/preliminary meeting workflow in `oma-phase-meetings.service.ts`, pre-evaluation template publication in `oma-phase-pre-eval.service.ts`, and preliminary closure courrier/phase close in `oma-phase-closure.service.ts`.
+  - Added preliminary shared constants, response formatters, and file validation helpers in `constants/preliminary.constants.ts`, `helpers/oma-phase.formatters.ts`, and `helpers/preliminary.helpers.ts`.
+  - `oma-phase.service.ts` is now roughly 15 lines, down from 1484 at the start of this pass.
   - Formal service still owns workflow writes and audit/notification orchestration; repository extraction is intentionally read-focused for this pass.
   - No API test runner is currently configured in `apps/api`; verification uses `npm run typecheck`.
 

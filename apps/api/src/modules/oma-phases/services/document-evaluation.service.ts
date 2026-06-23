@@ -10,7 +10,7 @@ import { DocumentSubmissionModel } from "../../documents/document-submission.mod
 import { DossierModel } from "../../dossiers/dossier.model.js";
 import { NotificationModel } from "../../notifications/notification.model.js";
 import { PhasePaymentModel } from "../../payments/phase-payment.model.js";
-import { getOwnedDossier } from "./oma-phase.service.js";
+import { getOwnedDossier } from "./oma-phase-access.service.js";
 import { OmaPhaseModel, type OmaPhase } from "../models/oma-phase.model.js";
 import { ensureInternalActor } from "../helpers/access.helpers.js";
 import type { Actor, GenericRecord } from "../types/oma.types.js";

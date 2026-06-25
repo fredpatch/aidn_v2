@@ -5,7 +5,6 @@ import {
   listRequests,
   openDossierDn,
   requestCorrection,
-  type AdminRequestDetail,
   type ListRequestsParams,
 } from "@/lib/api/requests";
 import { requestKeys } from "../keys/requests.keys";
@@ -53,7 +52,7 @@ export function useOpenDossierDn() {
   return useMutation({
     mutationFn: ({ id, payload }: OpenDossierDnVariables) =>
       openDossierDn(id, payload || {}),
-    onSuccess: (data, variables) => {
+    onSuccess: (_data, variables) => {
       invalidateLists();
       queryClient.invalidateQueries({
         queryKey: requestKeys.detail(variables.id),
@@ -69,7 +68,7 @@ export function useRequestCorrection() {
   return useMutation({
     mutationFn: ({ id, payload }: RequestCorrectionVariables) =>
       requestCorrection(id, payload),
-    onSuccess: (data, variables) => {
+    onSuccess: (_data, variables) => {
       invalidateLists();
       queryClient.invalidateQueries({
         queryKey: requestKeys.detail(variables.id),

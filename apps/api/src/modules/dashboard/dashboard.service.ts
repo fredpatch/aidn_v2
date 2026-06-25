@@ -47,6 +47,12 @@ const ACTIVE_SUBMISSION_STATUSES = [
   "incomplete",
 ];
 
+const NON_ACTIONABLE_RETURNED_DG_TARGET_TYPES = [
+  "initial_request",
+  "pre_evaluation_form",
+  "formal_request",
+];
+
 const PHASE_EXPECTED_BUSINESS_DAYS: Record<string, number> = {
   preliminary: 30,
   formal_request: 10,
@@ -80,6 +86,66 @@ const countInitialDecision = (
     decision,
     decisionRecordedAt: periodMatch(fromDate, toDate),
   });
+
+const actionableReturnedDgReviewFilter = () => ({
+  status: "returned_scanned",
+  targetType: { $nin: NON_ACTIONABLE_RETURNED_DG_TARGET_TYPES },
+  $or: [
+    { decisionRecordedAt: { $exists: false } },
+    { decisionRecordedAt: null },
+  ],
+});
+
+const listCurrentActiveDossierIds = async () => {
+  const activePhases = (await OmaPhaseModel.find({
+    status: { $in: ACTIVE_PHASE_STATUSES },
+  })
+    .select("dossierId")
+    .lean()) as unknown as Array<{ dossierId?: Types.ObjectId | string }>;
+
+  const phaseDossierIds = [
+    ...new Set(
+      activePhases
+        .map((phase) => (phase.dossierId ? String(phase.dossierId) : ""))
+        .filter(Boolean),
+    ),
+  ];
+
+  if (phaseDossierIds.length === 0) return [];
+
+  const dossiers = (await DossierModel.find({
+    _id: { $in: phaseDossierIds },
+    status: ACTIVE_DOSSIER_STATUSES,
+  })
+    .select("_id")
+    .lean()) as unknown as Array<{ _id: Types.ObjectId }>;
+
+  return dossiers.map((dossier) => dossier._id.toString());
+};
+
+const countUnassignedActiveDossiers = async (activeDossierIds: string[]) => {
+  if (activeDossierIds.length === 0) return 0;
+
+  return DossierModel.countDocuments({
+    _id: { $in: activeDossierIds },
+    $or: [
+      { assignedDnAgentId: { $exists: false } },
+      { assignedDnAgentId: null },
+    ],
+  });
+};
+
+const countActiveDocumentSubmissions = async (
+  activeDossierIds: string[],
+  statuses: string[],
+) => {
+  if (activeDossierIds.length === 0) return 0;
+
+  return DocumentSubmissionModel.countDocuments({
+    dossierId: { $in: activeDossierIds },
+    status: { $in: statuses },
+  });
+};
 
 const zeroDnWorkload = (summary: AdminDashboardSummary) => {
   summary.currentWorkload.activeDossiers = 0;
@@ -247,35 +313,36 @@ const buildPhaseFocus = async (
   }));
 };
 
-const buildPriorityActions = async (): Promise<DashboardPriorityAction[]> => {
+const buildPriorityActions = async (
+  activeDossierIds: string[],
+): Promise<DashboardPriorityAction[]> => {
   const [returnedReviews, unassignedDossiers, submissions, overduePhases] =
     await Promise.all([
-      DGReviewModel.find({
-        status: "returned_scanned",
-        $or: [
-          { decisionRecordedAt: { $exists: false } },
-          { decisionRecordedAt: null },
-        ],
-      })
+      DGReviewModel.find(actionableReturnedDgReviewFilter())
         .sort({ returnedFromDgAt: 1, updatedAt: 1 })
         .limit(4)
         .lean(),
-      DossierModel.find({
-        status: ACTIVE_DOSSIER_STATUSES,
-        $or: [
-          { assignedDnAgentId: { $exists: false } },
-          { assignedDnAgentId: null },
-        ],
-      })
-        .sort({ openedAt: 1 })
-        .limit(4)
-        .lean(),
-      DocumentSubmissionModel.find({
-        status: { $in: ["submitted", "under_review", "requires_correction"] },
-      })
-        .sort({ createdAt: 1 })
-        .limit(4)
-        .lean(),
+      activeDossierIds.length > 0
+        ? DossierModel.find({
+            _id: { $in: activeDossierIds },
+            $or: [
+              { assignedDnAgentId: { $exists: false } },
+              { assignedDnAgentId: null },
+            ],
+          })
+            .sort({ openedAt: 1 })
+            .limit(4)
+            .lean()
+        : Promise.resolve([]),
+      activeDossierIds.length > 0
+        ? DocumentSubmissionModel.find({
+            dossierId: { $in: activeDossierIds },
+            status: { $in: ["submitted", "under_review", "requires_correction"] },
+          })
+            .sort({ createdAt: 1 })
+            .limit(4)
+            .lean()
+        : Promise.resolve([]),
       listOverduePhases(),
     ]);
 
@@ -525,6 +592,7 @@ export const getAdminDashboardSummary = async (
   const { period, fromDate, toDate } = resolveDashboardPeriod(query);
   const profile = getDashboardProfile(actor.role);
   const { now, end } = upcomingWindow();
+  const activeDossierIds = await listCurrentActiveDossierIds();
 
   const [
     requestsReceived,
@@ -586,25 +654,14 @@ export const getAdminDashboardSummary = async (
     DGReviewModel.countDocuments({
       status: { $in: ["sent_to_dg_circuit", "awaiting_return"] },
     }),
-    DGReviewModel.countDocuments({
-      status: "returned_scanned",
-      $or: [
-        { decisionRecordedAt: { $exists: false } },
-        { decisionRecordedAt: null },
-      ],
-    }),
-    DossierModel.countDocuments({ status: ACTIVE_DOSSIER_STATUSES }),
-    DossierModel.countDocuments({
-      status: ACTIVE_DOSSIER_STATUSES,
-      $or: [
-        { assignedDnAgentId: { $exists: false } },
-        { assignedDnAgentId: null },
-      ],
-    }),
-    DocumentSubmissionModel.countDocuments({
-      status: { $in: ["submitted", "under_review"] },
-    }),
-    DocumentSubmissionModel.countDocuments({ status: "requires_correction" }),
+    DGReviewModel.countDocuments(actionableReturnedDgReviewFilter()),
+    Promise.resolve(activeDossierIds.length),
+    countUnassignedActiveDossiers(activeDossierIds),
+    countActiveDocumentSubmissions(activeDossierIds, [
+      "submitted",
+      "under_review",
+    ]),
+    countActiveDocumentSubmissions(activeDossierIds, ["requires_correction"]),
     countMissingExpectedDocumentsForCurrentPhases(),
     MeetingModel.countDocuments({
       status: { $in: ["planned", "invited"] },
@@ -613,7 +670,7 @@ export const getAdminDashboardSummary = async (
     countOverduePhases(),
     countReadyToClosePhases(actor),
     buildPhaseFocus(fromDate, toDate),
-    buildPriorityActions(),
+    buildPriorityActions(activeDossierIds),
     listRecentActivity(),
   ]);
 

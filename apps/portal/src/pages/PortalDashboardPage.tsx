@@ -34,7 +34,7 @@ function deriveStats(
   return {
     demandes: requests.filter((r) => r.status !== "draft").length,
     actionsRequises: requests.filter(
-      (r) => r.status === "intake_requires_correction",
+      (r) => r.actionRequired || r.status === "intake_requires_correction",
     ).length,
     enCours: requests.filter((r) => r.status === "dossier_opened").length,
     notifications: unreadCount,

@@ -10,11 +10,19 @@ export { RequestCourrierTab } from "./RequestCourrierTab";
 export { RequestDetailHeader } from "./RequestDetailHeader";
 export { RequestDossierTab } from "./RequestDossierTab";
 export { RequestHistoryTab } from "./RequestHistoryTab";
-export { RequestSummaryTab, type RequestSummaryFormValues } from "./RequestSummaryTab";
+export {
+  RequestSummaryTab,
+  type RequestSummaryFormValues,
+} from "./RequestSummaryTab";
 export { RequestWorkflowTabs } from "./RequestWorkflowTabs";
 
 // Types
-export type { CourrierMode, ProcessStep, RequestDetail, RequestDetailTab } from "./types";
+export type {
+  CourrierMode,
+  ProcessStep,
+  RequestDetail,
+  RequestDetailTab,
+} from "./types";
 
 // Constants
 export {

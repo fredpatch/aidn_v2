@@ -2,10 +2,14 @@ import { HttpError } from "../../shared/errors/http-error.js";
 import { Roles, type Role } from "../../shared/permissions/permissions.js";
 import bcrypt from "bcryptjs";
 import crypto from "node:crypto";
+import { Types, type HydratedDocument } from "mongoose";
 import { writeAuditLog } from "../audit/audit.service.js";
 import { personnelAdapter } from "../personnel/personnel.service.js";
-import { AidnInternalAccountModel } from "../users/aidn-internal-account.model.js";
-import { UserModel } from "../users/user.model.js";
+import {
+  AidnInternalAccountModel,
+  type AidnInternalAccount,
+} from "../users/aidn-internal-account.model.js";
+import { UserModel, type User } from "../users/user.model.js";
 
 const activatableInternalRoles: Role[] = [
   Roles.ADMIN,
@@ -22,6 +26,12 @@ const normalizeMatricule = (matricule: string) =>
 const generateTemporaryPassword = () =>
   crypto.randomInt(100000, 1000000).toString();
 
+const getTemporaryPasswordExpiresAt = () =>
+  new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+type InternalAccountDocument = HydratedDocument<AidnInternalAccount>;
+type UserDocument = HydratedDocument<User>;
+
 type ListParams = {
   q?: string;
   limit: number;
@@ -36,6 +46,68 @@ export type EmployeeDirectoryItem = {
   lastName: string;
   direction: string | null;
   fonction: string | null;
+};
+
+const toInternalAccountPayload = (
+  account: InternalAccountDocument,
+  user: UserDocument,
+) => {
+  return {
+    id: account._id.toString(),
+    personnelId: account.personnelId,
+    matricule: account.matricule,
+    userId: user._id.toString(),
+    fullName: user.fullName,
+    email: user.email,
+    role: account.role,
+    status: account.status,
+    activatedAt: account.createdAt?.toISOString(),
+    activatedById: account.activatedById?.toString(),
+    disabledAt: account.disabledAt?.toISOString(),
+    disabledById: account.disabledById?.toString(),
+    lastLoginAt: account.lastLoginAt?.toISOString(),
+    isActive: user.isActive,
+    mustChangePassword: user.mustChangePassword === true,
+    temporaryPasswordExpiresAt: user.temporaryPasswordExpiresAt?.toISOString(),
+    passwordChangedAt: user.passwordChangedAt?.toISOString(),
+  };
+};
+
+const findInternalAccountAndUser = async (accountId: string) => {
+  const account = await AidnInternalAccountModel.findById(accountId);
+
+  if (!account) {
+    throw new HttpError(404, "AIDN internal account not found");
+  }
+
+  const user = await UserModel.findById(account.userId);
+
+  if (!user) {
+    throw new HttpError(404, "Linked AIDN user not found");
+  }
+
+  return { account, user };
+};
+
+const assertCanManageTargetAccount = (
+  account: { userId: { toString(): string } },
+  actorId: string,
+) => {
+  if (account.userId.toString() === actorId) {
+    throw new HttpError(400, "You cannot perform this action on your own account");
+  }
+};
+
+const applyTemporaryPassword = async (user: UserDocument) => {
+  const temporaryPassword = generateTemporaryPassword();
+  const temporaryPasswordExpiresAt = getTemporaryPasswordExpiresAt();
+
+  user.passwordHash = await bcrypt.hash(temporaryPassword, 12);
+  user.mustChangePassword = true;
+  user.temporaryPasswordExpiresAt = temporaryPasswordExpiresAt;
+  user.passwordChangedAt = undefined;
+
+  return { temporaryPassword, temporaryPasswordExpiresAt };
 };
 
 export const searchPersonnel = async (params: {
@@ -141,6 +213,10 @@ export const listInternalAccounts = async (filters: {
         _id?: { toString(): string };
         fullName?: string;
         email?: string;
+        isActive?: boolean;
+        mustChangePassword?: boolean;
+        temporaryPasswordExpiresAt?: Date;
+        passwordChangedAt?: Date;
       };
 
       return {
@@ -154,7 +230,13 @@ export const listInternalAccounts = async (filters: {
         status: account.status,
         activatedAt: account.createdAt?.toISOString(),
         activatedById: account.activatedById?.toString(),
+        disabledAt: account.disabledAt?.toISOString(),
+        disabledById: account.disabledById?.toString(),
         lastLoginAt: account.lastLoginAt?.toISOString(),
+        isActive: user.isActive,
+        mustChangePassword: user.mustChangePassword === true,
+        temporaryPasswordExpiresAt: user.temporaryPasswordExpiresAt?.toISOString(),
+        passwordChangedAt: user.passwordChangedAt?.toISOString(),
       };
     });
 };
@@ -198,9 +280,7 @@ export const activateInternalAccount = async (input: {
   const temporaryPassword = generateTemporaryPassword();
   const passwordHash = await bcrypt.hash(temporaryPassword, 12);
   const now = new Date();
-  const temporaryPasswordExpiresAt = new Date(
-    now.getTime() + 24 * 60 * 60 * 1000,
-  );
+  const temporaryPasswordExpiresAt = getTemporaryPasswordExpiresAt();
 
   const user = await UserModel.findOneAndUpdate(
     existingAccount
@@ -290,8 +370,192 @@ export const activateInternalAccount = async (input: {
       email: user.email,
       role: account.role,
       status: account.status,
+      activatedAt: account.createdAt?.toISOString(),
+      activatedById: account.activatedById?.toString(),
+      lastLoginAt: account.lastLoginAt?.toISOString(),
+      isActive: user.isActive,
+      mustChangePassword: user.mustChangePassword === true,
+      temporaryPasswordExpiresAt: user.temporaryPasswordExpiresAt?.toISOString(),
+      passwordChangedAt: user.passwordChangedAt?.toISOString(),
     },
     temporaryPassword,
+    expiresAt: temporaryPasswordExpiresAt.toISOString(),
+  };
+};
+
+export const resetInternalAccountPassword = async (input: {
+  accountId: string;
+  actorId: string;
+  actorRole: Role;
+}) => {
+  const { account, user } = await findInternalAccountAndUser(input.accountId);
+  assertCanManageTargetAccount(account, input.actorId);
+
+  const before = {
+    status: account.status,
+    mustChangePassword: user.mustChangePassword === true,
+    temporaryPasswordExpiresAt: user.temporaryPasswordExpiresAt?.toISOString(),
+    passwordChangedAt: user.passwordChangedAt?.toISOString(),
+  };
+
+  const { temporaryPassword, temporaryPasswordExpiresAt } =
+    await applyTemporaryPassword(user);
+  user.isActive = true;
+  await user.save();
+
+  account.status = "pending_first_login";
+  await account.save();
+
+  await writeAuditLog({
+    actorId: input.actorId,
+    actorRole: input.actorRole,
+    action: "admin.internal_account_password_reset",
+    entityType: "aidn_internal_account",
+    entityId: account._id,
+    before,
+    after: {
+      status: account.status,
+      mustChangePassword: user.mustChangePassword === true,
+      temporaryPasswordExpiresAt: temporaryPasswordExpiresAt.toISOString(),
+    },
+    metadata: {
+      personnelId: account.personnelId,
+      matricule: account.matricule,
+    },
+  });
+
+  return {
+    account: toInternalAccountPayload(account, user),
+    temporaryPassword,
+    expiresAt: temporaryPasswordExpiresAt.toISOString(),
+  };
+};
+
+export const updateInternalAccountRole = async (input: {
+  accountId: string;
+  role: Role;
+  actorId: string;
+  actorRole: Role;
+}) => {
+  if (!activatableInternalRoles.includes(input.role)) {
+    throw new HttpError(400, "Invalid internal activation role");
+  }
+
+  const { account, user } = await findInternalAccountAndUser(input.accountId);
+  assertCanManageTargetAccount(account, input.actorId);
+
+  const before = { role: account.role, userRole: user.role };
+
+  account.role = input.role;
+  user.role = input.role;
+  await Promise.all([account.save(), user.save()]);
+
+  await writeAuditLog({
+    actorId: input.actorId,
+    actorRole: input.actorRole,
+    action: "admin.internal_account_role_changed",
+    entityType: "aidn_internal_account",
+    entityId: account._id,
+    before,
+    after: { role: account.role, userRole: user.role },
+    metadata: {
+      personnelId: account.personnelId,
+      matricule: account.matricule,
+    },
+  });
+
+  return {
+    account: toInternalAccountPayload(account, user),
+  };
+};
+
+export const disableInternalAccount = async (input: {
+  accountId: string;
+  actorId: string;
+  actorRole: Role;
+}) => {
+  const { account, user } = await findInternalAccountAndUser(input.accountId);
+  assertCanManageTargetAccount(account, input.actorId);
+
+  const before = {
+    status: account.status,
+    isActive: user.isActive,
+  };
+
+  account.status = "disabled";
+  account.disabledById = new Types.ObjectId(input.actorId);
+  account.disabledAt = new Date();
+  user.isActive = false;
+  await Promise.all([account.save(), user.save()]);
+
+  await writeAuditLog({
+    actorId: input.actorId,
+    actorRole: input.actorRole,
+    action: "admin.internal_account_disabled",
+    entityType: "aidn_internal_account",
+    entityId: account._id,
+    before,
+    after: {
+      status: account.status,
+      isActive: user.isActive,
+      disabledAt: account.disabledAt?.toISOString(),
+    },
+    metadata: {
+      personnelId: account.personnelId,
+      matricule: account.matricule,
+    },
+  });
+
+  return {
+    account: toInternalAccountPayload(account, user),
+  };
+};
+
+export const reactivateInternalAccount = async (input: {
+  accountId: string;
+  actorId: string;
+  actorRole: Role;
+}) => {
+  const { account, user } = await findInternalAccountAndUser(input.accountId);
+  assertCanManageTargetAccount(account, input.actorId);
+
+  const before = {
+    status: account.status,
+    isActive: user.isActive,
+    mustChangePassword: user.mustChangePassword === true,
+  };
+
+  const { temporaryPassword, temporaryPasswordExpiresAt } =
+    await applyTemporaryPassword(user);
+  user.isActive = true;
+  account.status = "pending_first_login";
+  account.disabledAt = undefined;
+  account.disabledById = undefined;
+  await Promise.all([account.save(), user.save()]);
+
+  await writeAuditLog({
+    actorId: input.actorId,
+    actorRole: input.actorRole,
+    action: "admin.internal_account_reactivated",
+    entityType: "aidn_internal_account",
+    entityId: account._id,
+    before,
+    after: {
+      status: account.status,
+      isActive: user.isActive,
+      mustChangePassword: user.mustChangePassword === true,
+      temporaryPasswordExpiresAt: temporaryPasswordExpiresAt.toISOString(),
+    },
+    metadata: {
+      personnelId: account.personnelId,
+      matricule: account.matricule,
+    },
+  });
+
+  return {
+    account: toInternalAccountPayload(account, user),
+    temporaryPassword,
+    expiresAt: temporaryPasswordExpiresAt.toISOString(),
   };
 };
 

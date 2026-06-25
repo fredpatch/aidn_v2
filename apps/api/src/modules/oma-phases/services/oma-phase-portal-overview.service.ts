@@ -11,6 +11,7 @@ import { DocumentModel } from "../../documents/document.model.js";
 import { DocumentRequirementModel } from "../../documents/document-requirement.model.js";
 import { DocumentSubmissionModel } from "../../documents/document-submission.model.js";
 import { MeetingModel } from "../../meetings/meeting.model.js";
+import { PhasePaymentModel } from "../../payments/phase-payment.model.js";
 import {
   FORMAL_REQUEST_PORTAL_LABELS,
   PRE_EVAL_VISIBLE_STATUSES,
@@ -198,6 +199,9 @@ export const getPortalDossier = async (dossierId: string, actor: Actor) => {
   const formalRequestPhase = phases.find(
     (p) => p.phaseKey === "formal_request",
   );
+  const documentEvaluationPhase = phases.find(
+    (p) => p.phaseKey === "document_evaluation",
+  );
 
   const preliminaryStatus = preliminaryPhase?.preliminaryStatus ?? null;
   const portalLabel = preliminaryStatus
@@ -236,6 +240,20 @@ export const getPortalDossier = async (dossierId: string, actor: Actor) => {
 
   const { portalRequirements, formalProgress, formalMeetingBlock } =
     await buildPortalFormalRequestBlock(dossier._id, formalRequestPhase);
+
+  const studyFeePayment = documentEvaluationPhase
+    ? await PhasePaymentModel.findOne({
+        dossierId: dossier._id,
+        phaseKey: "document_evaluation",
+        paymentType: "study_fee",
+      }).lean()
+    : null;
+  const canUploadPaymentProof = Boolean(
+    documentEvaluationPhase?.status === "in_progress" &&
+      studyFeePayment?.status === "invoice_sent" &&
+      studyFeePayment.invoiceDocumentId &&
+      !studyFeePayment.paymentProofDocumentId,
+  );
 
   let firstMeeting: {
     scheduledAt: string | null;
@@ -326,5 +344,31 @@ export const getPortalDossier = async (dossierId: string, actor: Actor) => {
       progress: formalProgress,
       formalMeeting: formalMeetingBlock,
     },
+    documentEvaluation: documentEvaluationPhase
+      ? {
+          status:
+            (documentEvaluationPhase.documentEvaluationStatus as
+              | string
+              | null
+              | undefined) ?? null,
+          portalLabel: canUploadPaymentProof
+            ? "Preuve de paiement attendue"
+            : "Evaluation documentaire en cours",
+          payment: {
+            status: studyFeePayment ? String(studyFeePayment.status) : null,
+            invoiceDocumentId:
+              studyFeePayment?.invoiceDocumentId?.toString() ?? null,
+            paymentProofDocumentId:
+              studyFeePayment?.paymentProofDocumentId?.toString() ?? null,
+            invoiceSentAt: studyFeePayment
+              ? toIso(studyFeePayment.invoiceSentAt) ?? null
+              : null,
+            paymentProofSubmittedAt: studyFeePayment
+              ? toIso(studyFeePayment.paymentProofSubmittedAt) ?? null
+              : null,
+          },
+          canUploadPaymentProof,
+        }
+      : undefined,
   };
 };

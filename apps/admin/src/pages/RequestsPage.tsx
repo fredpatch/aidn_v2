@@ -4,12 +4,10 @@ import { useNavigate } from "react-router-dom";
 
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { SplitView } from "../components/ui/split-view";
-import { useAppToast } from "../hooks/useAppToast";
 import { useAuth } from "../hooks/useAuth";
 import {
   downloadRequestOrientationDocument,
   type AdminRequest,
-  type AdminRequestDetail,
   type ListRequestsParams,
 } from "../lib/api/requests";
 import { useRequestDetail, useRequests } from "../lib/query";
@@ -28,7 +26,6 @@ import {
 export function RequestsPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const toast = useAppToast();
 
   // Filter state
   const [search, setSearch] = useState("");
@@ -156,7 +153,7 @@ export function RequestsPage() {
   );
 
   const handleMutationSuccess = useCallback(
-    (message: string) => {
+    (_message: string) => {
       requestsQuery.refetch();
       if (selectedRequestId) {
         detailQuery.refetch();

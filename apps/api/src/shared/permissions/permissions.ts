@@ -101,6 +101,8 @@ export const rolePermissions: Record<Role, Permission[]> = {
     Permissions.COURRIER_REGISTER_PHYSICAL,
     Permissions.PRE_EVAL_DG_CIRCUIT_HANDLE,
     Permissions.PRE_EVAL_DG_RETURN_CONSULT,
+    Permissions.PAYMENT_INVOICE_UPLOAD,
+    Permissions.PAYMENT_VIEW,
     Permissions.REPORT_VIEW
   ],
   [Roles.RECEPTION]: [

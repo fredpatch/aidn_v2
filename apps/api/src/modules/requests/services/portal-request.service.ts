@@ -12,7 +12,11 @@ import { DGReviewModel } from "../../dg-reviews/dg-review.model.js";
 import { DocumentModel } from "../../documents/document.model.js";
 import { DossierModel } from "../../dossiers/dossier.model.js";
 import { OmaPhaseModel } from "../../oma-phases/index.js";
-import { PRELIMINARY_STATUS_PORTAL_LABELS } from "../../oma-phases/index.js";
+import {
+  FORMAL_REQUEST_PORTAL_LABELS,
+  PRELIMINARY_STATUS_PORTAL_LABELS,
+} from "../../oma-phases/index.js";
+import { PhasePaymentModel } from "../../payments/phase-payment.model.js";
 import { NotificationModel } from "../../notifications/notification.model.js";
 import { PostulantOrganizationModel } from "../../organizations/postulant-organization.model.js";
 import { UserModel } from "../../users/user.model.js";
@@ -158,7 +162,12 @@ export const listPortalRequests = async (
     RequestModel.countDocuments(query),
   ]);
 
-  const sanitized = items.map(sanitizePortalRequest);
+  const sanitized = items.map(sanitizePortalRequest) as Array<
+    ReturnType<typeof sanitizePortalRequest> & {
+      actionRequired?: boolean;
+      actionRequiredLabel?: string;
+    }
+  >;
 
   const dossierIds = sanitized
     .map((r) => r.dossierId)
@@ -167,23 +176,116 @@ export const listPortalRequests = async (
   if (dossierIds.length > 0) {
     const phases = await OmaPhaseModel.find({
       dossierId: { $in: dossierIds },
-      phaseKey: "preliminary",
+      phaseKey: { $in: ["preliminary", "formal_request", "document_evaluation"] },
+    }).lean();
+    const payments = await PhasePaymentModel.find({
+      dossierId: { $in: dossierIds },
+      phaseKey: "document_evaluation",
+      paymentType: "study_fee",
     }).lean();
 
-    const labelByDossierId = new Map<string, string>();
+    const preliminaryByDossierId = new Map<string, string>();
+    const preliminaryStatusByDossierId = new Map<string, string>();
+    const formalByDossierId = new Map<
+      string,
+      {
+        label: string;
+        actionRequired: boolean;
+        actionRequiredLabel?: string;
+      }
+    >();
+    const paymentByDossierId = new Map(
+      payments.map((payment) => [payment.dossierId.toString(), payment]),
+    );
+    const documentEvaluationByDossierId = new Map<
+      string,
+      {
+        label: string;
+        actionRequired: boolean;
+        actionRequiredLabel?: string;
+      }
+    >();
+
     for (const phase of phases) {
-      const ps = phase.preliminaryStatus;
-      if (ps) {
-        labelByDossierId.set(
+      if (phase.phaseKey === "preliminary") {
+        const ps = phase.preliminaryStatus;
+        if (!ps) continue;
+        preliminaryStatusByDossierId.set(phase.dossierId.toString(), ps);
+        preliminaryByDossierId.set(
           phase.dossierId.toString(),
           PRELIMINARY_STATUS_PORTAL_LABELS[ps] ?? "Dossier en cours de traitement",
         );
       }
     }
 
+    for (const phase of phases) {
+      if (phase.phaseKey === "formal_request") {
+        const formalStatus =
+          (phase.formalRequestStatus as string | null | undefined) ??
+          "formal_waiting_request";
+        const hasFormalRequestCourrier = Boolean(phase.formalRequestCourrierId);
+        const preliminaryClosed =
+          preliminaryStatusByDossierId.get(phase.dossierId.toString()) ===
+          "preliminary_closed";
+        const canUploadFormalRequestCourrier =
+          preliminaryClosed && phase.status !== "closed" && !hasFormalRequestCourrier;
+
+        formalByDossierId.set(phase.dossierId.toString(), {
+          label: canUploadFormalRequestCourrier
+            ? "Demande formelle attendue"
+            : (FORMAL_REQUEST_PORTAL_LABELS[formalStatus] ??
+              "Demande formelle en cours d'examen"),
+          actionRequired: canUploadFormalRequestCourrier,
+          actionRequiredLabel: canUploadFormalRequestCourrier
+            ? "Demande formelle à téléverser"
+            : undefined,
+        });
+      }
+    }
+
+    for (const phase of phases) {
+      if (phase.phaseKey !== "document_evaluation") continue;
+      const dossierId = phase.dossierId.toString();
+      const payment = paymentByDossierId.get(dossierId);
+      const hasInvoice = Boolean(payment?.invoiceDocumentId);
+      const hasPaymentProof = Boolean(payment?.paymentProofDocumentId);
+      const canUploadPaymentProof =
+        phase.status === "in_progress" &&
+        hasInvoice &&
+        !hasPaymentProof &&
+        payment?.status === "invoice_sent";
+
+      documentEvaluationByDossierId.set(dossierId, {
+        label: canUploadPaymentProof
+          ? "Preuve de paiement attendue"
+          : "Evaluation documentaire en cours",
+        actionRequired: canUploadPaymentProof,
+        actionRequiredLabel: canUploadPaymentProof
+          ? "Preuve de paiement a televerser"
+          : undefined,
+      });
+    }
+
     for (const item of sanitized) {
-      if (item.dossierId && labelByDossierId.has(item.dossierId)) {
-        item.portalStatusLabel = labelByDossierId.get(item.dossierId)!;
+      if (!item.dossierId) continue;
+      const documentEvaluation = documentEvaluationByDossierId.get(item.dossierId);
+      if (documentEvaluation?.actionRequired) {
+        item.portalStatusLabel = documentEvaluation.label;
+        item.actionRequired = true;
+        item.actionRequiredLabel = documentEvaluation.actionRequiredLabel;
+        continue;
+      }
+
+      const formal = formalByDossierId.get(item.dossierId);
+      if (formal) {
+        item.portalStatusLabel = formal.label;
+        item.actionRequired = formal.actionRequired;
+        item.actionRequiredLabel = formal.actionRequiredLabel;
+        continue;
+      }
+
+      if (preliminaryByDossierId.has(item.dossierId)) {
+        item.portalStatusLabel = preliminaryByDossierId.get(item.dossierId)!;
       }
     }
   }

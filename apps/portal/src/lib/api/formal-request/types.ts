@@ -18,7 +18,7 @@ export type PortalFormalRequestRequirement = {
   code: string;
   label: string;
   formCode?: string;
-  requirementLevel: "expected" | "optional" | "conditional";
+  requirementLevel: "gate" | "expected" | "optional" | "conditional";
   isRepeatable: boolean;
   template?: PortalFormalRequestTemplate;
   status:

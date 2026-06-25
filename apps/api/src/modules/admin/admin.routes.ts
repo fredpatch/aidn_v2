@@ -64,6 +64,7 @@ import {
   createDocumentTemplate,
   listDocumentTemplates,
 } from "../document-templates/document-template.service.js";
+import { seedFormalRequestDocumentRequirements } from "../documents/document-requirement.seed.js";
 import { dgCircuitRouter } from "../dg-circuit/dg-circuit.routes.js";
 import { getAdminDashboardSummary } from "../dashboard/dashboard.service.js";
 import {
@@ -79,9 +80,13 @@ import {
 } from "../payments/phase-payment.service.js";
 import {
   activateInternalAccount,
+  disableInternalAccount,
   listInternalAccounts,
   listSiUsers,
+  reactivateInternalAccount,
+  resetInternalAccountPassword,
   searchPersonnel,
+  updateInternalAccountRole,
 } from "./admin.service.js";
 import { resetTestData } from "./dev-reset.service.js";
 
@@ -226,6 +231,65 @@ adminRouter.post(
     });
 
     res.status(201).json(result);
+  }),
+);
+
+adminRouter.post(
+  "/internal-accounts/:id/reset-password",
+  requirePermission(Permissions.AIDN_USER_ACTIVATE),
+  asyncHandler(async (req, res) => {
+    res.json(
+      await resetInternalAccountPassword({
+        accountId: String(req.params.id),
+        actorId: req.user!.id,
+        actorRole: req.user!.role,
+      }),
+    );
+  }),
+);
+
+adminRouter.patch(
+  "/internal-accounts/:id/role",
+  requirePermission(Permissions.AIDN_USER_ACTIVATE),
+  asyncHandler(async (req, res) => {
+    const body = req.body as { role?: Role };
+
+    res.json(
+      await updateInternalAccountRole({
+        accountId: String(req.params.id),
+        role: body.role as Role,
+        actorId: req.user!.id,
+        actorRole: req.user!.role,
+      }),
+    );
+  }),
+);
+
+adminRouter.post(
+  "/internal-accounts/:id/disable",
+  requirePermission(Permissions.AIDN_USER_ACTIVATE),
+  asyncHandler(async (req, res) => {
+    res.json(
+      await disableInternalAccount({
+        accountId: String(req.params.id),
+        actorId: req.user!.id,
+        actorRole: req.user!.role,
+      }),
+    );
+  }),
+);
+
+adminRouter.post(
+  "/internal-accounts/:id/reactivate",
+  requirePermission(Permissions.AIDN_USER_ACTIVATE),
+  asyncHandler(async (req, res) => {
+    res.json(
+      await reactivateInternalAccount({
+        accountId: String(req.params.id),
+        actorId: req.user!.id,
+        actorRole: req.user!.role,
+      }),
+    );
   }),
 );
 
@@ -1166,6 +1230,14 @@ adminRouter.get(
         req.user!,
       ),
     );
+  }),
+);
+
+adminRouter.post(
+  "/document-requirements/seed-formal-request",
+  requirePermission(Permissions.DOCUMENT_UPLOAD_INTERNAL),
+  asyncHandler(async (req, res) => {
+    res.json(await seedFormalRequestDocumentRequirements(req.user!));
   }),
 );
 

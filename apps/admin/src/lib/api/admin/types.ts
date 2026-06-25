@@ -23,6 +23,13 @@ export type InternalAccount = {
   status: InternalAccountStatus;
   activatedAt?: string;
   lastLoginAt?: string;
+  activatedById?: string;
+  disabledAt?: string;
+  disabledById?: string;
+  isActive?: boolean;
+  mustChangePassword?: boolean;
+  temporaryPasswordExpiresAt?: string;
+  passwordChangedAt?: string;
 };
 
 export type AuditLog = {
@@ -47,6 +54,35 @@ export type AuditLog = {
 export type ActivateInternalAccountResponse = {
   account: InternalAccount;
   temporaryPassword: string;
+  expiresAt?: string;
+};
+
+export type InternalAccountMutationResponse = {
+  account: InternalAccount;
+};
+
+export type InternalAccountCredentialResponse = {
+  account: InternalAccount;
+  temporaryPassword: string;
+  expiresAt: string;
+};
+
+export type SeedFormalRequestRequirementAction =
+  | 'created'
+  | 'updated'
+  | 'unchanged';
+
+export type SeedFormalRequestRequirementsResponse = {
+  phaseKey: 'formal_request';
+  total: number;
+  created: number;
+  updated: number;
+  unchanged: number;
+  requirements: Array<{
+    id: string;
+    code: string;
+    action: SeedFormalRequestRequirementAction;
+  }>;
 };
 
 export type PaginatedResponse<T> = {

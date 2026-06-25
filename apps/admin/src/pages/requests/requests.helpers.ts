@@ -9,7 +9,6 @@ import {
   dgSignedAvailableStatuses,
   statusLabels,
 } from "./requests.constants";
-import { formatDate } from "./requests.utils";
 
 // Get display label for a request's current status, considering special cases
 export function getStatusLabel(request: AdminRequest): string {

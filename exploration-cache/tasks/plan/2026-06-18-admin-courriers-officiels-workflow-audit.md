@@ -473,6 +473,132 @@ Step 8 Summary and Impact: All repository layers completed. Core architectural s
 
 Remaining Step 8 work (optional/future phase): Add integration tests for initial request transitions (portal upload → print → `initial_sent_to_dg`, physical deposit → physical receipt, signed DG upload, etc.). Focus should move to admin frontend UI hardening and mutation infrastructure.
 
+### Step 9 - Internal AIDN Account Management
+
+Status: Implemented on 2026-06-24; backend service/repository extraction remains a future cleanup option.
+
+Reason:
+
+- Internal AIDN accounts can be activated with a generated temporary password, and users can change their own password after login.
+- If an internal user loses their password after activation, there is currently no explicit admin reset path. Re-running activation is not a clear operational action and mixes account creation, role update, reactivation, and password reset.
+- `InternalAccountsPage` is currently read-only apart from filters. It does not expose lifecycle actions such as reset password, disable account, reactivate account, or role update.
+
+Current implementation:
+
+- `apps/api/src/modules/admin/admin.service.ts`
+  - `activateInternalAccount` creates or updates an internal AIDN account.
+  - It generates a 6-digit temporary password, hashes it, sets `mustChangePassword = true`, sets `temporaryPasswordExpiresAt`, and returns the temporary password once.
+  - It writes audit events for activation/reactivation/role change.
+- `apps/api/src/modules/auth/auth.service.ts`
+  - `loginInternalUser` authenticates by matricule and local AIDN password.
+  - It returns `requiresPasswordChange` when `mustChangePassword` is true.
+  - `changeInternalPassword` requires the current password and clears `mustChangePassword`.
+- `apps/api/src/modules/users/user.model.ts`
+  - Already supports `passwordHash`, `mustChangePassword`, `temporaryPasswordExpiresAt`, `passwordChangedAt`, `isActive`, and `lastLoginAt`.
+- `apps/api/src/modules/users/aidn-internal-account.model.ts`
+  - Already supports `status = pending_first_login | active | disabled`, `disabledById`, `disabledAt`, and `lastLoginAt`.
+- `apps/admin/src/pages/InternalAccountsPage.tsx`
+  - Lists accounts and filters by search, role, and status.
+  - No row actions exist yet.
+
+Target product behavior:
+
+- Admin can reset an internal user's password from `Comptes internes`.
+- The reset creates a new temporary password, sets `mustChangePassword = true`, sets `temporaryPasswordExpiresAt`, and returns the temporary password once in a confirmation dialog.
+- The target user must change the temporary password at next login.
+- Admin can disable an account when a person should no longer access AIDN.
+- Admin can reactivate a disabled account, ideally with a fresh temporary password and forced password change.
+- Admin can update an internal user's role without using the personnel activation screen as a workaround.
+- The account list should show security-relevant state: `mustChangePassword`, temporary password expiry, password last changed, and disabled metadata where relevant.
+
+Proposed API additions:
+
+- `POST /api/v1/admin/internal-accounts/:id/reset-password`
+  - Permission: `AIDN_USER_ACTIVATE` initially, or introduce a more precise `AIDN_USER_MANAGE`.
+  - Returns `{ account, temporaryPassword, expiresAt }`.
+  - Writes audit event `admin.internal_account_password_reset`.
+- `PATCH /api/v1/admin/internal-accounts/:id/role`
+  - Body: `{ role }`.
+  - Validates against activatable internal roles.
+  - Writes audit event `admin.internal_account_role_changed`.
+- `POST /api/v1/admin/internal-accounts/:id/disable`
+  - Sets account `status = disabled`, user `isActive = false`, `disabledById`, `disabledAt`.
+  - Writes audit event `admin.internal_account_disabled`.
+- `POST /api/v1/admin/internal-accounts/:id/reactivate`
+  - Sets account `status = pending_first_login`, user `isActive = true`, generates fresh temporary password, forces password change.
+  - Writes audit event `admin.internal_account_reactivated`.
+
+Backend refactor notes:
+
+- Extract internal account logic from `admin.service.ts` into a focused module shape:
+  - `modules/admin/services/internal-account.service.ts`
+  - `modules/admin/repository/internal-account.repository.ts`
+  - `modules/admin/helpers/password.helpers.ts`
+  - `modules/admin/constants/internal-account.constants.ts`
+- Reuse the existing temporary password generation rule, but consider increasing from a 6-digit numeric password to a stronger short passphrase/token before real deployment.
+- Add guards:
+  - Do not allow an admin to disable/reset their own account without an explicit policy decision.
+  - Protect `bootstrap_admin` role changes separately if needed.
+  - Avoid returning temporary passwords except directly from create/reset/reactivate responses.
+- Add audit log coverage for success and failure paths.
+
+Admin UI plan:
+
+- Keep `InternalAccountsPage` as the management surface.
+- Add a right-side detail panel or row action menu with:
+  - `Reinitialiser le mot de passe`
+  - `Modifier le role`
+  - `Desactiver`
+  - `Reactiver`
+- Use shadcn dialogs and Sonner:
+  - Reset/reactivate dialogs must show the generated temporary password once, with copy button.
+  - Destructive actions require confirmation.
+  - Success/failure feedback should be action-scoped.
+- Add table columns or badges:
+  - `Mot de passe temporaire`
+  - `Changement requis`
+  - `Expire le`
+  - `Modifie le`
+- Later: move `InternalAccountsPage` to TanStack Query hooks using the same admin query structure already started for DG circuit and requests.
+
+Verification plan:
+
+- Activate an internal account and confirm temporary password first-login flow still works.
+- Reset password for an active account; old password should fail, temporary password should login and force change.
+- Reset password for a pending account; latest temporary password should be the only valid one.
+- Disable account; login should fail with disabled account.
+- Reactivate account; login should work only with the new temporary password and require password change.
+- Role update should affect permissions after next login/session refresh.
+- Audit log should show reset, disable, reactivate, and role update actions.
+
+### Step 10 - Phase III Billing Access and Gating
+
+Status: Implemented on 2026-06-24.
+
+Decision:
+
+- Phase III billing must unlock only after Phase II / demande formelle is closed.
+- A pre-created `document_evaluation` phase with `status = not_started` must not appear in the billing queue and must not allow invoice upload.
+- Reception and DG secretariat can transmit the study-fee invoice once Phase III is active.
+
+Changes:
+
+- Added `PAYMENT_VIEW` and `PAYMENT_INVOICE_UPLOAD` to `dg_secretariat`.
+- `reception` already had `PAYMENT_VIEW` and `PAYMENT_INVOICE_UPLOAD`.
+- `listPhasePaymentTasks` now lists only phases with `status = in_progress`, preventing not-started Phase III records from showing as `invoice_pending`.
+- `getDocumentEvaluationPaymentState` now rejects payment state access while Phase III is not opened.
+- `uploadStudyFeeInvoice` now rejects invoice upload unless the document-evaluation phase is `in_progress`.
+- Portal dashboard action counts now include Phase III payment-proof work: once the study-fee invoice exists and no proof has been uploaded, the related request is marked as `actionRequired` with label `Preuve de paiement a televerser`.
+- Portal request detail now exposes the same Phase III payment-proof action in the `Actions requises` tab through the dossier overview response. The tab shows a direct action card with invoice download and a shortcut to the Phase III dossier section.
+- Admin dossier `Phases` tab now renders a Phase III active-phase progression card, with seven explicit steps from Phase II closure to Phase III closure.
+
+Verification:
+
+- `npm run typecheck` in `apps/api` passes.
+- `npm run typecheck` in `apps/portal` passes for the dashboard/detail action contract.
+- `npm run build` in `apps/admin` passes for the Phase III progression sidebar.
+- Existing logged-in DG secretariat users may need to log out/in to receive the new permissions in their session.
+
 ## UI Improvement Hints
 
 - Make the right panel operational, not explanatory. Show the current task, timeline, and one primary action.

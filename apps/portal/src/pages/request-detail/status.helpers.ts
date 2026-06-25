@@ -2,7 +2,6 @@ import type { PortalDossierDetail } from "../../lib/api/dossiers";
 import type { PortalRequest } from "../../lib/api/requests";
 import {
   ACTION_REQUIRED_STATUSES,
-  PRELIMINARY_PHASE_STATUS,
   PRELIMINARY_STATUS_LABELS,
   PRELIMINARY_STEPS,
   REQUEST_STATUS_LABELS,
@@ -100,8 +99,18 @@ export function shouldShowActionRequired(
     return true;
   }
 
+  // Secondary action trigger: formal request courrier expected
+  if (dossier?.formalRequest?.canUploadFormalRequestCourrier) {
+    return true;
+  }
+
   // Secondary action trigger: formal documents required
   if (dossier?.formalRequest?.status === "formal_requires_correction") {
+    return true;
+  }
+
+  // Secondary action trigger: Phase III payment proof expected
+  if (dossier?.documentEvaluation?.canUploadPaymentProof) {
     return true;
   }
 
@@ -134,9 +143,19 @@ export function getActionMessage(
     return "Action requise: Formulaire pré-évaluation à compléter";
   }
 
+  // Formal request courrier expected
+  if (dossier?.formalRequest?.canUploadFormalRequestCourrier) {
+    return "Action requise: Demande formelle a televerser";
+  }
+
   // Formal correction required
   if (dossier?.formalRequest?.status === "formal_requires_correction") {
     return "Action requise: Corrections demandées pour demande formelle";
+  }
+
+  // Phase III payment proof expected
+  if (dossier?.documentEvaluation?.canUploadPaymentProof) {
+    return "Action requise: Preuve de paiement a televerser";
   }
 
   return "";
@@ -219,3 +238,4 @@ export function isPreliminaryWaiting(
 
   return waitingStatuses.has(preliminary.status);
 }
+

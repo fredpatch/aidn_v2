@@ -47,10 +47,11 @@ export const listPhasePaymentTasks = async (
   const statusFilter =
     !filters.status || filters.status === "all" ? null : filters.status;
 
-  // 1. Find active OmaPhases (exclude closed)
+  // 1. Find active OmaPhases. Phase III billing starts only when Phase II has
+  // been closed and the document-evaluation phase has been opened.
   const phases = await OmaPhaseModel.find({
     phaseKey: resolvedPhaseKey,
-    status: { $ne: "closed" },
+    status: "in_progress",
   })
     .select("_id dossierId phaseKey status startedAt")
     .lean();

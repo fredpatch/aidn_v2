@@ -1,13 +1,16 @@
-import { apiGet, apiPost } from '../client';
+import { apiGet, apiPatch, apiPost } from '../client';
 import type {
   ActivateInternalAccountResponse,
   AuditLog,
   InternalAccount,
+  InternalAccountCredentialResponse,
+  InternalAccountMutationResponse,
   ListAuditLogsParams,
   ListInternalAccountsFilters,
   PaginatedResponse,
   PersonnelSearchItem,
   SearchPersonnelParams,
+  SeedFormalRequestRequirementsResponse,
 } from './types';
 import {
   buildAuditLogsPath,
@@ -19,12 +22,15 @@ export type {
   ActivateInternalAccountResponse,
   AuditLog,
   InternalAccount,
+  InternalAccountCredentialResponse,
+  InternalAccountMutationResponse,
   InternalAccountStatus,
   ListAuditLogsParams,
   ListInternalAccountsFilters,
   PaginatedResponse,
   PersonnelSearchItem,
   SearchPersonnelParams,
+  SeedFormalRequestRequirementsResponse,
 } from './types';
 
 export function searchPersonnel(
@@ -51,8 +57,52 @@ export function activateInternalAccount(
   );
 }
 
+export function resetInternalAccountPassword(
+  accountId: string,
+): Promise<InternalAccountCredentialResponse> {
+  return apiPost<InternalAccountCredentialResponse>(
+    `/api/v1/admin/internal-accounts/${accountId}/reset-password`,
+    {},
+  );
+}
+
+export function updateInternalAccountRole(
+  accountId: string,
+  role: string,
+): Promise<InternalAccountMutationResponse> {
+  return apiPatch<InternalAccountMutationResponse>(
+    `/api/v1/admin/internal-accounts/${accountId}/role`,
+    { role },
+  );
+}
+
+export function disableInternalAccount(
+  accountId: string,
+): Promise<InternalAccountMutationResponse> {
+  return apiPost<InternalAccountMutationResponse>(
+    `/api/v1/admin/internal-accounts/${accountId}/disable`,
+    {},
+  );
+}
+
+export function reactivateInternalAccount(
+  accountId: string,
+): Promise<InternalAccountCredentialResponse> {
+  return apiPost<InternalAccountCredentialResponse>(
+    `/api/v1/admin/internal-accounts/${accountId}/reactivate`,
+    {},
+  );
+}
+
 export function listAuditLogs(
   paramsInput: ListAuditLogsParams,
 ): Promise<PaginatedResponse<AuditLog>> {
   return apiGet<PaginatedResponse<AuditLog>>(buildAuditLogsPath(paramsInput));
+}
+
+export function seedFormalRequestRequirements(): Promise<SeedFormalRequestRequirementsResponse> {
+  return apiPost<SeedFormalRequestRequirementsResponse>(
+    '/api/v1/admin/document-requirements/seed-formal-request',
+    {},
+  );
 }

@@ -24,7 +24,7 @@ import {
   CardHeader,
   CardTitle,
 } from "../../components/ui/card";
-import { Field, FieldError, FieldLabel } from "../../components/ui/field";
+import { Field, FieldLabel } from "../../components/ui/field";
 import { Input } from "../../components/ui/input";
 import { ProcessTimeline } from "./ProcessTimeline";
 
@@ -346,6 +346,42 @@ export function RequestActionsTab({
               </AlertTitle>
             </AlertContent>
           </Alert>
+        ) : null}
+
+        {dossierDetail?.documentEvaluation?.canUploadPaymentProof &&
+        request.dossierId ? (
+          <Card>
+            <CardHeader>
+              <CardDescription>Action requise</CardDescription>
+              <CardTitle>Preuve de paiement attendue</CardTitle>
+              <p className="mt-2 text-sm text-slate-600">
+                La facture des frais d'etude est disponible. Televersez la
+                quittance ou preuve de paiement pour permettre a l'ANAC de
+                poursuivre l'evaluation documentaire.
+              </p>
+            </CardHeader>
+            <CardContent className="flex flex-wrap gap-2">
+              {dossierDetail.documentEvaluation.payment.invoiceDocumentId ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() =>
+                    onDownload(
+                      dossierDetail.documentEvaluation!.payment.invoiceDocumentId!,
+                      "facture-frais-etude.pdf",
+                    )
+                  }
+                >
+                  <Download size={14} aria-hidden="true" />
+                  Telecharger la facture
+                </Button>
+              ) : null}
+              <Button type="button" onClick={onOpenDossierTab}>
+                <Upload size={16} aria-hidden="true" />
+                Deposer la preuve de paiement
+              </Button>
+            </CardContent>
+          </Card>
         ) : null}
 
         {!hasActionRequired ? (

@@ -50,6 +50,11 @@ export function getDocumentEvaluationProgress(
 
   const rawSteps = [
     {
+      key: "formal_closed",
+      label: "Phase 2 clôturée",
+      done: Boolean(paymentState?.phase),
+    },
+    {
       key: "invoice_sent",
       label: "Facture S5 téléversée",
       done: invoiceExists,

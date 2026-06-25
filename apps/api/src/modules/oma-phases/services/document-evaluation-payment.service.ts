@@ -41,6 +41,14 @@ export const getDocumentEvaluationPaymentState = async (
     await documentEvaluationRepository.findDocEvalPhaseByDossierIdLean(
       dossierObjId,
     );
+
+  if (String(phase.status) !== "in_progress") {
+    throw new HttpError(
+      409,
+      "La facturation de la phase III sera disponible apres la cloture de la demande formelle.",
+    );
+  }
+
   const payment = await findOrInitDocumentEvaluationPayment(
     dossierObjId,
     phase._id as Types.ObjectId,
@@ -139,6 +147,14 @@ export const uploadStudyFeeInvoice = async (
     await documentEvaluationRepository.findDocEvalPhaseByDossierIdLean(
       dossierObjId,
     );
+
+  if (String(phase.status) !== "in_progress") {
+    throw new HttpError(
+      409,
+      "La facture ne peut etre televersee qu'apres la cloture de la demande formelle.",
+    );
+  }
+
   const phaseObjId = phase._id as Types.ObjectId;
   const payment = await findOrInitDocumentEvaluationPayment(
     dossierObjId,

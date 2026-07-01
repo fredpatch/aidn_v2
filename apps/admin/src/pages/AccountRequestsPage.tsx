@@ -15,7 +15,7 @@ import {
   getAccountRequest,
   listAccountRequests,
   type AccountRequestListItem,
-} from "../lib/api/account-requests.api";
+} from "../lib/api/account-requests";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import { Card, CardContent } from "../components/ui/card";

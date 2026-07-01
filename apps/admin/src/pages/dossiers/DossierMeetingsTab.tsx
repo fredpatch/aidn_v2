@@ -9,7 +9,7 @@ import {
   type AdminDossierDetail,
   type AdminFormalRequestPhaseState,
   type AdminMeetingSummary,
-} from "@/lib/api/dossiers.api";
+} from "@/lib/api/dossiers";
 import { ApiError } from "@/lib/api/client";
 import { openBlobInNewTab } from "@/lib/utils/blob";
 import { ActionError } from "./dossier-detail.helpers";

@@ -1,4 +1,4 @@
-import { Loader2, RefreshCw, Save } from "lucide-react";
+import { AlertCircle, Loader2, RefreshCw, Save } from "lucide-react";
 import { useEffect } from "react";
 import {
   Controller,
@@ -7,6 +7,12 @@ import {
   type SubmitHandler,
 } from "react-hook-form";
 
+import {
+  Alert,
+  AlertContent,
+  AlertIcon,
+  AlertTitle,
+} from "../../components/Alert";
 import { getRequestTypeLabel } from "../../components/RequestTypeLabel";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
@@ -122,7 +128,13 @@ export function RequestSummaryTab({
       subject: request.subject,
       message: request.message ?? "",
     });
-  }, [request.id, request.message, request.requestType, request.subject, reset]);
+  }, [
+    request.id,
+    request.message,
+    request.requestType,
+    request.subject,
+    reset,
+  ]);
 
   useEffect(() => {
     const subscription = watch((values) => {
@@ -147,22 +159,40 @@ export function RequestSummaryTab({
   return (
     <div className="flex flex-col gap-4">
       {isSubmitted && !request.dossierId ? (
-        <div className="rounded-md border border-sky-200 bg-sky-50 px-4 py-3 text-sm font-semibold text-sky-800">
-          Votre demande a été reçue. Elle est en attente d'orientation
-          administrative.
-        </div>
+        <Alert variant="info" appearance="light">
+          <AlertIcon>
+            <AlertCircle
+              size={16}
+              className="text-sky-600"
+              aria-hidden="true"
+            />
+          </AlertIcon>
+          <AlertContent>
+            <AlertTitle>
+              Votre demande a été reçue. Elle est en attente d'orientation
+              administrative.
+            </AlertTitle>
+          </AlertContent>
+        </Alert>
       ) : null}
 
       {request.portalStatusLabel &&
       portalStatusGuidance[request.portalStatusLabel] ? (
-        <div className="rounded-md border border-sky-200 bg-sky-50 px-4 py-3 text-sm">
-          <p className="font-semibold text-sky-800">
-            {request.portalStatusLabel}
-          </p>
-          <p className="mt-1 text-sky-700">
-            {portalStatusGuidance[request.portalStatusLabel]}
-          </p>
-        </div>
+        <Alert variant="info" appearance="light">
+          <AlertIcon>
+            <AlertCircle
+              size={16}
+              className="text-sky-600"
+              aria-hidden="true"
+            />
+          </AlertIcon>
+          <AlertContent>
+            <AlertTitle>{request.portalStatusLabel}</AlertTitle>
+            <p className="mt-1 text-sm text-sky-700">
+              {portalStatusGuidance[request.portalStatusLabel]}
+            </p>
+          </AlertContent>
+        </Alert>
       ) : null}
 
       <dl className="grid gap-x-8 gap-y-4 rounded-xl border border-slate-100 bg-slate-50 px-5 py-4 text-sm sm:grid-cols-3">
@@ -261,9 +291,7 @@ export function RequestSummaryTab({
                           onBlur={field.onBlur}
                           aria-invalid={errors.requestType ? "true" : "false"}
                           aria-describedby={
-                            errors.requestType
-                              ? "requestType-error"
-                              : undefined
+                            errors.requestType ? "requestType-error" : undefined
                           }
                           className={
                             errors.requestType
@@ -330,7 +358,9 @@ export function RequestSummaryTab({
                     "focus-visible:border-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900/10",
                   ].join(" ")}
                   aria-invalid={errors.message ? "true" : "false"}
-                  aria-describedby={errors.message ? "message-error" : undefined}
+                  aria-describedby={
+                    errors.message ? "message-error" : undefined
+                  }
                   placeholder="Ajoutez une précision utile pour l'instruction du dossier."
                   {...register("message", rules.message)}
                 />

@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import type { DgCircuitTask } from "@/lib/api/dg-circuit.api";
+import type { DgCircuitTask } from "@/lib/api/dg-circuit";
 
 const physicalReceiptSchema = z.object({
   physicalDepositDate: z.string().min(1, "La date de depot est obligatoire."),

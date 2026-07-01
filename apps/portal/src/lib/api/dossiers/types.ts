@@ -18,6 +18,19 @@ export type PortalDossierPreliminary = {
   preliminaryMeeting: PortalDossierMeeting | null;
 };
 
+export type PortalDossierDocumentEvaluation = {
+  status: string | null;
+  portalLabel: string;
+  payment: {
+    status: string | null;
+    invoiceDocumentId: string | null;
+    paymentProofDocumentId: string | null;
+    invoiceSentAt: string | null;
+    paymentProofSubmittedAt: string | null;
+  };
+  canUploadPaymentProof: boolean;
+};
+
 export type PortalDossierDetail = {
   dossier: {
     id: string;
@@ -28,4 +41,5 @@ export type PortalDossierDetail = {
   };
   preliminary: PortalDossierPreliminary;
   formalRequest?: PortalDossierFormalRequest;
+  documentEvaluation?: PortalDossierDocumentEvaluation;
 };

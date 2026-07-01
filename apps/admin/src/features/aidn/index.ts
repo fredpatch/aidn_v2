@@ -1,4 +1,4 @@
-export { aidnApi } from './api/aidn.api';
+export { aidnApi } from './api';
 export { AidnStatusBadge } from './components/AidnStatusBadge';
 export { getEntryChannelLabel, getInternalDemandeStatusLabel, getPortalStatusLabel } from './components/aidn-status-labels';
 export { DgDecisionBadge } from './components/DgDecisionBadge';

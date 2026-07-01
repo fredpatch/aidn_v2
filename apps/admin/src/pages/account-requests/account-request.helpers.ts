@@ -1,7 +1,7 @@
 import type {
   AccountRequestListItem,
   AccountRequestStatus,
-} from '../../lib/api/account-requests.api';
+} from '../../lib/api/account-requests';
 
 export function formatDate(value?: string): string {
   if (!value) return '-';

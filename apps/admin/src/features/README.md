@@ -6,7 +6,8 @@ Each feature follows this structure:
 features/<feature>/
   types.ts
   mocks/<feature>.mock.ts
-  api/<feature>.api.ts
+  api/index.ts
+  api/utils.ts
   hooks/use<Feature>List.ts
   hooks/use<Feature>.ts
   hooks/useCreate<Feature>.ts

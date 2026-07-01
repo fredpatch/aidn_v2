@@ -8,8 +8,8 @@ import {
   getAdminFormalRequestPhase,
   type AdminDossierDetail,
   type AdminFormalRequestPhaseState,
-} from "@/lib/api/dossiers.api";
-import { downloadRequestOrientationDocument } from "@/lib/api/requests.api";
+} from "@/lib/api/dossiers";
+import { downloadRequestOrientationDocument } from "@/lib/api/requests";
 import { ApiError } from "@/lib/api/client";
 import { openBlobInNewTab } from "@/lib/utils/blob";
 import { ActionError } from "./dossier-detail.helpers";

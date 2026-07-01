@@ -1,4 +1,4 @@
-import type { AdminFormalRequestPhaseState } from "@/lib/api/dossiers.api";
+import type { AdminFormalRequestPhaseState } from "@/lib/api/dossiers";
 
 export type FormalRequestStep = {
   key: string;

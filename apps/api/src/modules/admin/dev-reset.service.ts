@@ -10,7 +10,7 @@ import { DocumentModel } from "../documents/document.model.js";
 import { DossierModel } from "../dossiers/dossier.model.js";
 import { MeetingModel } from "../meetings/meeting.model.js";
 import { NotificationModel } from "../notifications/notification.model.js";
-import { OmaPhaseModel } from "../oma-phases/oma-phase.model.js";
+import { OmaPhaseModel } from "../oma-phases/index.js";
 import { RequestModel } from "../requests/request.model.js";
 
 const CONFIRMATION_TEXT = "RESET AIDN TEST DATA";
@@ -117,3 +117,4 @@ export const resetTestData = async (
 
   return { ok: true, counts, deletedFiles };
 };
+

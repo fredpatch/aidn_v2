@@ -34,7 +34,7 @@ import {
   type AdminDossierSummary,
   type DossierStatus,
   type DossierType,
-} from "@/lib/api/dossiers.api";
+} from "@/lib/api/dossiers";
 
 const helper = createColumnHelper<AdminDossierSummary>();
 const pageSize = 8;

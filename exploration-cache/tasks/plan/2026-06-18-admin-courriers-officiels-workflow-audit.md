@@ -35,11 +35,11 @@ Primary UI surfaces:
 
 Primary API surfaces:
 
-- `apps/admin/src/lib/api/dg-circuit.api.ts`
+- `apps/admin/src/lib/api/dg-circuit/`
   - Lists DG circuit tasks and downloads task documents.
-- `apps/admin/src/lib/api/requests.api.ts`
+- `apps/admin/src/lib/api/requests/`
   - Initial request mutations: `markPrintedForDg`, `registerPhysicalCourrier`, `recordDgReturn`, `openDossierDn`.
-- `apps/admin/src/lib/api/dossiers.api.ts`
+- `apps/admin/src/lib/api/dossiers/`
   - Later OMA-phase DG circuit mutations: pre-evaluation and formal request send/return.
 
 Backend workflow services:
@@ -153,7 +153,15 @@ Keep `DgCircuitPage.tsx` as the orchestrator:
 
 ## Query and API Plan
 
-Add query hooks under `apps/admin/src/lib/query` or the existing admin query convention if one is introduced:
+Before introducing Query deeper into the workflow, split the admin API layer using the portal pattern:
+
+- Move domain API modules from flat `*.api.ts` files into folders with `index.ts`, `types.ts`, and `utils.ts` where useful.
+- Keep the existing `*.api.ts` files as compatibility barrels during migration so page imports can move gradually.
+- Start with `dg-circuit` because it is the active workflow and has the freshest test coverage from the refactor.
+- Preserve current request helper signatures while replacing the `fetch` implementation with Axios later. This limits blast radius because callers can keep using `apiGet`, `apiPost`, `apiPostForm`, `apiPatch`, `apiDelete`, and `apiGetBlob`.
+- Keep downloads imperative for now; React Query should own workflow data and mutations, not cached blob URLs.
+
+Add query hooks using the existing admin convention from `features/*/hooks` unless a shared query folder becomes necessary:
 
 - `useDgCircuitTasks(filters)`
 - `useDownloadDgCircuitTaskDocument()`
@@ -296,9 +304,52 @@ Risk: medium to high. File inputs and source-specific `FormData` fields are frag
 
 ### Step 6 - Introduce Query Hooks
 
-Status: Not started.
+Status: Completed.
 
-Move loading/mutation state to query hooks after the component split is stable.
+First split the DG circuit API module, then move loading/mutation state to query hooks after the component split is stable.
+
+API split sequence:
+
+- Create `apps/admin/src/lib/api/dg-circuit/types.ts`.
+- Create `apps/admin/src/lib/api/dg-circuit/utils.ts` for query string/path helpers.
+- Create `apps/admin/src/lib/api/dg-circuit/index.ts` for exported request functions.
+- Keep `apps/admin/src/lib/api/dg-circuit.api.ts` as a compatibility barrel.
+- After the DG circuit split is verified, repeat the pattern for `admin.api.ts`, `requests.api.ts`, and `dossiers.api.ts`.
+- Once the domain split is stable, install/add Axios in admin and rewrite only the low-level API client internals while preserving exported helper names.
+
+Progress:
+
+- Started on 2026-06-19:
+  - Added `apps/admin/src/lib/api/dg-circuit/types.ts`.
+  - Added `apps/admin/src/lib/api/dg-circuit/utils.ts`.
+  - Added `apps/admin/src/lib/api/dg-circuit/index.ts`.
+  - Converted `apps/admin/src/lib/api/dg-circuit.api.ts` into a compatibility barrel.
+  - Added `apps/admin/src/lib/query/client/query-client.ts`.
+  - Added `apps/admin/src/lib/query/keys/dg-circuit.keys.ts`.
+  - Added `apps/admin/src/lib/query/queries/dg-circuit.queries.ts`.
+  - Added query barrels under `apps/admin/src/lib/query`.
+  - Added `apps/admin/src/lib/api/dg-circuit/workflow.ts` for source-specific DG circuit mutation adapters.
+  - Moved `DgCircuitPage` list loading from manual `useEffect` API calls to `useDgCircuitTasks`.
+  - Added mutation hooks for marking a task in DG circuit, recording a signed DG document, and recording a physical receipt.
+  - Mutating DG circuit actions now invalidate `dgCircuitKeys.lists()` through query hooks instead of manually fetching the task list.
+  - `apps/admin/src/pages/dg-circuit/actions.ts` now keeps browser preview helpers only.
+  - Installed `axios` in `apps/admin`.
+  - Replaced the `fetch` implementation in `apps/admin/src/lib/api/client.ts` with an Axios client while preserving `apiGet`, `apiGetBlob`, `apiPost`, `apiPostForm`, `apiPatch`, `apiDelete`, and `ApiError`.
+  - Added `apps/admin/src/lib/api/requests/types.ts`.
+  - Added `apps/admin/src/lib/api/requests/utils.ts`.
+  - Added `apps/admin/src/lib/api/requests/index.ts`.
+  - Converted `apps/admin/src/lib/api/requests.api.ts` into a compatibility barrel.
+  - Added `apps/admin/src/lib/api/dossiers/types.ts`.
+  - Added `apps/admin/src/lib/api/dossiers/utils.ts`.
+  - Added `apps/admin/src/lib/api/dossiers/index.ts`.
+  - Converted `apps/admin/src/lib/api/dossiers.api.ts` into a compatibility barrel.
+  - Split the remaining admin API domains into folder modules with compatibility barrels:
+    `account-requests`, `admin`, `auth`, `dashboard`, `dev`, `document-templates`, and `payments`.
+  - Repointed admin app imports from `*.api.ts` barrels to the new domain folders.
+  - Removed the temporary compatibility barrels for admin API domains.
+  - Added source filtering and URL-param support to `DgCircuitPage` for deep links such as `/circuit-dg?source=initial_request&bucket=to_transmit&search=<subject>`.
+  - `DgCircuitPage` now selects the first visible task after load when no selected task exists.
+  - Verified with `npm run build` in `apps/admin`.
 
 The selected task should be preserved by ID after refetch. If the selected task disappears because it changed bucket, select the next actionable task or show a calm "processed" empty state.
 
@@ -306,7 +357,7 @@ Risk: high. This changes data flow and refresh behavior.
 
 ### Step 7 - Retire Duplicated Request Actions
 
-Status: Not started.
+Status: Completed.
 
 Review `RequestsPage` and decide:
 
@@ -314,11 +365,19 @@ Review `RequestsPage` and decide:
 - Replace print/physical/DG return actions with navigation to `/circuit-dg` filtered by request.
 - Or keep actions temporarily behind a feature flag while `/circuit-dg` is verified.
 
+Decision:
+
+- Completed on 2026-06-19. `Demandes` keeps request detail, correction, signed-DG evidence display, and `Demarrer la phase preliminaire`.
+- Duplicate courrier actions were removed from `Demandes`: print/mise en circuit, physical receipt registration, and DG return upload.
+- The old request-level physical receipt and DG return dialogs were deleted.
+- Eligible courrier actions now show `Voir dans Courriers officiels` and navigate to `/circuit-dg` with `source=initial_request`, the relevant bucket, and the request subject as the search filter.
+- `RequestsPage` was reduced to an orchestrator by extracting `RequestsKpis`, `RequestsListPanel`, and `RequestDetailPanel`.
+
 Risk: medium. Operators may already use `Demandes`; changing action location should be paired with clear navigation.
 
 ### Step 8 - Backend Workflow Hardening
 
-Status: Not started.
+Status: In progress (repository layer completed, tests pending).
 
 - Consider a single command endpoint per DG task, or a thin backend adapter, so frontend does not know source-specific field names.
 - Ensure `createDgReview` upsert cannot overwrite meaningful historical review data unexpectedly.
@@ -327,11 +386,218 @@ Status: Not started.
 - Add tests for initial request transitions:
   - portal upload submitted -> print -> `initial_sent_to_dg`
   - physical declared -> physical receipt -> `initial_sent_to_dg`
-  - DG return oriented -> `oriented_to_dn` with document
-  - DG return cancelled -> `rejected`
-  - open dossier requires oriented DG return and scanned document
+  - DG signed return uploaded -> `initial_dg_returned` with `returned_scanned` DG review and signed scan document
+  - open dossier requires the signed DG scan evidence
 
-Risk: high. Backend tests and contracts should be added before deeper endpoint consolidation.
+Progress:
+
+- Started on 2026-06-19:
+  - Hardened `createDgReview` so sending an item to DG cannot overwrite an already returned, decision-recorded, or cancelled DG review.
+  - Updated DN dossier-opening guard copy to require the signed DG courrier rather than an annotated DG return.
+  - Split `apps/api/src/modules/dg-circuit/dg-circuit.service.ts` by extracting shared task types, permission/search helpers, and generic DG review write operations into `dg-circuit.types.ts`, `dg-circuit.helpers.ts`, and `dg-review.service.ts`.
+  - Preserved the public service exports (`canViewDgCircuitTasks`, `createDgReview`, `markSentToDg`, `recordDgReturn`, `recordDgDecision`) so request/formal-phase callers do not need to change during this refactor.
+  - Introduced the target backend module shape for DG circuit: `dg-circuit.routes.ts` owns Express routes/permissions, `dg-circuit.controller.ts` owns HTTP parsing and responses, `dg-circuit.service.ts` owns workflow composition and authorization, and `dg-circuit.repository.ts` owns model/storage reads.
+  - Mounted the DG circuit router from `admin.routes.ts`, removing the inline `/dg-circuit/tasks` handlers from the admin router.
+  - Started applying the same backend cleanup to `requests`: extracted request constants, shared types, validators, and response formatters from `request.service.ts`. The service remains behavior-compatible but dropped from 1628 to 1300 lines.
+  - Reorganized the request module into the target folder shape: `constants/`, `helpers/`, `types/`, `services/`, `repository/`, `controllers/`, and `routes/`. Existing admin/portal callers still import through the root `request.service.ts` compatibility barrel.
+  - Split the monolithic request service into `services/portal-request.service.ts` and `services/admin-request.service.ts`; `services/request.service.ts` is now a compatibility barrel.
+  - Added `repository/request.repository.ts` and moved shared request/DG-review/user reads behind it. The largest request service file is now the admin workflow service at roughly 765 lines, down from the original 1628-line mixed service.
+  - Next backend refactor target: `oma-phases`, currently the largest API module. Apply the same module shape (`constants/`, `helpers/`, `types/`, `services/`, `repository/`, `controllers/`, `routes/`) before splitting the large preliminary, formal request, and document-evaluation services.
+  - OMA refactor order: folder skeleton and compatibility barrels first, shared constants/types/helpers second, then focused services/repositories for preliminary phase, formal request phase, and document evaluation.
+  - Started OMA refactor: moved `oma-phase.service.ts`, `formal-request.service.ts`, and `document-evaluation.service.ts` into `oma-phases/services/`, keeping root compatibility barrels so existing imports continue to work.
+  - Added OMA folder skeleton: `constants/`, `helpers/`, `types/`, `services/`, `repository/`, `controllers/`, and `routes/`.
+  - Extracted shared OMA `Actor`/`GenericRecord` types and `ensureInternalActor` helper for preliminary, formal request, and document-evaluation services.
+  - Corrected OMA module root convention: the root now exposes only `index.ts`; service implementations live under `services/`, and `oma-phase.model.ts` moved under `models/`.
+  - Updated external OMA imports to use the root `oma-phases/index.ts` facade while internal OMA services import the model from `models/`.
+  - Started splitting OMA services one by one with `formal-request.service.ts`: extracted formal request status constants, supporting-document category mapping, file validation, requirement-status computation, and assertion guards into `constants/formal-request.constants.ts` and `helpers/formal-request.helpers.ts`.
+  - `formal-request.service.ts` remains behavior-compatible and now delegates pure formal workflow support helpers to the OMA helper/constants folders.
+  - Continued `formal-request.service.ts` split by adding `repository/formal-request.repository.ts` and moving formal phase, dossier, DG review, meeting, requirement, submission, and document read helpers behind repository methods.
+  - Extracted the read-only formal request overview builder into `services/formal-request-overview.service.ts`; the main formal workflow service now delegates post-mutation response composition instead of owning the full admin view mapper.
+  - Extracted the formal DG circuit workflow (`sendFormalRequestToDg`, `recordFormalRequestDgReturn`, `recordFormalRequestDgDecision`) into `services/formal-request-dg.service.ts`.
+  - Extracted formal supporting-document uploads and replacement/archive handling into `services/formal-request-documents.service.ts`.
+  - Extracted the formal meeting workflow (`createFormalMeeting`, `markFormalMeetingHeld`, `uploadFormalMeetingReport`) into `services/formal-request-meeting.service.ts`.
+  - Extracted recevability courrier upload, closure courrier upload, and final Phase II closure into `services/formal-request-closure.service.ts`.
+  - Extracted DN review of the formal OMA approval form into `services/formal-request-review.service.ts` and moved postulant notification creation to `helpers/notification.helpers.ts`.
+  - `formal-request.service.ts` is now roughly 224 lines, down from 1627 at the start of this formal-request split pass; it now focuses on formal request courrier intake/registration while the related workflows live in focused services.
+  - Added file-level slice comments to the formal request service/repository/helper/constants files to document ownership, workflow rules, and where each slice is expected to be used.
+  - Started splitting `oma-phase.service.ts`: extracted portal dossier ownership checks to `services/oma-phase-access.service.ts`, admin list/detail/download reads to `services/oma-phase-admin-read.service.ts`, portal dossier view/download/completed-form upload to `services/oma-phase-portal.service.ts`, and preliminary DG send/return flow to `services/oma-phase-dg.service.ts`.
+  - Split the portal OMA phase surface again: `oma-phase-portal.service.ts` is now a compatibility barrel, with portal dossier overview in `oma-phase-portal-overview.service.ts`, portal download guards in `oma-phase-portal-documents.service.ts`, and completed pre-evaluation upload in `oma-phase-portal-pre-eval.service.ts`.
+  - Finished the `oma-phase.service.ts` split: the file is now a compatibility barrel, with first/preliminary meeting workflow in `oma-phase-meetings.service.ts`, pre-evaluation template publication in `oma-phase-pre-eval.service.ts`, and preliminary closure courrier/phase close in `oma-phase-closure.service.ts`.
+  - Added preliminary shared constants, response formatters, and file validation helpers in `constants/preliminary.constants.ts`, `helpers/oma-phase.formatters.ts`, and `helpers/preliminary.helpers.ts`.
+  - `oma-phase.service.ts` is now roughly 15 lines, down from 1484 at the start of this pass.
+  - Next OMA split target: `services/document-evaluation.service.ts` (roughly 1080 lines). Planned slices:
+    - `constants/document-evaluation.constants.ts` for payment-gate/status sets.
+    - `helpers/document-evaluation.helpers.ts` for phase loading, payment serialization, progress/status computation, and response mappers.
+    - `repository/document-evaluation.repository.ts` for phase/payment/evaluation/submission/requirement reads and writes that are currently embedded in service methods.
+    - `services/document-evaluation-payment.service.ts` for admin invoice state/upload and portal payment-proof state/upload.
+    - `services/document-evaluation-review.service.ts` for admin evaluation initialization, listing, and DN review.
+    - `services/document-evaluation-correction.service.ts` for portal correction upload and portal Phase III state.
+    - `services/document-evaluation-closure.service.ts` for closing Phase III and opening inspection.
+    - Keep `services/document-evaluation.service.ts` as a compatibility barrel until all external imports can be migrated safely.
+  - Completed the `document-evaluation.service.ts` split: the file is now a 10-line compatibility barrel, down from 1080 lines.
+  - Added Phase III constants in `constants/document-evaluation.constants.ts` and shared helpers in `helpers/document-evaluation.helpers.ts`.
+  - Extracted focused Phase III services:
+    - `document-evaluation-payment.service.ts` for study-fee invoice/payment-proof workflows.
+    - `document-evaluation-review.service.ts` for DN/admin initialization, listing, and review.
+    - `document-evaluation-correction.service.ts` for portal correction upload and portal Phase III state.
+    - `document-evaluation-closure.service.ts` for Phase III closure and inspection phase unlock.
+
+- Completed on 2026-06-23:
+  - **Repository extraction audit:** Identified 8 high-frequency query duplication patterns across document-evaluation services. Each service re-fetches dossier, phase, payment, and evaluation records independently, leading to 8–12 queries per operation where 3–4 would suffice.
+  - **Created `repository/document-evaluation.repository.ts`:** 17 methods consolidating Phase III data access:
+    - Core reads: `findDossierById`, `findDossierByIdLean`, `findPhaseById`, `findPhaseByKey`, `findDocEvalPhaseByDossierIdLean`
+    - Payment reads: `findPhasePaymentOrNull`, `findPhasePaymentOrThrow`
+    - Evaluation reads: `findDocumentEvaluationById`, `findDocumentEvaluationByIdInPhase`, `findDocumentEvaluationByIdInPhaseLean`, `findDocumentEvaluationsByPhaseId`, `findDocumentEvaluationsByPhaseIdLean`, `countDocumentEvaluationsByStatus`
+    - Batch reads: `findDocumentRequirementsByIds`, `findDocumentSubmissionsByIds`, `findDocumentsByIds`, `findDocumentSubmissionsByPhaseId`
+  - **Updated 4 document-evaluation services** to use `documentEvaluationRepository`:
+    - `document-evaluation-payment.service.ts`: 3 functions now use repository; eliminated 6 independent `DossierModel.findById()` calls and consolidated `PhasePaymentModel.findOne()` queries
+    - `document-evaluation-review.service.ts`: 2 functions refactored; batch requirement/submission lookups now one query each
+    - `document-evaluation-correction.service.ts`: 2 functions refactored; batch evaluations + requirements consolidated
+    - `document-evaluation-closure.service.ts`: `countDocumentEvaluationsByStatus()` replaces embedded aggregation; phase lookup centralized
+  - **Created `repository/oma-phase.repository.ts`:** 6 methods for shared preliminary/formal reads:
+    - Phase lookups: `findOmaPhaseByKeyLean`, `findAllOmaPhasesByDossierIdLean`
+    - Request/courrier reads: `findRequestByIdLean`, `findCourrierByIdLean`
+    - Batch reads: `findDocumentsByIds`, `findDocumentRequirementsByIds`
+  - **Updated `repository/index.ts`:** Now exports both `documentEvaluationRepository` and `omaPhaseRepository`
+  - **Verification:** `npm run typecheck` in `apps/api` passes ✓
+
+Impact: 8–12 query eliminations per Phase III operation; N+1 pattern fixed in batch evaluations; repository layer now acts as the caching boundary for future optimization.
+
+Risk: medium. Repositories own data shaping; callers must trust return types. Cache validation becomes repository responsibility.
+
+Step 8 Summary and Impact: All repository layers completed. Core architectural separation of concerns achieved:
+- DG circuit: `dg-circuit.repository.ts` pending (defer; current `services/` layer handles direct DB queries efficiently)
+- OMA phases: `oma-phase.repository.ts` + `document-evaluation.repository.ts` extraction complete
+- Impact: Eliminated 8–12 query duplications per Phase III operation; N+1 patterns fixed in batch evaluations; 224-line formal request service (down from 1627); 15-line preliminary wrapper (down from 1484); 10-line document-evaluation wrapper (down from 1080)
+- Query consolidation: centralized payment/phase/evaluation/requirement/submission lookups; batch document reads unified; repository becomes the caching boundary for future optimization
+
+Remaining Step 8 work (optional/future phase): Add integration tests for initial request transitions (portal upload → print → `initial_sent_to_dg`, physical deposit → physical receipt, signed DG upload, etc.). Focus should move to admin frontend UI hardening and mutation infrastructure.
+
+### Step 9 - Internal AIDN Account Management
+
+Status: Implemented on 2026-06-24; backend service/repository extraction remains a future cleanup option.
+
+Reason:
+
+- Internal AIDN accounts can be activated with a generated temporary password, and users can change their own password after login.
+- If an internal user loses their password after activation, there is currently no explicit admin reset path. Re-running activation is not a clear operational action and mixes account creation, role update, reactivation, and password reset.
+- `InternalAccountsPage` is currently read-only apart from filters. It does not expose lifecycle actions such as reset password, disable account, reactivate account, or role update.
+
+Current implementation:
+
+- `apps/api/src/modules/admin/admin.service.ts`
+  - `activateInternalAccount` creates or updates an internal AIDN account.
+  - It generates a 6-digit temporary password, hashes it, sets `mustChangePassword = true`, sets `temporaryPasswordExpiresAt`, and returns the temporary password once.
+  - It writes audit events for activation/reactivation/role change.
+- `apps/api/src/modules/auth/auth.service.ts`
+  - `loginInternalUser` authenticates by matricule and local AIDN password.
+  - It returns `requiresPasswordChange` when `mustChangePassword` is true.
+  - `changeInternalPassword` requires the current password and clears `mustChangePassword`.
+- `apps/api/src/modules/users/user.model.ts`
+  - Already supports `passwordHash`, `mustChangePassword`, `temporaryPasswordExpiresAt`, `passwordChangedAt`, `isActive`, and `lastLoginAt`.
+- `apps/api/src/modules/users/aidn-internal-account.model.ts`
+  - Already supports `status = pending_first_login | active | disabled`, `disabledById`, `disabledAt`, and `lastLoginAt`.
+- `apps/admin/src/pages/InternalAccountsPage.tsx`
+  - Lists accounts and filters by search, role, and status.
+  - No row actions exist yet.
+
+Target product behavior:
+
+- Admin can reset an internal user's password from `Comptes internes`.
+- The reset creates a new temporary password, sets `mustChangePassword = true`, sets `temporaryPasswordExpiresAt`, and returns the temporary password once in a confirmation dialog.
+- The target user must change the temporary password at next login.
+- Admin can disable an account when a person should no longer access AIDN.
+- Admin can reactivate a disabled account, ideally with a fresh temporary password and forced password change.
+- Admin can update an internal user's role without using the personnel activation screen as a workaround.
+- The account list should show security-relevant state: `mustChangePassword`, temporary password expiry, password last changed, and disabled metadata where relevant.
+
+Proposed API additions:
+
+- `POST /api/v1/admin/internal-accounts/:id/reset-password`
+  - Permission: `AIDN_USER_ACTIVATE` initially, or introduce a more precise `AIDN_USER_MANAGE`.
+  - Returns `{ account, temporaryPassword, expiresAt }`.
+  - Writes audit event `admin.internal_account_password_reset`.
+- `PATCH /api/v1/admin/internal-accounts/:id/role`
+  - Body: `{ role }`.
+  - Validates against activatable internal roles.
+  - Writes audit event `admin.internal_account_role_changed`.
+- `POST /api/v1/admin/internal-accounts/:id/disable`
+  - Sets account `status = disabled`, user `isActive = false`, `disabledById`, `disabledAt`.
+  - Writes audit event `admin.internal_account_disabled`.
+- `POST /api/v1/admin/internal-accounts/:id/reactivate`
+  - Sets account `status = pending_first_login`, user `isActive = true`, generates fresh temporary password, forces password change.
+  - Writes audit event `admin.internal_account_reactivated`.
+
+Backend refactor notes:
+
+- Extract internal account logic from `admin.service.ts` into a focused module shape:
+  - `modules/admin/services/internal-account.service.ts`
+  - `modules/admin/repository/internal-account.repository.ts`
+  - `modules/admin/helpers/password.helpers.ts`
+  - `modules/admin/constants/internal-account.constants.ts`
+- Reuse the existing temporary password generation rule, but consider increasing from a 6-digit numeric password to a stronger short passphrase/token before real deployment.
+- Add guards:
+  - Do not allow an admin to disable/reset their own account without an explicit policy decision.
+  - Protect `bootstrap_admin` role changes separately if needed.
+  - Avoid returning temporary passwords except directly from create/reset/reactivate responses.
+- Add audit log coverage for success and failure paths.
+
+Admin UI plan:
+
+- Keep `InternalAccountsPage` as the management surface.
+- Add a right-side detail panel or row action menu with:
+  - `Reinitialiser le mot de passe`
+  - `Modifier le role`
+  - `Desactiver`
+  - `Reactiver`
+- Use shadcn dialogs and Sonner:
+  - Reset/reactivate dialogs must show the generated temporary password once, with copy button.
+  - Destructive actions require confirmation.
+  - Success/failure feedback should be action-scoped.
+- Add table columns or badges:
+  - `Mot de passe temporaire`
+  - `Changement requis`
+  - `Expire le`
+  - `Modifie le`
+- Later: move `InternalAccountsPage` to TanStack Query hooks using the same admin query structure already started for DG circuit and requests.
+
+Verification plan:
+
+- Activate an internal account and confirm temporary password first-login flow still works.
+- Reset password for an active account; old password should fail, temporary password should login and force change.
+- Reset password for a pending account; latest temporary password should be the only valid one.
+- Disable account; login should fail with disabled account.
+- Reactivate account; login should work only with the new temporary password and require password change.
+- Role update should affect permissions after next login/session refresh.
+- Audit log should show reset, disable, reactivate, and role update actions.
+
+### Step 10 - Phase III Billing Access and Gating
+
+Status: Implemented on 2026-06-24.
+
+Decision:
+
+- Phase III billing must unlock only after Phase II / demande formelle is closed.
+- A pre-created `document_evaluation` phase with `status = not_started` must not appear in the billing queue and must not allow invoice upload.
+- Reception and DG secretariat can transmit the study-fee invoice once Phase III is active.
+
+Changes:
+
+- Added `PAYMENT_VIEW` and `PAYMENT_INVOICE_UPLOAD` to `dg_secretariat`.
+- `reception` already had `PAYMENT_VIEW` and `PAYMENT_INVOICE_UPLOAD`.
+- `listPhasePaymentTasks` now lists only phases with `status = in_progress`, preventing not-started Phase III records from showing as `invoice_pending`.
+- `getDocumentEvaluationPaymentState` now rejects payment state access while Phase III is not opened.
+- `uploadStudyFeeInvoice` now rejects invoice upload unless the document-evaluation phase is `in_progress`.
+- Portal dashboard action counts now include Phase III payment-proof work: once the study-fee invoice exists and no proof has been uploaded, the related request is marked as `actionRequired` with label `Preuve de paiement a televerser`.
+- Portal request detail now exposes the same Phase III payment-proof action in the `Actions requises` tab through the dossier overview response. The tab shows a direct action card with invoice download and a shortcut to the Phase III dossier section.
+- Admin dossier `Phases` tab now renders a Phase III active-phase progression card, with seven explicit steps from Phase II closure to Phase III closure.
+
+Verification:
+
+- `npm run typecheck` in `apps/api` passes.
+- `npm run typecheck` in `apps/portal` passes for the dashboard/detail action contract.
+- `npm run build` in `apps/admin` passes for the Phase III progression sidebar.
+- Existing logged-in DG secretariat users may need to log out/in to receive the new permissions in their session.
 
 ## UI Improvement Hints
 

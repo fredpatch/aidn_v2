@@ -7,7 +7,7 @@ import {
   ShieldCheck,
   UserRound,
 } from "lucide-react";
-import { listAuditLogs, type AuditLog } from "../lib/api/admin.api";
+import { listAuditLogs, type AuditLog } from "../lib/api/admin";
 import { Badge } from "../components/ui/badge";
 import {
   Table,
@@ -53,6 +53,8 @@ const roleLabels: Record<string, string> = {
 const actionLabels: Record<string, string> = {
   "admin.internal_account_activated": "Compte interne active",
   "admin.internal_account_reactivated": "Compte interne reactive",
+  "admin.internal_account_password_reset": "Mot de passe interne reinitialise",
+  "admin.internal_account_disabled": "Compte interne desactive",
   "admin.internal_account_role_changed": "Role de compte modifie",
   "auth.bootstrap_login_success": "Connexion administrateur initiale",
   "auth.bootstrap_login_failed": "Echec connexion administrateur",

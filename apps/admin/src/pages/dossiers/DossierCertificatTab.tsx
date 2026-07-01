@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import type { AdminDossierDetail, AdminOmaPhase } from "@/lib/api/dossiers.api";
+import type { AdminDossierDetail, AdminOmaPhase } from "@/lib/api/dossiers";
 import {
   dossierStatusLabels,
   dossierTypeLabels,

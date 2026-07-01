@@ -44,7 +44,7 @@ import {
   recordPreliminaryMeeting,
   sendPreEvalToDg,
   uploadClosureCourrier,
-} from "../oma-phases/oma-phase.service.js";
+} from "../oma-phases/index.js";
 import {
   createFormalMeeting,
   getAdminFormalRequestPhase,
@@ -59,15 +59,13 @@ import {
   uploadFormalRecevabilityCourrier,
   uploadFormalClosureCourrier,
   closeFormalRequestPhase,
-} from "../oma-phases/formal-request.service.js";
+} from "../oma-phases/index.js";
 import {
   createDocumentTemplate,
   listDocumentTemplates,
 } from "../document-templates/document-template.service.js";
-import {
-  downloadDgCircuitTaskDocument,
-  listDgCircuitTasks,
-} from "../dg-circuit/dg-circuit.service.js";
+import { seedFormalRequestDocumentRequirements } from "../documents/document-requirement.seed.js";
+import { dgCircuitRouter } from "../dg-circuit/dg-circuit.routes.js";
 import { getAdminDashboardSummary } from "../dashboard/dashboard.service.js";
 import {
   closeDocumentEvaluationPhase,
@@ -75,16 +73,20 @@ import {
   getDocumentEvaluations,
   reviewDocumentEvaluation,
   uploadStudyFeeInvoice,
-} from "../oma-phases/document-evaluation.service.js";
+} from "../oma-phases/index.js";
 import {
   listPhasePaymentTasks,
   type PhasePaymentTaskFilters,
 } from "../payments/phase-payment.service.js";
 import {
   activateInternalAccount,
+  disableInternalAccount,
   listInternalAccounts,
   listSiUsers,
+  reactivateInternalAccount,
+  resetInternalAccountPassword,
   searchPersonnel,
+  updateInternalAccountRole,
 } from "./admin.service.js";
 import { resetTestData } from "./dev-reset.service.js";
 
@@ -135,35 +137,6 @@ const handleDgReturnUpload: RequestHandler = (req, res, next) => {
 };
 
 adminRouter.use(requireAuth({ scope: "admin" }));
-
-const requireAnyPermission =
-  (
-    permissions: Array<(typeof Permissions)[keyof typeof Permissions]>,
-  ): RequestHandler =>
-  (req, _res, next) => {
-    if (!req.user) {
-      next(new HttpError(401, "Authentication required"));
-      return;
-    }
-
-    if (
-      !permissions.some((permission) =>
-        req.user!.permissions.includes(permission),
-      )
-    ) {
-      next(new HttpError(403, "Missing required permission"));
-      return;
-    }
-
-    next();
-  };
-
-const requireDgCircuitTaskAccess = requireAnyPermission([
-  Permissions.DG_CIRCUIT_HANDLE,
-  Permissions.COURRIER_REGISTER_PHYSICAL,
-  Permissions.PRE_EVAL_DG_CIRCUIT_HANDLE,
-  Permissions.DG_DECISION_RECORD,
-]);
 
 adminRouter.get(
   "/dashboard",
@@ -261,6 +234,65 @@ adminRouter.post(
   }),
 );
 
+adminRouter.post(
+  "/internal-accounts/:id/reset-password",
+  requirePermission(Permissions.AIDN_USER_ACTIVATE),
+  asyncHandler(async (req, res) => {
+    res.json(
+      await resetInternalAccountPassword({
+        accountId: String(req.params.id),
+        actorId: req.user!.id,
+        actorRole: req.user!.role,
+      }),
+    );
+  }),
+);
+
+adminRouter.patch(
+  "/internal-accounts/:id/role",
+  requirePermission(Permissions.AIDN_USER_ACTIVATE),
+  asyncHandler(async (req, res) => {
+    const body = req.body as { role?: Role };
+
+    res.json(
+      await updateInternalAccountRole({
+        accountId: String(req.params.id),
+        role: body.role as Role,
+        actorId: req.user!.id,
+        actorRole: req.user!.role,
+      }),
+    );
+  }),
+);
+
+adminRouter.post(
+  "/internal-accounts/:id/disable",
+  requirePermission(Permissions.AIDN_USER_ACTIVATE),
+  asyncHandler(async (req, res) => {
+    res.json(
+      await disableInternalAccount({
+        accountId: String(req.params.id),
+        actorId: req.user!.id,
+        actorRole: req.user!.role,
+      }),
+    );
+  }),
+);
+
+adminRouter.post(
+  "/internal-accounts/:id/reactivate",
+  requirePermission(Permissions.AIDN_USER_ACTIVATE),
+  asyncHandler(async (req, res) => {
+    res.json(
+      await reactivateInternalAccount({
+        accountId: String(req.params.id),
+        actorId: req.user!.id,
+        actorRole: req.user!.role,
+      }),
+    );
+  }),
+);
+
 adminRouter.get(
   "/organizations",
   requirePermission(Permissions.ORGANIZATION_MANAGE),
@@ -309,47 +341,7 @@ adminRouter.get(
   }),
 );
 
-adminRouter.get(
-  "/dg-circuit/tasks",
-  requireDgCircuitTaskAccess,
-  asyncHandler(async (req, res) => {
-    const limit =
-      typeof req.query.limit === "string" ? Number(req.query.limit) : undefined;
-    res.json(
-      await listDgCircuitTasks(
-        {
-          bucket:
-            typeof req.query.bucket === "string" ? req.query.bucket : undefined,
-          source:
-            typeof req.query.source === "string" ? req.query.source : undefined,
-          search:
-            typeof req.query.search === "string" ? req.query.search : undefined,
-          limit: Number.isFinite(limit) ? limit : undefined,
-        },
-        req.user!,
-      ),
-    );
-  }),
-);
-
-adminRouter.get(
-  "/dg-circuit/tasks/:taskId/documents/:documentId",
-  requireDgCircuitTaskAccess,
-  asyncHandler(async (req, res) => {
-    const { buffer, mimeType, fileName } = await downloadDgCircuitTaskDocument(
-      String(req.params.taskId),
-      String(req.params.documentId),
-      req.user!,
-    );
-    res.set("Content-Type", mimeType);
-    res.set(
-      "Content-Disposition",
-      `attachment; filename="${encodeURIComponent(fileName)}"`,
-    );
-    res.set("Content-Length", String(buffer.length));
-    res.end(buffer);
-  }),
-);
+adminRouter.use("/dg-circuit", dgCircuitRouter);
 
 adminRouter.get(
   "/requests/:id",
@@ -1242,6 +1234,14 @@ adminRouter.get(
 );
 
 adminRouter.post(
+  "/document-requirements/seed-formal-request",
+  requirePermission(Permissions.DOCUMENT_UPLOAD_INTERNAL),
+  asyncHandler(async (req, res) => {
+    res.json(await seedFormalRequestDocumentRequirements(req.user!));
+  }),
+);
+
+adminRouter.post(
   "/document-templates",
   requirePermission(Permissions.DOCUMENT_UPLOAD_INTERNAL),
   handleOmaDocumentUpload,
@@ -1287,3 +1287,4 @@ adminRouter.post(
     );
   }),
 );
+

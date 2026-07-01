@@ -1,13 +1,18 @@
 import { useCallback, useEffect, useState } from "react";
+import { ArrowRight, CheckCircle2, Circle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   getAdminFormalRequestPhase,
+  getDocumentEvaluationPaymentState,
+  getDocumentEvaluations,
   type AdminDossierDetail,
+  type AdminDocumentEvaluationPaymentState,
+  type AdminDocumentEvaluationState,
   type AdminFormalRequestPhaseState,
   type AdminOmaPhase,
   type OmaPhaseKey,
-} from "@/lib/api/dossiers.api";
+} from "@/lib/api/dossiers";
 import { extractError } from "@/lib/utils/error";
 import { PHASE_ORDER, phaseKeyLabels } from "./dossier-detail.labels";
 import {
@@ -19,6 +24,7 @@ import { FormalRequestPhaseChecklist } from "./FormalRequestPhaseChecklist";
 import { FormalRequestPhaseWorkspace } from "./FormalRequestPhaseWorkspace";
 import { PreliminaryActionPanel } from "./PreliminaryPhaseWorkspace";
 import { PreliminaryPhaseChecklist } from "./PreliminaryPhaseChecklist";
+import { getDocumentEvaluationProgress } from "./document-evaluation-progress.helpers";
 import { getFormalRequestProgress } from "./formal-request-progress.helpers";
 import { getPreliminaryProgress } from "./preliminary-progress.helpers";
 
@@ -86,6 +92,50 @@ function PhaseWorkspacePlaceholder({
   );
 }
 
+function DocumentEvaluationPhaseChecklist({
+  paymentState,
+  evalState,
+}: {
+  paymentState: AdminDocumentEvaluationPaymentState | null;
+  evalState: AdminDocumentEvaluationState | null;
+}): React.JSX.Element {
+  const progress = getDocumentEvaluationProgress(paymentState, evalState);
+
+  return (
+    <ol className="space-y-1">
+      {progress.steps.map((step) => (
+        <li
+          key={step.key}
+          className={[
+            "flex items-center gap-2 rounded-md px-2 py-1.5 text-xs",
+            step.current ? "bg-muted font-medium text-primary" : "",
+            step.done ? "text-emerald-700" : "",
+            !step.done && !step.current ? "text-muted-foreground" : "",
+          ].join(" ")}
+        >
+          {step.done ? (
+            <CheckCircle2
+              className="h-3.5 w-3.5 shrink-0 text-emerald-600"
+              aria-hidden="true"
+            />
+          ) : step.current ? (
+            <ArrowRight
+              className="h-3.5 w-3.5 shrink-0 text-primary"
+              aria-hidden="true"
+            />
+          ) : (
+            <Circle
+              className="h-3.5 w-3.5 shrink-0 text-muted-foreground/50"
+              aria-hidden="true"
+            />
+          )}
+          <span>{step.label}</span>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
 export function DossierPhasesTab({
   detail,
   dossierId,
@@ -112,6 +162,13 @@ export function DossierPhasesTab({
     useState<AdminFormalRequestPhaseState | null>(null);
   const [isFormalLoading, setIsFormalLoading] = useState(false);
   const [formalError, setFormalError] = useState("");
+  const [documentEvaluationPaymentState, setDocumentEvaluationPaymentState] =
+    useState<AdminDocumentEvaluationPaymentState | null>(null);
+  const [documentEvaluationState, setDocumentEvaluationState] =
+    useState<AdminDocumentEvaluationState | null>(null);
+  const [isDocumentEvaluationLoading, setIsDocumentEvaluationLoading] =
+    useState(false);
+  const [documentEvaluationError, setDocumentEvaluationError] = useState("");
 
   const loadFormalPhase = useCallback(
     async ({ showLoading = true }: { showLoading?: boolean } = {}) => {
@@ -160,6 +217,45 @@ export function DossierPhasesTab({
     };
   }, [dossierId, selectedKey]);
 
+  useEffect(() => {
+    if (selectedKey !== "document_evaluation") return;
+
+    let cancelled = false;
+
+    const loadSelectedDocumentEvaluationPhase = async () => {
+      setIsDocumentEvaluationLoading(true);
+      setDocumentEvaluationError("");
+      try {
+        const paymentState = await getDocumentEvaluationPaymentState(dossierId);
+        if (cancelled) return;
+        setDocumentEvaluationPaymentState(paymentState);
+
+        if (paymentState.canStartDocumentEvaluation) {
+          const evalState = await getDocumentEvaluations(dossierId);
+          if (!cancelled) setDocumentEvaluationState(evalState);
+        } else {
+          setDocumentEvaluationState(null);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setDocumentEvaluationError(
+            extractError(err, "Impossible de charger la phase III"),
+          );
+          setDocumentEvaluationPaymentState(null);
+          setDocumentEvaluationState(null);
+        }
+      } finally {
+        if (!cancelled) setIsDocumentEvaluationLoading(false);
+      }
+    };
+
+    void loadSelectedDocumentEvaluationPhase();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [dossierId, selectedKey]);
+
   // ── Left column ─────────────────────────────────────────────────────────────
 
   const stepperCard = (
@@ -192,6 +288,13 @@ export function DossierPhasesTab({
   const formalProgress =
     selectedKey === "formal_request"
       ? getFormalRequestProgress(formalState)
+      : null;
+  const documentEvaluationProgress =
+    selectedKey === "document_evaluation"
+      ? getDocumentEvaluationProgress(
+          documentEvaluationPaymentState,
+          documentEvaluationState,
+        )
       : null;
 
   const progressionCard =
@@ -252,6 +355,45 @@ export function DossierPhasesTab({
                 </p>
               ) : null}
               <FormalRequestPhaseChecklist state={formalState} compact />
+            </>
+          )}
+        </CardContent>
+      </Card>
+    ) : selectedKey === "document_evaluation" ? (
+      <Card>
+        <CardHeader className="pb-1">
+          <CardTitle className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            Progression phase active
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2 p-3 pt-0">
+          {isDocumentEvaluationLoading ? (
+            <p className="text-xs text-muted-foreground">
+              Chargement de la progression...
+            </p>
+          ) : documentEvaluationError ? (
+            <p className="text-xs text-red-600">{documentEvaluationError}</p>
+          ) : (
+            <>
+              <p className="text-xs text-muted-foreground">
+                <span className="font-semibold text-foreground">
+                  {documentEvaluationProgress?.doneCount ?? 0} /{" "}
+                  {documentEvaluationProgress?.totalCount ?? 7}
+                </span>{" "}
+                Ã©tapes
+              </p>
+              {documentEvaluationProgress?.currentStep ? (
+                <p className="text-xs text-muted-foreground">
+                  En cours :{" "}
+                  <span className="text-foreground">
+                    {documentEvaluationProgress.currentStep.label}
+                  </span>
+                </p>
+              ) : null}
+              <DocumentEvaluationPhaseChecklist
+                paymentState={documentEvaluationPaymentState}
+                evalState={documentEvaluationState}
+              />
             </>
           )}
         </CardContent>

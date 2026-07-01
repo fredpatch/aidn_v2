@@ -16,7 +16,7 @@ import {
   type AdminFormalRequestPhaseState,
   type AdminFormalRequestRequirement,
   type AdminOmaPhase,
-} from "@/lib/api/dossiers.api";
+} from "@/lib/api/dossiers";
 import { hasPermission } from "@/lib/auth/permissions";
 import { ApiError } from "@/lib/api/client";
 import { openBlobInNewTab } from "@/lib/utils/blob";

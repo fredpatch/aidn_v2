@@ -24,6 +24,8 @@ lerna-debug.log*
 .env.*
 !.env.example
 !.env.*.example
+*.pem
+*.key
 
 # Test and coverage output
 coverage/

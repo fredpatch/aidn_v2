@@ -7,7 +7,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import type { DgCircuitTask } from "@/lib/api/dg-circuit.api";
+import type { DgCircuitTask } from "@/lib/api/dg-circuit";
 
 export function PrintConfirmDialog({
   task,

@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { itemsApi } from '../api/items.api';
+import { itemsApi } from '../api';
 import type { SortingState } from '@/components/data-table';
 import type { ItemStatus } from '../types';
 

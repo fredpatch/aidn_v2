@@ -29,6 +29,8 @@ export type PortalRequest = {
   message?: string;
   status: PortalRequestStatus;
   portalStatusLabel: string;
+  actionRequired?: boolean;
+  actionRequiredLabel?: string;
   courrierSource?: "portal_upload" | "physical_deposit";
   initialCourrierId?: string;
   initialDocumentId?: string;

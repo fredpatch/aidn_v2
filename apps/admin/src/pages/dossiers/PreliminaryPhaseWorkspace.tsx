@@ -10,7 +10,7 @@ import {
   recordFirstMeeting,
   recordPreliminaryMeeting,
   type AdminDossierDetail,
-} from "@/lib/api/dossiers.api";
+} from "@/lib/api/dossiers";
 import { ApiError } from "@/lib/api/client";
 import { AuthContext } from "@/contexts/AuthContext";
 import { hasPermission } from "@/lib/auth/permissions";

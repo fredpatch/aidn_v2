@@ -1,6 +1,6 @@
 import { CheckCircle2, Circle, MoveRight } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { AdminOmaPhase } from "@/lib/api/dossiers.api";
+import type { AdminOmaPhase } from "@/lib/api/dossiers";
 import { getPreliminaryProgress, type PreliminaryStep } from "./preliminary-progress.helpers";
 
 function getCompactSteps(steps: PreliminaryStep[]): PreliminaryStep[] {

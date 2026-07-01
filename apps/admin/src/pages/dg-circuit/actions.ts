@@ -1,18 +1,7 @@
 import {
   downloadDgCircuitTaskDocument,
   type DgCircuitTask,
-} from "@/lib/api/dg-circuit.api";
-import {
-  markPrintedForDg,
-  recordDgReturn,
-  registerPhysicalCourrier,
-} from "@/lib/api/requests.api";
-import {
-  recordFormalRequestDgReturn,
-  recordPreEvalDgReturn,
-  sendFormalRequestToDg,
-  sendPreEvalToDg,
-} from "@/lib/api/dossiers.api";
+} from "@/lib/api/dg-circuit";
 
 function openBlobPreview(
   blob: Blob,
@@ -72,49 +61,4 @@ export async function previewOutgoingDgCircuitDocument(
     documentId: task.documentToTransmitId,
     previewWindow,
   });
-}
-
-export async function markDgCircuitTaskTransmitted(
-  task: DgCircuitTask,
-): Promise<void> {
-  if (task.source === "initial_request" && task.requestId) {
-    await markPrintedForDg(task.requestId, {});
-    return;
-  }
-
-  if (task.source === "pre_evaluation" && task.dossierId) {
-    await sendPreEvalToDg(task.dossierId, {});
-    return;
-  }
-
-  if (task.source === "formal_request" && task.dossierId) {
-    await sendFormalRequestToDg(task.dossierId);
-  }
-}
-
-export async function recordDgCircuitSignedDocument(
-  task: DgCircuitTask,
-  formData: FormData,
-): Promise<void> {
-  if (task.source === "initial_request" && task.requestId) {
-    await recordDgReturn(task.requestId, formData);
-    return;
-  }
-
-  if (task.source === "pre_evaluation" && task.dossierId) {
-    await recordPreEvalDgReturn(task.dossierId, formData);
-    return;
-  }
-
-  if (task.source === "formal_request" && task.dossierId) {
-    await recordFormalRequestDgReturn(task.dossierId, formData);
-  }
-}
-
-export async function recordDgCircuitPhysicalReceipt(
-  task: DgCircuitTask,
-  formData: FormData,
-): Promise<void> {
-  if (!task.requestId) return;
-  await registerPhysicalCourrier(task.requestId, formData);
 }

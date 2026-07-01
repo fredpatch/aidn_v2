@@ -1,3 +1,4 @@
+import { Card, CardContent } from "@/components/ui/card";
 import type { DgCircuitTaskCounts } from "./types";
 
 export function DgCircuitKpis({
@@ -17,13 +18,12 @@ export function DgCircuitKpis({
   return (
     <div className="flex flex-wrap gap-3">
       {kpis.map((kpi) => (
-        <div
-          key={kpi.label}
-          className="rounded-md border bg-background px-3 py-2 text-center min-w-[80px]"
-        >
-          <p className="text-xl font-semibold tabular-nums">{kpi.value}</p>
-          <p className="text-xs text-muted-foreground">{kpi.label}</p>
-        </div>
+        <Card key={kpi.label} className="min-w-[80px] flex-shrink-0">
+          <CardContent className="p-3 text-center">
+            <p className="text-xl font-semibold tabular-nums">{kpi.value}</p>
+            <p className="text-xs text-muted-foreground">{kpi.label}</p>
+          </CardContent>
+        </Card>
       ))}
     </div>
   );

@@ -1,5 +1,5 @@
 import { Badge } from "@/components/ui/badge";
-import type { DgCircuitBucket } from "@/lib/api/dg-circuit.api";
+import type { DgCircuitBucket } from "@/lib/api/dg-circuit";
 
 export function StatusBadge({
   bucket,

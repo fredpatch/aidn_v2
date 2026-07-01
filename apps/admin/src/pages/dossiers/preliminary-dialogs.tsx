@@ -19,7 +19,7 @@ import {
   recordPreEvalDgReturn,
   sendPreEvalToDg,
   uploadClosureCourrier,
-} from "@/lib/api/dossiers.api";
+} from "@/lib/api/dossiers";
 import { extractError } from "@/lib/utils/error";
 import { ActionError } from "./dossier-detail.helpers";
 import { UploadDocumentDialog } from "./components/UploadDocumentDialog";

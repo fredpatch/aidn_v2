@@ -1,5 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import { AlertTriangle, CheckCircle2, Monitor, Moon, Sun } from "lucide-react";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Monitor,
+  Moon,
+  RefreshCw,
+  Sun,
+} from "lucide-react";
 import clsx from "clsx";
 import {
   AVAILABLE_PALETTES,
@@ -26,12 +33,16 @@ import { Label } from "@/components/ui/label";
 import { useTheme, type Palette, type Theme } from "@/contexts/ThemeContext";
 import { useAuth } from "../hooks/useAuth";
 import { hasPermission } from "../lib/auth/permissions";
-import { resetTestData, type ResetTestDataResult } from "../lib/api/dev.api";
+import {
+  seedFormalRequestRequirements,
+  type SeedFormalRequestRequirementsResponse,
+} from "../lib/api/admin";
+import { resetTestData, type ResetTestDataResult } from "../lib/api/dev";
 import {
   listDocumentTemplates,
   uploadDocumentTemplate,
   type DocumentTemplate,
-} from "../lib/api/document-templates.api";
+} from "../lib/api/document-templates";
 import { cn } from "@/lib/utils";
 
 type EnvBadgeVariant = "default" | "secondary" | "outline" | "destructive";
@@ -235,6 +246,7 @@ export function SettingsPage(): React.JSX.Element {
       <DataModeSection />
       <FeatureFlagsSection />
       <SystemSection />
+      <DocumentRequirementsSeedSection />
       <DocumentTemplatesSection />
       <DevResetSection />
     </div>
@@ -316,6 +328,101 @@ const PHASE2_TEMPLATE_SLOTS: TemplateSlotConfig[] = [
     inputId: "template-file-011",
   },
 ];
+
+function DocumentRequirementsSeedSection(): React.JSX.Element | null {
+  const { user } = useAuth();
+  const [isSeeding, setIsSeeding] = useState(false);
+  const [result, setResult] =
+    useState<SeedFormalRequestRequirementsResponse | null>(null);
+  const [error, setError] = useState("");
+
+  if (!hasPermission(user, "DOCUMENT_UPLOAD_INTERNAL")) {
+    return null;
+  }
+
+  const handleSeed = async () => {
+    setIsSeeding(true);
+    setResult(null);
+    setError("");
+
+    try {
+      setResult(await seedFormalRequestRequirements());
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Une erreur est survenue.");
+    } finally {
+      setIsSeeding(false);
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle>Exigences de documents</CardTitle>
+        <p className="text-sm text-slate-500 dark:text-slate-400">
+          Initialiser le referentiel des pieces attendues pour la demande
+          formelle.
+        </p>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
+          Cette action est idempotente : elle cree les exigences manquantes et
+          remet a jour les exigences existantes pour la phase de demande
+          formelle.
+        </div>
+
+        {error ? (
+          <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300">
+            {error}
+          </div>
+        ) : null}
+
+        {result ? (
+          <div className="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm dark:border-emerald-900 dark:bg-emerald-950">
+            <p className="font-semibold text-emerald-700 dark:text-emerald-300">
+              Exigences initialisees.
+            </p>
+            <dl className="mt-2 grid gap-1 sm:grid-cols-2">
+              <div className="flex justify-between gap-3">
+                <dt className="text-slate-500">Creees</dt>
+                <dd className="font-semibold text-slate-800 dark:text-slate-200">
+                  {result.created}
+                </dd>
+              </div>
+              <div className="flex justify-between gap-3">
+                <dt className="text-slate-500">Mises a jour</dt>
+                <dd className="font-semibold text-slate-800 dark:text-slate-200">
+                  {result.updated}
+                </dd>
+              </div>
+              <div className="flex justify-between gap-3">
+                <dt className="text-slate-500">Inchangees</dt>
+                <dd className="font-semibold text-slate-800 dark:text-slate-200">
+                  {result.unchanged}
+                </dd>
+              </div>
+              <div className="flex justify-between gap-3">
+                <dt className="text-slate-500">Total</dt>
+                <dd className="font-semibold text-slate-800 dark:text-slate-200">
+                  {result.total}
+                </dd>
+              </div>
+            </dl>
+          </div>
+        ) : null}
+
+        <Button type="button" size="sm" disabled={isSeeding} onClick={() => void handleSeed()}>
+          <RefreshCw
+            className={cn("mr-2 h-4 w-4", isSeeding ? "animate-spin" : "")}
+            aria-hidden="true"
+          />
+          {isSeeding
+            ? "Initialisation en cours..."
+            : "Initialiser les exigences de demande formelle"}
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
 
 function TemplateSlot({
   slot,

@@ -4,7 +4,7 @@ import type {
   AdminDocumentEvaluationState,
   DocumentEvaluationStatus,
   PhasePaymentStatus,
-} from "@/lib/api/dossiers.api";
+} from "@/lib/api/dossiers";
 
 export type DocEvalStep = {
   key: string;
@@ -49,6 +49,11 @@ export function getDocumentEvaluationProgress(
     evalTotal > 0 && nonSatisfaisant === 0 && correctionSubmitted === 0;
 
   const rawSteps = [
+    {
+      key: "formal_closed",
+      label: "Phase 2 clôturée",
+      done: Boolean(paymentState?.phase),
+    },
     {
       key: "invoice_sent",
       label: "Facture S5 téléversée",

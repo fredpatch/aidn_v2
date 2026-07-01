@@ -1,5 +1,5 @@
 import { Badge } from "@/components/ui/badge";
-import type { DgCircuitTask } from "@/lib/api/dg-circuit.api";
+import type { DgCircuitTask } from "@/lib/api/dg-circuit";
 
 import { bucketStyle, sourceLabels } from "./constants";
 import { formatDate } from "./formatters";

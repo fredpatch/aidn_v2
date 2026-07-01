@@ -7,7 +7,7 @@ import {
   type AdminRequest,
   type AdminRequestStatus,
   type CourrierSource,
-} from "@/lib/api/requests.api";
+} from "@/lib/api/requests";
 import {
   DataTable,
   DataTablePagination,

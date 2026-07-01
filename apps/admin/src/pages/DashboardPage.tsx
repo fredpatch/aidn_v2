@@ -20,7 +20,7 @@ import {
   getAdminDashboard,
   type AdminDashboardResponse,
   type DashboardPreset,
-} from '@/lib/api/dashboard.api';
+} from '@/lib/api/dashboard';
 
 const dateFormatter = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'short' });
 const dateTimeFormatter = new Intl.DateTimeFormat('fr-FR', {

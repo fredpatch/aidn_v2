@@ -15,7 +15,7 @@ import {
   searchPersonnel,
   type ActivateInternalAccountResponse,
   type PersonnelSearchItem,
-} from "../lib/api/admin.api";
+} from "../lib/api/admin";
 import { Badge } from "../components/ui/badge";
 import {
   Table,

@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-type AlertVariant = "info" | "secondary" | "warning" | "danger";
+type AlertVariant = "info" | "secondary" | "warning" | "danger" | "success";
 type AlertAppearance = "light" | "outline";
 
 const VARIANT_CLASSES: Record<AlertVariant, Record<AlertAppearance, string>> = {
@@ -19,6 +19,10 @@ const VARIANT_CLASSES: Record<AlertVariant, Record<AlertAppearance, string>> = {
   danger: {
     light: "border-red-200 bg-red-50 text-red-900",
     outline: "border-red-200 bg-transparent text-red-700",
+  },
+  success: {
+    light: "border-emerald-200 bg-emerald-50 text-emerald-900",
+    outline: "border-emerald-200 bg-transparent text-emerald-800",
   },
 };
 
@@ -53,9 +57,7 @@ export function AlertIcon({
   children: ReactNode;
   className?: string;
 }): React.JSX.Element {
-  return (
-    <div className={`mt-0.5 flex-shrink-0 ${className}`}>{children}</div>
-  );
+  return <div className={`mt-0.5 shrink-0 ${className}`}>{children}</div>;
 }
 
 export function AlertContent({

@@ -1,7 +1,7 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'sonner';
 import './index.css';
 import App from './App';
@@ -10,15 +10,7 @@ import { MotionWrapper } from './components/motion/MotionWrapper';
 import { AuthProvider } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { useAuth } from './hooks/useAuth';
-
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      retry: 1,
-      refetchOnWindowFocus: false,
-    },
-  },
-});
+import { adminQueryClient } from './lib/query';
 
 function AppRoot(): React.JSX.Element {
   const { isLoading } = useAuth();
@@ -38,7 +30,7 @@ createRoot(document.getElementById('root')!).render(
       <MotionWrapper>
         <BrowserRouter>
           <AuthProvider>
-            <QueryClientProvider client={queryClient}>
+            <QueryClientProvider client={adminQueryClient}>
               <AppRoot />
             </QueryClientProvider>
           </AuthProvider>

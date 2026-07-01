@@ -36,6 +36,8 @@ const roleOptions = [
   { value: "dg_secretariat", label: "Secretariat DG" },
   { value: "reception", label: "Reception" },
   { value: "bureau_courrier", label: "Bureau courrier" },
+  { value: "s5_agent", label: "Agent S5 (Facturation)" },
+  { value: "r3_agent", label: "Agent R3 (Inspection)" },
 ];
 
 const mockPersonnel: PersonnelSearchItem[] = [

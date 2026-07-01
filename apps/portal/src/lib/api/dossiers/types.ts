@@ -32,6 +32,20 @@ export type PortalDossierDocumentEvaluation = {
   canUploadPaymentProof: boolean;
 };
 
+export type PortalDossierInspection = {
+  status: string | null;
+  portalLabel: string;
+  payment: {
+    status: string | null;
+    invoiceDocumentId: string | null;
+    paymentProofDocumentId: string | null;
+    invoiceSentAt: string | null;
+    paymentProofSubmittedAt: string | null;
+    paymentProofRejectionReason: string | null;
+  };
+  canUploadPaymentProof: boolean;
+};
+
 export type PortalDossierDetail = {
   dossier: {
     id: string;
@@ -43,4 +57,5 @@ export type PortalDossierDetail = {
   preliminary: PortalDossierPreliminary;
   formalRequest?: PortalDossierFormalRequest;
   documentEvaluation?: PortalDossierDocumentEvaluation;
+  inspection?: PortalDossierInspection;
 };

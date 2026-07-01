@@ -136,6 +136,34 @@ const omaPhaseSchema = new Schema(
       ],
       default: null,
     },
+    // ── Phase 4 - Démonstration et inspection sur site ───────────────────────
+    inspectionStatus: {
+      type: String,
+      enum: [
+        "inspection_waiting_invoice",
+        "inspection_waiting_payment",
+        "inspection_payment_proof_submitted",
+        "inspection_awaiting_r3_avis",
+        "inspection_ready_to_close",
+        "inspection_closed",
+        null,
+      ],
+      default: null,
+    },
+    r3AvisDecision: {
+      type: String,
+      enum: ["conforme", "non_conforme", null],
+      default: null,
+    },
+    r3AvisObservations: { type: String, trim: true, default: null },
+    r3AvisDocumentId: { type: Schema.Types.ObjectId, ref: "Document", default: null },
+    r3AvisRecordedAt: { type: Date, default: null },
+    r3AvisRecordedById: { type: Schema.Types.ObjectId, ref: "User", default: null },
+    inspectionClosureCourrierDocumentId: {
+      type: Schema.Types.ObjectId,
+      ref: "Document",
+      default: null,
+    },
     // ── Shared lifecycle ──────────────────────────────────────────────────────
     startedAt: { type: Date },
     closedAt: { type: Date },

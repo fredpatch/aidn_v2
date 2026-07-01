@@ -274,7 +274,17 @@ export const downloadAdminDossierDocument = async (
           .lean();
 
         if (!docEvalSubmission) {
-          throw new HttpError(403, "Document non accessible");
+          const inspectionPhase = await OmaPhaseModel.findOne({
+            dossierId: dossierObjectId,
+            phaseKey: "inspection",
+            r3AvisDocumentId: docObjectId,
+          })
+            .select("_id")
+            .lean();
+
+          if (!inspectionPhase) {
+            throw new HttpError(403, "Document non accessible");
+          }
         }
       }
     }

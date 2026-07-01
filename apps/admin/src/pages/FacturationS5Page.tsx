@@ -11,11 +11,13 @@ import { openBlobInNewTab } from "@/lib/utils/blob";
 import { useAuth } from "@/hooks/useAuth";
 import {
   listPhasePaymentTasks,
+  type PhasePaymentPhaseKey,
   type PhasePaymentTask,
   type PhasePaymentTaskList,
   type PhasePaymentTaskStatus,
 } from "@/lib/api/payments";
 import { UploadInvoiceDialog } from "./dossiers/document-evaluation-dialogs";
+import { UploadAuditInvoiceDialog } from "./dossiers/inspection-dialogs";
 import {
   ActionError,
   DefinitionGrid,
@@ -30,6 +32,11 @@ type StatusFilter = PhasePaymentTaskStatus | "all";
 type ModalState = { kind: "upload-invoice"; task: PhasePaymentTask } | null;
 
 // ── Constants ─────────────────────────────────────────────────────────────────
+
+const PHASE_TABS: Array<{ key: PhasePaymentPhaseKey; label: string }> = [
+  { key: "document_evaluation", label: "Phase III — Frais d'étude" },
+  { key: "inspection", label: "Phase IV — Frais d'audit" },
+];
 
 const STATUS_TABS: Array<{
   key: StatusFilter;
@@ -293,6 +300,8 @@ function DetailPanel({
 
 export function FacturationS5Page(): React.JSX.Element {
   const { user } = useAuth();
+  const [phaseFilter, setPhaseFilter] =
+    useState<PhasePaymentPhaseKey>("document_evaluation");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("invoice_pending");
   const [data, setData] = useState<PhasePaymentTaskList | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -304,16 +313,22 @@ export function FacturationS5Page(): React.JSX.Element {
 
   const canUploadInvoice = hasPermission(user, "PAYMENT_INVOICE_UPLOAD");
 
-  // Keep a stable ref to the current filter so reload callbacks stay in sync
+  // Keep stable refs to the current filters so reload callbacks stay in sync
   const filterRef = useRef(statusFilter);
   filterRef.current = statusFilter;
+  const phaseFilterRef = useRef(phaseFilter);
+  phaseFilterRef.current = phaseFilter;
 
-  const loadTasks = async (filter: StatusFilter) => {
+  const loadTasks = async (
+    filter: StatusFilter,
+    phase: PhasePaymentPhaseKey = phaseFilterRef.current,
+  ) => {
     setIsLoading(true);
     setLoadError("");
     try {
       const fresh = await listPhasePaymentTasks({
         status: filter === "all" ? undefined : filter,
+        phaseKey: phase,
       });
       setData(fresh);
       setSelected((prev) => {
@@ -334,8 +349,17 @@ export function FacturationS5Page(): React.JSX.Element {
   };
 
   useEffect(() => {
-    void loadTasks(statusFilter);
-  }, [statusFilter]);
+    void loadTasks(statusFilter, phaseFilter);
+  }, [statusFilter, phaseFilter]);
+
+  const handlePhaseFilterChange = (phase: PhasePaymentPhaseKey) => {
+    if (phase === phaseFilter) {
+      void loadTasks(statusFilter, phase);
+    } else {
+      setSelected(null);
+      setPhaseFilter(phase);
+    }
+  };
 
   const handleFilterChange = (filter: StatusFilter) => {
     if (filter === statusFilter) {
@@ -418,6 +442,21 @@ export function FacturationS5Page(): React.JSX.Element {
       <SplitView
         left={
           <div className="space-y-3">
+            {/* Phase filter tabs */}
+            <div className="flex flex-wrap gap-2">
+              {PHASE_TABS.map((tab) => (
+                <Button
+                  key={tab.key}
+                  type="button"
+                  variant={phaseFilter === tab.key ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => handlePhaseFilterChange(tab.key)}
+                >
+                  {tab.label}
+                </Button>
+              ))}
+            </div>
+
             {/* Status filter tabs */}
             <div className="flex flex-wrap gap-2">
               {STATUS_TABS.map((tab) => (
@@ -482,16 +521,27 @@ export function FacturationS5Page(): React.JSX.Element {
       />
 
       {/* Upload invoice dialog */}
-      <UploadInvoiceDialog
-        open={modal?.kind === "upload-invoice"}
-        onOpenChange={(open) => {
-          if (!open) setModal(null);
-        }}
-        dossierId={
-          modal?.kind === "upload-invoice" ? modal.task.dossierId : ""
-        }
-        onSuccess={handleUploadSuccess}
-      />
+      {modal?.kind === "upload-invoice" && modal.task.phaseKey === "inspection" ? (
+        <UploadAuditInvoiceDialog
+          open
+          onOpenChange={(open) => {
+            if (!open) setModal(null);
+          }}
+          dossierId={modal.task.dossierId}
+          onSuccess={handleUploadSuccess}
+        />
+      ) : (
+        <UploadInvoiceDialog
+          open={modal?.kind === "upload-invoice"}
+          onOpenChange={(open) => {
+            if (!open) setModal(null);
+          }}
+          dossierId={
+            modal?.kind === "upload-invoice" ? modal.task.dossierId : ""
+          }
+          onSuccess={handleUploadSuccess}
+        />
+      )}
     </div>
   );
 }

@@ -2,13 +2,14 @@ import { FolderOpen } from "lucide-react";
 import type { RefObject } from "react";
 
 import { Phase3DocumentEvaluationBlock } from "../../components/Phase3DocumentEvaluationBlock";
+import { Phase4InspectionBlock } from "../../components/Phase4InspectionBlock";
 import type { PortalDossierDetail } from "../../lib/api/dossiers";
-import { formalClosedLabel, phase3Statuses } from "./dossier.constants";
+import { formalClosedLabel, phase3Statuses, phase4Statuses } from "./dossier.constants";
 import { DossierOverviewPanel } from "./DossierOverviewPanel";
 import { FormalRequestPhasePanel } from "./FormalRequestPhasePanel";
 import { PreliminaryPhasePanel } from "./PreliminaryPhasePanel";
 
-export type DossierSubTab = "overview" | "phase1" | "phase2" | "phase3";
+export type DossierSubTab = "overview" | "phase1" | "phase2" | "phase3" | "phase4";
 
 type RequestDossierTabProps = {
   dossierId: string;
@@ -107,6 +108,15 @@ export function RequestDossierTab({
               Phase III — Évaluation
             </button>
           ) : null}
+          {phase4Statuses.includes(dossierDetail.dossier.status) ? (
+            <button
+              type="button"
+              className={`sub-tab ${dossierSubTab === "phase4" ? "sub-tab-active" : ""}`}
+              onClick={() => onDossierSubTabChange("phase4")}
+            >
+              Phase IV — Inspection
+            </button>
+          ) : null}
         </div>
       ) : null}
 
@@ -155,6 +165,10 @@ export function RequestDossierTab({
 
             {dossierSubTab === "phase3" ? (
               <Phase3DocumentEvaluationBlock dossierId={dossierId} />
+            ) : null}
+
+            {dossierSubTab === "phase4" ? (
+              <Phase4InspectionBlock dossierId={dossierId} />
             ) : null}
           </>
         ) : null}

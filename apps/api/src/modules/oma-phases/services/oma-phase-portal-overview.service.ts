@@ -202,6 +202,7 @@ export const getPortalDossier = async (dossierId: string, actor: Actor) => {
   const documentEvaluationPhase = phases.find(
     (p) => p.phaseKey === "document_evaluation",
   );
+  const inspectionPhase = phases.find((p) => p.phaseKey === "inspection");
 
   const preliminaryStatus = preliminaryPhase?.preliminaryStatus ?? null;
   const portalLabel = preliminaryStatus
@@ -254,6 +255,21 @@ export const getPortalDossier = async (dossierId: string, actor: Actor) => {
       (studyFeePayment.status === "invoice_sent" ||
         studyFeePayment.status === "payment_proof_submitted" ||
         studyFeePayment.status === "payment_proof_rejected"),
+  );
+
+  const auditFeePayment = inspectionPhase
+    ? await PhasePaymentModel.findOne({
+        dossierId: dossier._id,
+        phaseKey: "inspection",
+        paymentType: "audit_fee",
+      }).lean()
+    : null;
+  const canUploadInspectionPaymentProof = Boolean(
+    inspectionPhase?.status === "in_progress" &&
+      auditFeePayment?.invoiceDocumentId &&
+      (auditFeePayment.status === "invoice_sent" ||
+        auditFeePayment.status === "payment_proof_submitted" ||
+        auditFeePayment.status === "payment_proof_rejected"),
   );
 
   let firstMeeting: {
@@ -376,6 +392,39 @@ export const getPortalDossier = async (dossierId: string, actor: Actor) => {
                 | undefined) ?? null,
           },
           canUploadPaymentProof,
+        }
+      : undefined,
+    inspection: inspectionPhase
+      ? {
+          status:
+            (inspectionPhase.inspectionStatus as
+              | string
+              | null
+              | undefined) ?? null,
+          portalLabel: canUploadInspectionPaymentProof
+            ? auditFeePayment?.status === "payment_proof_rejected"
+              ? "Preuve de paiement rejetée - nouvel envoi requis"
+              : "Preuve de paiement attendue"
+            : "Démonstration et inspection sur site en cours",
+          payment: {
+            status: auditFeePayment ? String(auditFeePayment.status) : null,
+            invoiceDocumentId:
+              auditFeePayment?.invoiceDocumentId?.toString() ?? null,
+            paymentProofDocumentId:
+              auditFeePayment?.paymentProofDocumentId?.toString() ?? null,
+            invoiceSentAt: auditFeePayment
+              ? toIso(auditFeePayment.invoiceSentAt) ?? null
+              : null,
+            paymentProofSubmittedAt: auditFeePayment
+              ? toIso(auditFeePayment.paymentProofSubmittedAt) ?? null
+              : null,
+            paymentProofRejectionReason:
+              (auditFeePayment?.paymentProofRejectionReason as
+                | string
+                | null
+                | undefined) ?? null,
+          },
+          canUploadPaymentProof: canUploadInspectionPaymentProof,
         }
       : undefined,
   };

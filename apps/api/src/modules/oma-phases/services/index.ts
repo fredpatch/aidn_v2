@@ -21,3 +21,6 @@ export * from "./document-evaluation-correction.service.js";
 export * from "./document-evaluation-payment.service.js";
 export * from "./document-evaluation-review.service.js";
 export * from "./document-evaluation.service.js";
+export * from "./inspection-avis.service.js";
+export * from "./inspection-closure.service.js";
+export * from "./inspection-payment.service.js";

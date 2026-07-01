@@ -9,6 +9,8 @@ import type {
   AdminDossierSummary,
   AdminFormalRequestDgDecision,
   AdminFormalRequestPhaseState,
+  AdminInspectionCloseResult,
+  AdminInspectionState,
   AdminMeetingSummary,
   ListDossiersFilters,
   ReviewFormalDocumentResult,
@@ -21,6 +23,7 @@ import {
   buildDossierPath,
   buildDossiersPath,
   buildFormalRequestPath,
+  buildInspectionPath,
   buildPreliminaryPath,
 } from './utils';
 
@@ -45,6 +48,10 @@ export type {
   AdminFormalRequestPhaseState,
   AdminFormalRequestRequirement,
   AdminFormalRequestSubmission,
+  AdminInspectionCloseResult,
+  AdminInspectionPhase,
+  AdminInspectionR3Avis,
+  AdminInspectionState,
   AdminMeetingSummary,
   AdminOmaPhase,
   DocumentEvaluationPhaseStatus,
@@ -55,6 +62,7 @@ export type {
   FormalRequirementLevel,
   FormalRequestStatus,
   FormalSubmissionStatus,
+  InspectionStatus,
   ListDossiersFilters,
   OmaPhaseKey,
   PhasePaymentStatus,
@@ -293,6 +301,51 @@ export function closeDocumentEvaluationPhase(
 ): Promise<AdminDocumentEvaluationCloseResult> {
   return apiPost<AdminDocumentEvaluationCloseResult>(
     buildDocumentEvaluationPath(dossierId, 'close'),
+    {},
+  );
+}
+
+export function getInspectionState(
+  dossierId: string,
+): Promise<AdminInspectionState> {
+  return apiGet<AdminInspectionState>(buildInspectionPath(dossierId, 'payment'));
+}
+
+export function uploadAuditFeeInvoice(
+  dossierId: string,
+  formData: FormData,
+): Promise<AdminInspectionState> {
+  return apiPostForm<AdminInspectionState>(
+    buildInspectionPath(dossierId, 'invoice'),
+    formData,
+  );
+}
+
+export function validateAuditFeePaymentProof(
+  dossierId: string,
+  payload: { decision: 'validated' | 'rejected'; observations?: string },
+): Promise<AdminInspectionState> {
+  return apiPost<AdminInspectionState>(
+    buildInspectionPath(dossierId, 'payment/validate'),
+    payload,
+  );
+}
+
+export function recordR3Avis(
+  dossierId: string,
+  formData: FormData,
+): Promise<AdminInspectionState> {
+  return apiPostForm<AdminInspectionState>(
+    buildInspectionPath(dossierId, 'r3-avis'),
+    formData,
+  );
+}
+
+export function closeInspectionPhase(
+  dossierId: string,
+): Promise<AdminInspectionCloseResult> {
+  return apiPost<AdminInspectionCloseResult>(
+    buildInspectionPath(dossierId, 'close'),
     {},
   );
 }

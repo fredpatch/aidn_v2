@@ -76,6 +76,13 @@ import {
   validateStudyFeePaymentProof,
 } from "../oma-phases/index.js";
 import {
+  closeInspectionPhase,
+  getInspectionPaymentState,
+  recordR3Avis,
+  uploadAuditFeeInvoice,
+  validateAuditFeePaymentProof,
+} from "../oma-phases/index.js";
+import {
   listPhasePaymentTasks,
   type PhasePaymentTaskFilters,
 } from "../payments/phase-payment.service.js";
@@ -937,6 +944,116 @@ adminRouter.post(
     res.json(
       await closeDocumentEvaluationPhase(String(req.params.id), req.user!),
     );
+  }),
+);
+
+// ── Phase 4 — Démonstration et inspection sur site: payment routes ───────────
+
+adminRouter.get(
+  "/dossiers/:id/phases/inspection/payment",
+  requirePermission(Permissions.PAYMENT_VIEW),
+  asyncHandler(async (req, res) => {
+    res.json(
+      await getInspectionPaymentState(String(req.params.id), req.user!),
+    );
+  }),
+);
+
+adminRouter.post(
+  "/dossiers/:id/phases/inspection/invoice",
+  requirePermission(Permissions.PAYMENT_INVOICE_UPLOAD),
+  handleOmaDocumentUpload,
+  asyncHandler(async (req, res) => {
+    res.status(201).json(
+      await uploadAuditFeeInvoice(
+        String(req.params.id),
+        req.file,
+        {
+          invoiceReference:
+            typeof req.body.invoiceReference === "string"
+              ? req.body.invoiceReference
+              : undefined,
+          issuedAt:
+            typeof req.body.issuedAt === "string"
+              ? req.body.issuedAt
+              : undefined,
+          amount:
+            typeof req.body.amount === "string" ? req.body.amount : undefined,
+          currency:
+            typeof req.body.currency === "string"
+              ? req.body.currency
+              : undefined,
+          notes:
+            typeof req.body.notes === "string" ? req.body.notes : undefined,
+        },
+        req.user!,
+      ),
+    );
+  }),
+);
+
+adminRouter.post(
+  "/dossiers/:id/phases/inspection/payment/validate",
+  requirePermission(Permissions.PAYMENT_PROOF_VALIDATE),
+  asyncHandler(async (req, res) => {
+    const decision = req.body.decision as string;
+    if (!["validated", "rejected"].includes(decision)) {
+      throw new HttpError(400, "decision doit etre validated ou rejected.");
+    }
+    res.json(
+      await validateAuditFeePaymentProof(
+        String(req.params.id),
+        {
+          decision: decision as "validated" | "rejected",
+          observations:
+            typeof req.body.observations === "string"
+              ? req.body.observations
+              : undefined,
+        },
+        req.user!,
+      ),
+    );
+  }),
+);
+
+// ── Phase 4 — Démonstration et inspection sur site: R3 avis route ────────────
+
+adminRouter.post(
+  "/dossiers/:id/phases/inspection/r3-avis",
+  requirePermission(Permissions.INSPECTION_AVIS_RECORD),
+  handleOmaDocumentUpload,
+  asyncHandler(async (req, res) => {
+    const decision = req.body.decision as string;
+    if (!["conforme", "non_conforme"].includes(decision)) {
+      throw new HttpError(
+        400,
+        "decision doit etre conforme ou non_conforme.",
+      );
+    }
+    res.status(201).json(
+      await recordR3Avis(
+        String(req.params.id),
+        req.file,
+        {
+          decision: decision as "conforme" | "non_conforme",
+          observations:
+            typeof req.body.observations === "string"
+              ? req.body.observations
+              : undefined,
+        },
+        req.user!,
+      ),
+    );
+  }),
+);
+
+// ── Phase 4 — Démonstration et inspection sur site: close route ──────────────
+
+adminRouter.post(
+  "/dossiers/:id/phases/inspection/close",
+  requirePermission(Permissions.PHASE_CLOSE),
+  asyncHandler(async (req, res) => {
+    res.json(await closeInspectionPhase(String(req.params.id), req.user!));
   }),
 );
 

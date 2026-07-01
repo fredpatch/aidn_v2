@@ -29,6 +29,9 @@ const documentSchema = new Schema(
         "certificate_template",
         "study_fee_invoice",
         "study_fee_payment_proof",
+        "audit_fee_invoice",
+        "audit_fee_payment_proof",
+        "r3_avis_report",
         "corrected_document",
         "other"
       ],

@@ -60,6 +60,20 @@ export const documentEvaluationRepository = {
     return phase;
   },
 
+  findInspectionPhaseByDossierIdLean: async (dossierId: Types.ObjectId) => {
+    const phase = await OmaPhaseModel.findOne({
+      dossierId,
+      phaseKey: "inspection",
+    });
+    if (!phase) {
+      throw new HttpError(404, "Phase d'inspection non initialisee.");
+    }
+    if (phase.status === "closed") {
+      throw new HttpError(409, "La phase d'inspection est deja cloturee.");
+    }
+    return phase;
+  },
+
   // Phase payment reads
   findPhasePaymentOrNull: async (
     dossierId: Types.ObjectId,

@@ -48,6 +48,8 @@ const roleLabels: Record<string, string> = {
   dg_secretariat: 'Secretariat DG',
   reception: 'Reception',
   bureau_courrier: 'Bureau courrier',
+  s5_agent: 'Agent S5 (Facturation)',
+  r3_agent: 'Agent R3 (Inspection)',
   bootstrap_admin: 'Administrateur initial',
 };
 
@@ -58,6 +60,8 @@ const manageableRoles = [
   'dg_secretariat',
   'reception',
   'bureau_courrier',
+  's5_agent',
+  'r3_agent',
 ];
 
 const statusLabels: Record<string, string> = {

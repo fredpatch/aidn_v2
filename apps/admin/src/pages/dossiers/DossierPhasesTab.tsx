@@ -22,6 +22,7 @@ import {
 import { DocumentEvaluationPhaseWorkspace } from "./DocumentEvaluationPhaseWorkspace";
 import { FormalRequestPhaseChecklist } from "./FormalRequestPhaseChecklist";
 import { FormalRequestPhaseWorkspace } from "./FormalRequestPhaseWorkspace";
+import { InspectionPhaseWorkspace } from "./InspectionPhaseWorkspace";
 import { PreliminaryActionPanel } from "./PreliminaryPhaseWorkspace";
 import { PreliminaryPhaseChecklist } from "./PreliminaryPhaseChecklist";
 import { getDocumentEvaluationProgress } from "./document-evaluation-progress.helpers";
@@ -435,6 +436,12 @@ export function DossierPhasesTab({
       <DocumentEvaluationPhaseWorkspace
         dossierId={dossierId}
         phaseRecord={byKey.get("document_evaluation")}
+        onRefresh={onRefresh}
+      />
+    ) : selectedKey === "inspection" ? (
+      <InspectionPhaseWorkspace
+        dossierId={dossierId}
+        phaseRecord={byKey.get("inspection")}
         onRefresh={onRefresh}
       />
     ) : (

@@ -331,6 +331,54 @@ export type AdminDocumentEvaluationPaymentState = {
   canStartDocumentEvaluation: boolean;
 };
 
+export type InspectionStatus =
+  | 'inspection_waiting_invoice'
+  | 'inspection_waiting_payment'
+  | 'inspection_payment_proof_submitted'
+  | 'inspection_awaiting_r3_avis'
+  | 'inspection_ready_to_close'
+  | 'inspection_closed';
+
+export type AdminInspectionPhase = {
+  id: string;
+  phaseKey: 'inspection';
+  status: string;
+  inspectionStatus: InspectionStatus | null;
+};
+
+export type AdminInspectionR3Avis = {
+  decision: 'conforme' | 'non_conforme';
+  observations?: string | null;
+  documentId?: string | null;
+  recordedAt: string | null;
+};
+
+export type AdminInspectionState = {
+  phase: AdminInspectionPhase;
+  payment: AdminDocumentEvaluationPayment;
+  paymentValidated: boolean;
+  r3Avis: AdminInspectionR3Avis | null;
+};
+
+export type AdminInspectionCloseResult = {
+  phase: {
+    id: string;
+    phaseKey: 'inspection';
+    status: 'closed';
+    inspectionStatus: 'inspection_closed';
+    closedAt: string;
+  };
+  nextPhase: {
+    id: string;
+    phaseKey: 'delivery';
+    status: 'in_progress' | 'not_started';
+  };
+  dossier: {
+    id: string;
+    status: 'delivery_phase';
+  };
+};
+
 export type AdminDocumentEvaluationRequirement = {
   code: string;
   label: string;

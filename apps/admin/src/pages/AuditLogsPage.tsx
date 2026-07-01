@@ -47,6 +47,8 @@ const roleLabels: Record<string, string> = {
   dg_secretariat: "Secretariat DG",
   reception: "Reception",
   bureau_courrier: "Bureau courrier",
+  s5_agent: "Agent S5 (Facturation)",
+  r3_agent: "Agent R3 (Inspection)",
   postulant: "Postulant",
 };
 

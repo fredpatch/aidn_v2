@@ -30,6 +30,7 @@ export const Permissions = {
   PAYMENT_INVOICE_UPLOAD: "PAYMENT_INVOICE_UPLOAD",
   PAYMENT_PROOF_VALIDATE: "PAYMENT_PROOF_VALIDATE",
   PAYMENT_VIEW: "PAYMENT_VIEW",
+  INSPECTION_AVIS_RECORD: "INSPECTION_AVIS_RECORD",
   REPORT_VIEW: "REPORT_VIEW",
   REPORT_EXPORT: "REPORT_EXPORT",
   AUDIT_VIEW: "AUDIT_VIEW",
@@ -47,6 +48,7 @@ export const Roles = {
   RECEPTION: "reception",
   BUREAU_COURRIER: "bureau_courrier",
   S5_AGENT: "s5_agent",
+  R3_AGENT: "r3_agent",
   POSTULANT: "postulant"
 } as const;
 
@@ -80,7 +82,8 @@ export const rolePermissions: Record<Role, Permission[]> = {
     Permissions.PAYMENT_PROOF_VALIDATE,
     Permissions.PAYMENT_VIEW,
     Permissions.REPORT_VIEW,
-    Permissions.AUDIT_VIEW
+    Permissions.AUDIT_VIEW,
+    Permissions.INSPECTION_AVIS_RECORD
   ],
   [Roles.DN_AGENT]: [
     Permissions.REQUEST_VIEW_ALL,
@@ -96,7 +99,8 @@ export const rolePermissions: Record<Role, Permission[]> = {
     Permissions.NOTIFICATION_SEND,
     Permissions.PAYMENT_PROOF_VALIDATE,
     Permissions.PAYMENT_VIEW,
-    Permissions.REPORT_VIEW
+    Permissions.REPORT_VIEW,
+    Permissions.INSPECTION_AVIS_RECORD
   ],
   [Roles.DG_SECRETARIAT]: [
     Permissions.REQUEST_VIEW_ALL,
@@ -132,6 +136,13 @@ export const rolePermissions: Record<Role, Permission[]> = {
     Permissions.DOCUMENT_UPLOAD_INTERNAL,
     Permissions.PAYMENT_INVOICE_UPLOAD,
     Permissions.PAYMENT_PROOF_VALIDATE,
+    Permissions.PAYMENT_VIEW,
+    Permissions.REPORT_VIEW
+  ],
+  [Roles.R3_AGENT]: [
+    Permissions.DOSSIER_VIEW_ALL,
+    Permissions.DOCUMENT_UPLOAD_INTERNAL,
+    Permissions.INSPECTION_AVIS_RECORD,
     Permissions.PAYMENT_VIEW,
     Permissions.REPORT_VIEW
   ],

@@ -31,6 +31,10 @@ export function buildDocumentEvaluationPath(dossierId: string, action: string): 
   return `${buildDossierPath(dossierId)}/phases/document-evaluation/${action}`;
 }
 
+export function buildInspectionPath(dossierId: string, action: string): string {
+  return `${buildDossierPath(dossierId)}/phases/inspection/${action}`;
+}
+
 export function buildDocumentEvaluationReviewPath(
   dossierId: string,
   evaluationId: string,

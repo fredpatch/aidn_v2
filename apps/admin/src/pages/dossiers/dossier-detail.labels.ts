@@ -84,6 +84,15 @@ export const documentEvaluationStatusLabels: Record<string, string> = {
   document_evaluation_closed: "Phase III clôturée",
 };
 
+export const inspectionStatusLabels: Record<string, string> = {
+  inspection_waiting_invoice: "En attente de facture",
+  inspection_waiting_payment: "En attente du paiement",
+  inspection_payment_proof_submitted: "En attente de validation du paiement",
+  inspection_awaiting_r3_avis: "En attente de l'avis R3",
+  inspection_ready_to_close: "Prête à clôturer",
+  inspection_closed: "Phase IV clôturée",
+};
+
 export const phasePaymentStatusLabels: Record<string, string> = {
   invoice_pending: "Facture en attente",
   invoice_sent: "Facture envoyée",

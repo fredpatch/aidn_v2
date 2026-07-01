@@ -9,12 +9,14 @@ import { hasPermission } from "@/lib/auth/permissions";
 import { extractError } from "@/lib/utils/error";
 import { openBlobInNewTab } from "@/lib/utils/blob";
 import { useAuth } from "@/hooks/useAuth";
+import { useAppToast } from "@/hooks/useAppToast";
 import {
   listPhasePaymentTasks,
   type PhasePaymentPhaseKey,
   type PhasePaymentTask,
   type PhasePaymentTaskList,
   type PhasePaymentTaskStatus,
+  type PhasePaymentType,
 } from "@/lib/api/payments";
 import { UploadInvoiceDialog } from "./dossiers/document-evaluation-dialogs";
 import { UploadAuditInvoiceDialog } from "./dossiers/inspection-dialogs";
@@ -37,6 +39,16 @@ const PHASE_TABS: Array<{ key: PhasePaymentPhaseKey; label: string }> = [
   { key: "document_evaluation", label: "Phase III — Frais d'étude" },
   { key: "inspection", label: "Phase IV — Frais d'audit" },
 ];
+
+// listPhasePaymentTasks requires phaseKey and paymentType to be passed
+// together - each phase has exactly one payment type today, so this is a
+// direct mapping. Passing phaseKey alone silently defaults paymentType to
+// "study_fee" on the backend, which only matches Phase III's real payments.
+const PHASE_TO_PAYMENT_TYPE: Record<PhasePaymentPhaseKey, PhasePaymentType> = {
+  document_evaluation: "study_fee",
+  inspection: "audit_fee",
+  delivery: "certificate_delivery_fee",
+};
 
 const STATUS_TABS: Array<{
   key: StatusFilter;
@@ -300,6 +312,7 @@ function DetailPanel({
 
 export function FacturationS5Page(): React.JSX.Element {
   const { user } = useAuth();
+  const toast = useAppToast();
   const [phaseFilter, setPhaseFilter] =
     useState<PhasePaymentPhaseKey>("document_evaluation");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("invoice_pending");
@@ -313,9 +326,7 @@ export function FacturationS5Page(): React.JSX.Element {
 
   const canUploadInvoice = hasPermission(user, "PAYMENT_INVOICE_UPLOAD");
 
-  // Keep stable refs to the current filters so reload callbacks stay in sync
-  const filterRef = useRef(statusFilter);
-  filterRef.current = statusFilter;
+  // Keep a stable ref to the current phase filter so reload callbacks stay in sync
   const phaseFilterRef = useRef(phaseFilter);
   phaseFilterRef.current = phaseFilter;
 
@@ -329,6 +340,7 @@ export function FacturationS5Page(): React.JSX.Element {
       const fresh = await listPhasePaymentTasks({
         status: filter === "all" ? undefined : filter,
         phaseKey: phase,
+        paymentType: PHASE_TO_PAYMENT_TYPE[phase],
       });
       setData(fresh);
       setSelected((prev) => {
@@ -384,7 +396,18 @@ export function FacturationS5Page(): React.JSX.Element {
   };
 
   const handleUploadSuccess = () => {
-    void loadTasks(filterRef.current);
+    toast.success("Facture téléversée avec succès.");
+    // The uploaded dossier's task moves from invoice_pending to
+    // invoice_sent server-side - if the active tab is still
+    // invoice_pending, reloading under the same filter drops it from the
+    // list and silently swaps the selection to a different pending
+    // dossier, which reads as "nothing happened". Switch to the status
+    // the dossier now has so it stays visible and selected.
+    if (statusFilter !== "all" && statusFilter !== "invoice_sent") {
+      setStatusFilter("invoice_sent");
+    } else {
+      void loadTasks(statusFilter);
+    }
   };
 
   return (

@@ -1,0 +1,1500 @@
+diff --git a/apps/api/src/modules/admin/admin.routes.ts b/apps/api/src/modules/admin/admin.routes.ts
+index 8d62ab7..49fd74f 100644
+--- a/apps/api/src/modules/admin/admin.routes.ts
++++ b/apps/api/src/modules/admin/admin.routes.ts
+@@ -82,6 +82,17 @@ import {
+   uploadAuditFeeInvoice,
+   validateAuditFeePaymentProof,
+ } from "../oma-phases/index.js";
++import {
++  closeDeliveryPhase,
++  getDeliveryPaymentState,
++  uploadCertificateDeliveryFeeInvoice,
++  validateCertificateDeliveryFeePaymentProof,
++} from "../oma-phases/index.js";
++import {
++  advanceCertificateLifecycle,
++  getCertificateForDossier,
++  listCertificatesAdmin,
++} from "../certificates/certificate.service.js";
+ import {
+   listPhasePaymentTasks,
+   type PhasePaymentTaskFilters,
+@@ -1057,6 +1068,133 @@ adminRouter.post(
+   }),
+ );
+ 
++// ── Phase 5 — Délivrance: payment routes ──────────────────────────────────────
++
++adminRouter.get(
++  "/dossiers/:id/phases/delivery/payment",
++  requirePermission(Permissions.PAYMENT_VIEW),
++  asyncHandler(async (req, res) => {
++    res.json(await getDeliveryPaymentState(String(req.params.id), req.user!));
++  }),
++);
++
++adminRouter.post(
++  "/dossiers/:id/phases/delivery/invoice",
++  requirePermission(Permissions.PAYMENT_INVOICE_UPLOAD),
++  handleOmaDocumentUpload,
++  asyncHandler(async (req, res) => {
++    res.status(201).json(
++      await uploadCertificateDeliveryFeeInvoice(
++        String(req.params.id),
++        req.file,
++        {
++          invoiceReference:
++            typeof req.body.invoiceReference === "string"
++              ? req.body.invoiceReference
++              : undefined,
++          issuedAt:
++            typeof req.body.issuedAt === "string"
++              ? req.body.issuedAt
++              : undefined,
++          amount:
++            typeof req.body.amount === "string" ? req.body.amount : undefined,
++          currency:
++            typeof req.body.currency === "string"
++              ? req.body.currency
++              : undefined,
++          notes:
++            typeof req.body.notes === "string" ? req.body.notes : undefined,
++        },
++        req.user!,
++      ),
++    );
++  }),
++);
++
++adminRouter.post(
++  "/dossiers/:id/phases/delivery/payment/validate",
++  requirePermission(Permissions.PAYMENT_PROOF_VALIDATE),
++  asyncHandler(async (req, res) => {
++    const decision = req.body.decision as string;
++    if (!["validated", "rejected"].includes(decision)) {
++      throw new HttpError(400, "decision doit etre validated ou rejected.");
++    }
++    res.json(
++      await validateCertificateDeliveryFeePaymentProof(
++        String(req.params.id),
++        {
++          decision: decision as "validated" | "rejected",
++          observations:
++            typeof req.body.observations === "string"
++              ? req.body.observations
++              : undefined,
++        },
++        req.user!,
++      ),
++    );
++  }),
++);
++
++// ── Phase 5 — Délivrance: close route ─────────────────────────────────────────
++
++adminRouter.post(
++  "/dossiers/:id/phases/delivery/close",
++  requirePermission(Permissions.PHASE_CLOSE),
++  handleOmaDocumentUpload,
++  asyncHandler(async (req, res) => {
++    res.json(
++      await closeDeliveryPhase(String(req.params.id), req.file, req.user!),
++    );
++  }),
++);
++
++// ── Certificates ───────────────────────────────────────────────────────────────
++
++adminRouter.get(
++  "/certificates",
++  requirePermission(Permissions.CERTIFICATE_VIEW),
++  asyncHandler(async (req, res) => {
++    res.json(
++      await listCertificatesAdmin(
++        {
++          status:
++            typeof req.query.status === "string" ? req.query.status : undefined,
++        },
++        req.user!,
++      ),
++    );
++  }),
++);
++
++adminRouter.get(
++  "/dossiers/:id/certificate",
++  requirePermission(Permissions.CERTIFICATE_VIEW),
++  asyncHandler(async (req, res) => {
++    res.json(await getCertificateForDossier(String(req.params.id), req.user!));
++  }),
++);
++
++adminRouter.post(
++  "/certificates/:id/advance",
++  requirePermission(Permissions.CERTIFICATE_MANAGE),
++  handleOmaDocumentUpload,
++  asyncHandler(async (req, res) => {
++    res.json(
++      await advanceCertificateLifecycle(
++        String(req.params.id),
++        req.file,
++        {
++          collectionNote:
++            typeof req.body.collectionNote === "string"
++              ? req.body.collectionNote
++              : undefined,
++        },
++        req.user!,
++      ),
++    );
++  }),
++);
++
+ // ── Payments — S5 facturation queue ──────────────────────────────────────────
+ 
+ adminRouter.get(
+diff --git a/apps/api/src/modules/certificates/certificate.model.ts b/apps/api/src/modules/certificates/certificate.model.ts
+new file mode 100644
+index 0000000..d6e52e5
+--- /dev/null
++++ b/apps/api/src/modules/certificates/certificate.model.ts
+@@ -0,0 +1,64 @@
++import { Schema, model, type InferSchemaType, type Types } from "mongoose";
++
++// Certificate lifecycle mirrors the legacy Sprint-0 mock design
++// (apps/admin/src/features/aidn/storage/aidn-demo-actions.ts) - that design
++// was sound, this model gives it a real backing store. Two guards the mock
++// never had: "scanned_in_aidn" requires an actually-uploaded scan, and
++// "collected" requires a staff member to confirm the postulant appeared in
++// person (collectionVerifiedById) - the collector is always the postulant
++// by rule, there is no separate "collected by" identity to capture.
++const certificateSchema = new Schema(
++  {
++    dossierId: { type: Schema.Types.ObjectId, ref: "Dossier", required: true, index: true },
++    phaseId: { type: Schema.Types.ObjectId, ref: "OmaPhase", required: true, index: true },
++    certificateNumber: { type: String, required: true, trim: true, unique: true },
++    certificateType: {
++      type: String,
++      enum: ["agrement", "reconnaissance", "renewal", "modification"],
++      required: true,
++    },
++    status: {
++      type: String,
++      enum: [
++        "to_prepare",
++        "printed",
++        "signed_stamped",
++        "scanned_in_aidn",
++        "ready_for_collection",
++        "collected",
++        "archived",
++      ],
++      required: true,
++      default: "to_prepare",
++      index: true,
++    },
++    holderName: { type: String, trim: true, required: true },
++    validUntil: { type: Date, default: null },
++
++    linkedDocumentId: { type: Schema.Types.ObjectId, ref: "Document", default: null },
++    scannedDocumentId: { type: Schema.Types.ObjectId, ref: "Document", default: null },
++
++    printedAt: { type: Date, default: null },
++    printedById: { type: Schema.Types.ObjectId, ref: "User", default: null },
++    signedAt: { type: Date, default: null },
++    signedById: { type: Schema.Types.ObjectId, ref: "User", default: null },
++    stampedAt: { type: Date, default: null },
++    scannedAt: { type: Date, default: null },
++    scannedById: { type: Schema.Types.ObjectId, ref: "User", default: null },
++    readyForCollectionAt: { type: Date, default: null },
++
++    collectedAt: { type: Date, default: null },
++    collectionVerifiedById: { type: Schema.Types.ObjectId, ref: "User", default: null },
++    collectionNote: { type: String, trim: true, default: null },
++
++    archivedAt: { type: Date, default: null },
++  },
++  { timestamps: true },
++);
++
++certificateSchema.index({ dossierId: 1 }, { unique: true });
++
++export type Certificate = InferSchemaType<typeof certificateSchema> & {
++  _id: Types.ObjectId;
++};
++export const CertificateModel = model("Certificate", certificateSchema, "certificates");
+diff --git a/apps/api/src/modules/certificates/certificate.service.ts b/apps/api/src/modules/certificates/certificate.service.ts
+new file mode 100644
+index 0000000..bfd0bf9
+--- /dev/null
++++ b/apps/api/src/modules/certificates/certificate.service.ts
+@@ -0,0 +1,267 @@
++/**
++ * Certificate (Phase V deliverable) service.
++ *
++ * Owns the certificate record itself: creation (on delivery phase closure),
++ * the 7-stage lifecycle (mirrors the legacy Sprint-0 mock design in
++ * apps/admin/src/features/aidn/storage/aidn-demo-actions.ts, now with a real
++ * backing store), and cross-dossier listing for the admin Certificats page.
++ *
++ * "collected" is deliberately not a free-text "collected by" field: per
++ * business rule, only the postulant may collect their certificate in
++ * person - there is no third-party collector to name. The field instead
++ * records which staff member verified the postulant's identity
++ * (collectionVerifiedById), which is always the actor performing this
++ * action. Software cannot verify identity remotely; this is a procedural
++ * control (staff checks ID in person), not a technical guarantee.
++ */
++import { Types } from "mongoose";
++
++import { HttpError } from "../../shared/errors/http-error.js";
++import { saveDocument } from "../../shared/utils/document.helpers.js";
++import { ensureObjectId, toId, toIso } from "../../shared/utils/service.helpers.js";
++import { writeAuditLog } from "../audit/audit.service.js";
++import { DocumentModel } from "../documents/document.model.js";
++import { DossierModel } from "../dossiers/dossier.model.js";
++import { NotificationModel } from "../notifications/notification.model.js";
++import { PostulantOrganizationModel } from "../organizations/postulant-organization.model.js";
++import { ensureInternalActor } from "../oma-phases/helpers/access.helpers.js";
++import type { Actor, GenericRecord } from "../oma-phases/types/oma.types.js";
++import { CertificateModel } from "./certificate.model.js";
++
++const CERTIFICATE_LIFECYCLE = [
++  "to_prepare",
++  "printed",
++  "signed_stamped",
++  "scanned_in_aidn",
++  "ready_for_collection",
++  "collected",
++  "archived",
++] as const;
++
++type CertificateStatus = (typeof CERTIFICATE_LIFECYCLE)[number];
++
++const DOSSIER_TYPE_TO_CERTIFICATE_TYPE: Record<string, string> = {
++  oma_approval: "agrement",
++  oma_recognition: "reconnaissance",
++  oma_renewal: "renewal",
++  oma_modification: "modification",
++};
++
++const getNextStatus = (current: string): CertificateStatus | null => {
++  const idx = CERTIFICATE_LIFECYCLE.indexOf(current as CertificateStatus);
++  if (idx < 0 || idx === CERTIFICATE_LIFECYCLE.length - 1) return null;
++  return CERTIFICATE_LIFECYCLE[idx + 1];
++};
++
++const serializeCertificate = (cert: GenericRecord) => ({
++  id: cert._id.toString(),
++  dossierId: toId(cert.dossierId),
++  certificateNumber: String(cert.certificateNumber),
++  certificateType: String(cert.certificateType),
++  status: String(cert.status),
++  holderName: String(cert.holderName),
++  validUntil: toIso(cert.validUntil) ?? null,
++  linkedDocumentId: toId(cert.linkedDocumentId) ?? null,
++  scannedDocumentId: toId(cert.scannedDocumentId) ?? null,
++  printedAt: toIso(cert.printedAt) ?? null,
++  signedAt: toIso(cert.signedAt) ?? null,
++  stampedAt: toIso(cert.stampedAt) ?? null,
++  scannedAt: toIso(cert.scannedAt) ?? null,
++  readyForCollectionAt: toIso(cert.readyForCollectionAt) ?? null,
++  collectedAt: toIso(cert.collectedAt) ?? null,
++  collectionVerifiedById: toId(cert.collectionVerifiedById) ?? null,
++  collectionNote: (cert.collectionNote as string | null | undefined) ?? null,
++  archivedAt: toIso(cert.archivedAt) ?? null,
++});
++
++// Called by delivery-closure.service.ts once - not exported as an admin
++// action. Certificate creation is a side effect of closing Phase V, not a
++// standalone step, per the cahier des charges' sequencing.
++export const createCertificateForDossier = async (
++  dossierId: Types.ObjectId,
++  phaseId: Types.ObjectId,
++  actor: Actor,
++) => {
++  const existing = await CertificateModel.findOne({ dossierId });
++  if (existing) return existing;
++
++  const dossier = await DossierModel.findById(dossierId);
++  if (!dossier) throw new HttpError(404, "Dossier introuvable.");
++
++  const organization = await PostulantOrganizationModel.findById(
++    dossier.organizationId,
++  ).select("canonicalName");
++
++  const certificateType =
++    DOSSIER_TYPE_TO_CERTIFICATE_TYPE[String(dossier.dossierType)] ??
++    "agrement";
++
++  return CertificateModel.create({
++    dossierId,
++    phaseId,
++    certificateNumber: `CERT-${dossier.dossierNumber}`,
++    certificateType,
++    status: "to_prepare",
++    holderName: organization?.canonicalName ?? "Organisme inconnu",
++  });
++};
++
++export const getCertificateForDossier = async (
++  dossierId: string,
++  actor: Actor,
++) => {
++  ensureInternalActor(actor);
++  const dossierObjId = ensureObjectId(dossierId, "Dossier ID");
++  const cert = await CertificateModel.findOne({ dossierId: dossierObjId }).lean();
++  if (!cert) throw new HttpError(404, "Certificat introuvable pour ce dossier.");
++  return { certificate: serializeCertificate(cert as unknown as GenericRecord) };
++};
++
++export const listCertificatesAdmin = async (
++  filters: { status?: string },
++  actor: Actor,
++) => {
++  ensureInternalActor(actor);
++
++  const query: Record<string, unknown> = {};
++  if (filters.status) query.status = filters.status;
++
++  const certs = await CertificateModel.find(query).sort({ createdAt: -1 }).lean();
++  const dossierIds = certs.map((c) => c.dossierId);
++  const dossiers = await DossierModel.find({ _id: { $in: dossierIds } })
++    .populate("organizationId", "canonicalName")
++    .lean();
++  const dossierById = new Map(dossiers.map((d) => [String(d._id), d]));
++
++  return {
++    items: certs.map((cert) => {
++      const dossier = dossierById.get(String(cert.dossierId));
++      return {
++        ...serializeCertificate(cert as unknown as GenericRecord),
++        dossier: dossier
++          ? {
++              id: String(dossier._id),
++              dossierNumber: dossier.dossierNumber,
++              dossierType: dossier.dossierType,
++              status: dossier.status,
++              organizationName:
++                (dossier.organizationId as unknown as GenericRecord | null)
++                  ?.canonicalName ?? null,
++            }
++          : null,
++      };
++    }),
++  };
++};
++
++export const advanceCertificateLifecycle = async (
++  certificateId: string,
++  file: Express.Multer.File | undefined,
++  payload: { collectionNote?: string },
++  actor: Actor,
++) => {
++  ensureInternalActor(actor);
++  const actorObjId = ensureObjectId(actor.id, "Actor ID");
++
++  const cert = await CertificateModel.findById(certificateId);
++  if (!cert) throw new HttpError(404, "Certificat introuvable.");
++
++  const nextStatus = getNextStatus(String(cert.status));
++  if (!nextStatus) {
++    throw new HttpError(409, "Ce certificat a atteint son statut final.");
++  }
++
++  if (nextStatus === "scanned_in_aidn" && !file) {
++    throw new HttpError(
++      400,
++      "Un fichier scanne est requis pour marquer le certificat comme scanne.",
++    );
++  }
++
++  const now = new Date();
++  const previousStatus = String(cert.status);
++
++  if (nextStatus === "printed") {
++    cert.printedAt = cert.printedAt ?? now;
++    cert.printedById = cert.printedById ?? actorObjId;
++  } else if (nextStatus === "signed_stamped") {
++    cert.signedAt = cert.signedAt ?? now;
++    cert.signedById = cert.signedById ?? actorObjId;
++    cert.stampedAt = cert.stampedAt ?? now;
++  } else if (nextStatus === "scanned_in_aidn" && file) {
++    // Stays internal-only until "collected" - the postulant retrieves the
++    // physical original in person; making the digital scan available
++    // earlier would undercut that requirement.
++    const scannedDocumentId = await saveDocument({
++      file,
++      ownerPath: `certificates/${String(cert._id)}`,
++      ownerType: "certificate",
++      ownerId: cert._id,
++      category: "certificate",
++      documentType: "certificate_scan",
++      title: `Certificat scanne - ${String(cert.certificateNumber)}`,
++      visibility: "internal_only",
++      status: "uploaded",
++      uploadedById: actorObjId,
++    });
++    cert.scannedDocumentId =
++      scannedDocumentId as unknown as typeof cert.scannedDocumentId;
++    cert.scannedAt = now;
++    cert.scannedById = actorObjId;
++  } else if (nextStatus === "ready_for_collection") {
++    cert.readyForCollectionAt = cert.readyForCollectionAt ?? now;
++  } else if (nextStatus === "collected") {
++    cert.collectedAt = now;
++    cert.collectionVerifiedById = actorObjId;
++    cert.collectionNote =
++      (payload.collectionNote?.trim() ||
++        null) as unknown as typeof cert.collectionNote;
++    if (cert.scannedDocumentId) {
++      await DocumentModel.updateOne(
++        { _id: cert.scannedDocumentId },
++        { $set: { visibility: "postulant_visible" } },
++      );
++    }
++  } else if (nextStatus === "archived") {
++    cert.archivedAt = now;
++  }
++
++  cert.status = nextStatus as never;
++  await cert.save();
++
++  if (nextStatus === "ready_for_collection") {
++    const dossier = await DossierModel.findById(cert.dossierId).select(
++      "postulantUserId dossierNumber",
++    );
++    if (dossier?.postulantUserId) {
++      await NotificationModel.create({
++        recipientUserId: dossier.postulantUserId,
++        channel: "in_app",
++        title: "Certificat pret au retrait",
++        message: `Votre certificat ${String(
++          cert.certificateNumber,
++        )} est pret. Veuillez vous presenter en personne pour le retirer.`,
++        relatedType: "certificate",
++        relatedId: cert._id,
++        status: "unread",
++      });
++    }
++  }
++
++  await writeAuditLog({
++    action: "certificate.lifecycle_advanced",
++    actorId: actor.id,
++    actorRole: actor.role,
++    entityType: "certificate",
++    entityId: (cert._id as Types.ObjectId).toString(),
++    metadata: {
++      dossierId: toId(cert.dossierId),
++      previousStatus,
++      newStatus: nextStatus,
++    },
++  });
++
++  return {
++    certificate: serializeCertificate(cert as unknown as GenericRecord),
++  };
++};
+diff --git a/apps/api/src/modules/documents/document.model.ts b/apps/api/src/modules/documents/document.model.ts
+index e8c6770..5e1c62b 100644
+--- a/apps/api/src/modules/documents/document.model.ts
++++ b/apps/api/src/modules/documents/document.model.ts
+@@ -31,6 +31,12 @@ const documentSchema = new Schema(
+         "study_fee_payment_proof",
+         "audit_fee_invoice",
+         "audit_fee_payment_proof",
++        "certificate_delivery_fee_invoice",
++        "certificate_delivery_fee_payment_proof",
++        "delivery_approval_letter",
++        "delivery_closure_letter",
++        "certificate_issued",
++        "certificate_scan",
+         "r3_avis_report",
+         "corrected_document",
+         "other"
+diff --git a/apps/api/src/modules/oma-phases/helpers/delivery.helpers.ts b/apps/api/src/modules/oma-phases/helpers/delivery.helpers.ts
+new file mode 100644
+index 0000000..26b54fd
+--- /dev/null
++++ b/apps/api/src/modules/oma-phases/helpers/delivery.helpers.ts
+@@ -0,0 +1,58 @@
++/**
++ * Delivery (Phase V) shared helpers.
++ *
++ * Owns certificate-delivery-fee payment response formatting and payment
++ * bootstrap used by the delivery services. Mirrors inspection.helpers.ts's
++ * payment slice, adapted for the "delivery" phaseKey /
++ * "certificate_delivery_fee" paymentType.
++ */
++import { Types } from "mongoose";
++
++import { toId, toIso } from "../../../shared/utils/service.helpers.js";
++import { PhasePaymentModel } from "../../payments/phase-payment.model.js";
++import type { GenericRecord } from "../types/oma.types.js";
++
++export const findOrInitDeliveryPayment = async (
++  dossierObjId: Types.ObjectId,
++  phaseObjId: Types.ObjectId,
++) => {
++  let payment = await PhasePaymentModel.findOne({
++    dossierId: dossierObjId,
++    phaseId: phaseObjId,
++    phaseKey: "delivery",
++    paymentType: "certificate_delivery_fee",
++  });
++  if (!payment) {
++    payment = await PhasePaymentModel.create({
++      dossierId: dossierObjId,
++      phaseId: phaseObjId,
++      phaseKey: "delivery",
++      paymentType: "certificate_delivery_fee",
++      status: "invoice_pending",
++    });
++  }
++  return payment;
++};
++
++export const computeDeliveryPaymentValidated = (payment: GenericRecord) =>
++  String(payment.status) === "payment_proof_validated";
++
++export const serializeDeliveryPayment = (payment: GenericRecord) => ({
++  id: payment._id.toString(),
++  paymentType: String(payment.paymentType),
++  status: String(payment.status) as
++    | "invoice_pending"
++    | "invoice_sent"
++    | "payment_proof_submitted"
++    | "payment_proof_validated"
++    | "payment_proof_rejected",
++  invoiceDocumentId: toId(payment.invoiceDocumentId),
++  paymentProofDocumentId: toId(payment.paymentProofDocumentId),
++  invoiceSentAt: toIso(payment.invoiceSentAt),
++  paymentProofSubmittedAt: toIso(payment.paymentProofSubmittedAt),
++  paymentProofValidatedAt: toIso(payment.paymentProofValidatedAt),
++  paymentProofRejectedAt: toIso(payment.paymentProofRejectedAt),
++  paymentProofRejectionReason:
++    (payment.paymentProofRejectionReason as string | null | undefined) ??
++    undefined,
++});
+diff --git a/apps/api/src/modules/oma-phases/helpers/index.ts b/apps/api/src/modules/oma-phases/helpers/index.ts
+index 98afef9..27c98f6 100644
+--- a/apps/api/src/modules/oma-phases/helpers/index.ts
++++ b/apps/api/src/modules/oma-phases/helpers/index.ts
+@@ -1,4 +1,5 @@
+ export * from "./access.helpers.js";
++export * from "./delivery.helpers.js";
+ export * from "./document-evaluation.helpers.js";
+ export * from "./formal-request.helpers.js";
+ export * from "./inspection.helpers.js";
+diff --git a/apps/api/src/modules/oma-phases/models/oma-phase.model.ts b/apps/api/src/modules/oma-phases/models/oma-phase.model.ts
+index 3c6cea9..0b5765b 100644
+--- a/apps/api/src/modules/oma-phases/models/oma-phase.model.ts
++++ b/apps/api/src/modules/oma-phases/models/oma-phase.model.ts
+@@ -164,6 +164,29 @@ const omaPhaseSchema = new Schema(
+       ref: "Document",
+       default: null,
+     },
++    // ── Phase 5 - Délivrance ───────────────────────────────────────────────
++    deliveryStatus: {
++      type: String,
++      enum: [
++        "delivery_waiting_invoice",
++        "delivery_waiting_payment",
++        "delivery_payment_proof_submitted",
++        "delivery_ready_to_close",
++        "delivery_closed",
++        null,
++      ],
++      default: null,
++    },
++    deliveryClosureCourrierDocumentId: {
++      type: Schema.Types.ObjectId,
++      ref: "Document",
++      default: null,
++    },
++    deliveryApprovalDocumentId: {
++      type: Schema.Types.ObjectId,
++      ref: "Document",
++      default: null,
++    },
+     // ── Shared lifecycle ──────────────────────────────────────────────────────
+     startedAt: { type: Date },
+     closedAt: { type: Date },
+diff --git a/apps/api/src/modules/oma-phases/repository/document-evaluation.repository.ts b/apps/api/src/modules/oma-phases/repository/document-evaluation.repository.ts
+index d7e15c3..cdd38ab 100644
+--- a/apps/api/src/modules/oma-phases/repository/document-evaluation.repository.ts
++++ b/apps/api/src/modules/oma-phases/repository/document-evaluation.repository.ts
+@@ -74,6 +74,20 @@ export const documentEvaluationRepository = {
+     return phase;
+   },
+ 
++  findDeliveryPhaseByDossierIdLean: async (dossierId: Types.ObjectId) => {
++    const phase = await OmaPhaseModel.findOne({
++      dossierId,
++      phaseKey: "delivery",
++    });
++    if (!phase) {
++      throw new HttpError(404, "Phase de delivrance non initialisee.");
++    }
++    if (phase.status === "closed") {
++      throw new HttpError(409, "La phase de delivrance est deja cloturee.");
++    }
++    return phase;
++  },
++
+   // Phase payment reads
+   findPhasePaymentOrNull: async (
+     dossierId: Types.ObjectId,
+diff --git a/apps/api/src/modules/oma-phases/services/delivery-closure.service.ts b/apps/api/src/modules/oma-phases/services/delivery-closure.service.ts
+new file mode 100644
+index 0000000..735f38b
+--- /dev/null
++++ b/apps/api/src/modules/oma-phases/services/delivery-closure.service.ts
+@@ -0,0 +1,134 @@
++/**
++ * Delivery (Phase V) closure slice.
++ *
++ * Owns Phase V closure once the certificate delivery fee payment has been
++ * validated. Unlike Phase III -> IV and IV -> V, this closure does not
++ * bootstrap a next phase - delivery is the terminal OMA phase. Certificate
++ * creation is a side effect of this closure (see certificate.service.ts),
++ * not a standalone admin action.
++ *
++ * The cahier des charges describes the closure courrier and "approbations/
++ * acceptations" as part of the same step ("DN transmet au P la lettre de
++ * cloture de la phase V et les approbations/acceptations"). This is built
++ * as a single optional document upload (the same pattern as every other
++ * closure/decision document in this app), not two separate uploads - the
++ * schema keeps a distinct field for an approval document
++ * (deliveryApprovalDocumentId) in case that turns out to need splitting
++ * later, but nothing currently requires two files.
++ */
++import { Types } from "mongoose";
++
++import { HttpError } from "../../../shared/errors/http-error.js";
++import { saveDocument } from "../../../shared/utils/document.helpers.js";
++import { ensureObjectId } from "../../../shared/utils/service.helpers.js";
++import { writeAuditLog } from "../../audit/audit.service.js";
++import { createCertificateForDossier } from "../../certificates/certificate.service.js";
++import { DossierModel } from "../../dossiers/dossier.model.js";
++import { NotificationModel } from "../../notifications/notification.model.js";
++import { ensureInternalActor } from "../helpers/access.helpers.js";
++import { documentEvaluationRepository } from "../repository/document-evaluation.repository.js";
++import type { Actor } from "../types/oma.types.js";
++
++export const closeDeliveryPhase = async (
++  dossierId: string,
++  file: Express.Multer.File | undefined,
++  actor: Actor,
++) => {
++  ensureInternalActor(actor);
++
++  const dossierObjId = ensureObjectId(dossierId, "Dossier ID");
++  const actorObjId = ensureObjectId(actor.id, "Actor ID");
++
++  const dossier = await DossierModel.findById(dossierObjId);
++  if (!dossier) throw new HttpError(404, "Dossier introuvable.");
++
++  const phase =
++    await documentEvaluationRepository.findDeliveryPhaseByDossierIdLean(
++      dossierObjId,
++    );
++  const phaseObjId = phase._id as Types.ObjectId;
++
++  if (String(phase.deliveryStatus) !== "delivery_ready_to_close") {
++    throw new HttpError(
++      409,
++      "Le paiement des frais de delivrance doit etre valide avant de cloturer la phase V.",
++    );
++  }
++
++  const now = new Date();
++
++  if (file) {
++    const closureDocumentId = await saveDocument({
++      file,
++      ownerPath: `dossiers/${dossierId}/delivery`,
++      ownerType: "phase",
++      ownerId: phaseObjId,
++      category: "closure_letter",
++      documentType: "delivery_closure_letter",
++      title: `Lettre de cloture Phase V - ${String(dossier.dossierNumber)}`,
++      visibility: "postulant_visible",
++      status: "uploaded",
++      uploadedById: actorObjId,
++    });
++    phase.deliveryClosureCourrierDocumentId =
++      closureDocumentId as unknown as typeof phase.deliveryClosureCourrierDocumentId;
++  }
++
++  phase.status = "closed" as never;
++  phase.deliveryStatus = "delivery_closed" as never;
++  phase.closedAt = now;
++  phase.closedById = actorObjId;
++  await phase.save();
++
++  dossier.status = "closed" as never;
++  dossier.closedAt = now as unknown as typeof dossier.closedAt;
++  await dossier.save();
++
++  const certificate = await createCertificateForDossier(
++    dossierObjId,
++    phaseObjId,
++    actor,
++  );
++
++  if (dossier.postulantUserId) {
++    await NotificationModel.create({
++      recipientUserId: dossier.postulantUserId,
++      channel: "in_app",
++      title: "Phase de delivrance cloturee",
++      message:
++        "La phase de delivrance de votre dossier est cloturee. Votre certificat est en cours de preparation.",
++      relatedType: "phase",
++      relatedId: phaseObjId,
++      status: "unread",
++    });
++  }
++
++  await writeAuditLog({
++    action: "delivery.phase_closed",
++    actorId: actor.id,
++    actorRole: actor.role,
++    entityType: "dossier",
++    entityId: dossierObjId,
++    metadata: {
++      dossierId: dossierObjId.toString(),
++      phaseId: phaseObjId.toString(),
++      certificateId: (certificate._id as Types.ObjectId).toString(),
++      closedById: actor.id,
++    },
++  });
++
++  return {
++    phase: {
++      id: phaseObjId.toString(),
++      phaseKey: "delivery" as const,
++      status: "closed" as const,
++      deliveryStatus: "delivery_closed" as const,
++      closedAt: now.toISOString(),
++    },
++    dossier: {
++      id: dossierObjId.toString(),
++      status: "closed" as const,
++    },
++    certificateId: (certificate._id as Types.ObjectId).toString(),
++  };
++};
+diff --git a/apps/api/src/modules/oma-phases/services/delivery-payment.service.ts b/apps/api/src/modules/oma-phases/services/delivery-payment.service.ts
+new file mode 100644
+index 0000000..7bd81fa
+--- /dev/null
++++ b/apps/api/src/modules/oma-phases/services/delivery-payment.service.ts
+@@ -0,0 +1,479 @@
++/**
++ * Delivery (Phase V) payment slice.
++ *
++ * Owns certificate-delivery-fee invoice publication by internal users and
++ * payment proof submission/validation, mirroring
++ * inspection-payment.service.ts's two-step validation pattern. It does not
++ * own certificate generation/lifecycle or phase closure - see
++ * certificate.service.ts and delivery-closure.service.ts.
++ */
++import { Types } from "mongoose";
++
++import { HttpError } from "../../../shared/errors/http-error.js";
++import { saveDocument } from "../../../shared/utils/document.helpers.js";
++import {
++  ensureObjectId,
++  toId,
++  toIso,
++} from "../../../shared/utils/service.helpers.js";
++import { writeAuditLog } from "../../audit/audit.service.js";
++import { DocumentModel } from "../../documents/document.model.js";
++import { NotificationModel } from "../../notifications/notification.model.js";
++import { PhasePaymentModel } from "../../payments/phase-payment.model.js";
++import { ensureInternalActor } from "../helpers/access.helpers.js";
++import {
++  computeDeliveryPaymentValidated,
++  findOrInitDeliveryPayment,
++  serializeDeliveryPayment,
++} from "../helpers/delivery.helpers.js";
++import { documentEvaluationRepository } from "../repository/document-evaluation.repository.js";
++import type { Actor, GenericRecord } from "../types/oma.types.js";
++import { getOwnedDossier } from "./oma-phase-access.service.js";
++
++export const getDeliveryPaymentState = async (
++  dossierId: string,
++  actor: Actor,
++) => {
++  ensureInternalActor(actor);
++
++  const dossierObjId = ensureObjectId(dossierId, "Dossier ID");
++  const dossier =
++    await documentEvaluationRepository.findDossierByIdLean(dossierObjId);
++  if (!dossier) throw new HttpError(404, "Dossier introuvable.");
++
++  const phase =
++    await documentEvaluationRepository.findDeliveryPhaseByDossierIdLean(
++      dossierObjId,
++    );
++
++  if (String(phase.status) !== "in_progress") {
++    throw new HttpError(
++      409,
++      "La facturation de la phase V sera disponible apres la cloture de l'inspection.",
++    );
++  }
++
++  const payment = await findOrInitDeliveryPayment(
++    dossierObjId,
++    phase._id as Types.ObjectId,
++  );
++  const paymentRecord = payment as unknown as GenericRecord;
++
++  return {
++    phase: {
++      id: (phase._id as Types.ObjectId).toString(),
++      phaseKey: "delivery" as const,
++      status: String(phase.status),
++      deliveryStatus:
++        (phase.deliveryStatus as string | null | undefined) ?? null,
++    },
++    payment: serializeDeliveryPayment(paymentRecord),
++    paymentValidated: computeDeliveryPaymentValidated(paymentRecord),
++  };
++};
++
++export const getPortalDeliveryPaymentState = async (
++  dossierId: string,
++  actor: Actor,
++) => {
++  const { dossier } = await getOwnedDossier(dossierId, actor);
++  const dossierObjId = dossier._id as Types.ObjectId;
++
++  const phase = await documentEvaluationRepository.findPhaseByKeyLean(
++    dossierObjId,
++    "delivery",
++  );
++  if (!phase) {
++    throw new HttpError(404, "Phase de delivrance non disponible.");
++  }
++
++  const payment = await documentEvaluationRepository.findPhasePaymentOrNull(
++    dossierObjId,
++    "delivery",
++    "certificate_delivery_fee",
++  );
++
++  const paymentStatus = payment
++    ? (String(payment.status) as
++        | "invoice_pending"
++        | "invoice_sent"
++        | "payment_proof_submitted"
++        | "payment_proof_validated"
++        | "payment_proof_rejected")
++    : "invoice_pending";
++
++  const canUploadPaymentProof =
++    paymentStatus === "invoice_sent" ||
++    paymentStatus === "payment_proof_submitted" ||
++    paymentStatus === "payment_proof_rejected";
++
++  return {
++    phaseStatus: String(phase.status),
++    deliveryStatus:
++      ((phase as unknown as GenericRecord).deliveryStatus as
++        | string
++        | null) ?? null,
++    payment: {
++      status: paymentStatus,
++      invoiceDocumentId: payment ? toId(payment.invoiceDocumentId) : undefined,
++      paymentProofDocumentId: payment
++        ? toId(payment.paymentProofDocumentId)
++        : undefined,
++      invoiceSentAt: payment ? toIso(payment.invoiceSentAt) : undefined,
++      paymentProofSubmittedAt: payment
++        ? toIso(payment.paymentProofSubmittedAt)
++        : undefined,
++      paymentProofRejectionReason: payment
++        ? ((payment.paymentProofRejectionReason as string | null | undefined) ??
++          undefined)
++        : undefined,
++    },
++    canUploadPaymentProof,
++  };
++};
++
++export const uploadCertificateDeliveryFeeInvoice = async (
++  dossierId: string,
++  file: Express.Multer.File | undefined,
++  payload: {
++    invoiceReference?: string;
++    issuedAt?: string;
++    amount?: string;
++    currency?: string;
++    notes?: string;
++  },
++  actor: Actor,
++) => {
++  ensureInternalActor(actor);
++  if (!file) throw new HttpError(400, "Un fichier de facture est requis.");
++
++  const dossierObjId = ensureObjectId(dossierId, "Dossier ID");
++  const actorObjId = ensureObjectId(actor.id, "Actor ID");
++  const dossier =
++    await documentEvaluationRepository.findDossierById(dossierObjId);
++  if (!dossier) throw new HttpError(404, "Dossier introuvable.");
++
++  const phase =
++    await documentEvaluationRepository.findDeliveryPhaseByDossierIdLean(
++      dossierObjId,
++    );
++
++  if (String(phase.status) !== "in_progress") {
++    throw new HttpError(
++      409,
++      "La facture ne peut etre televersee qu'apres la cloture de l'inspection.",
++    );
++  }
++
++  const phaseObjId = phase._id as Types.ObjectId;
++  const payment = await findOrInitDeliveryPayment(dossierObjId, phaseObjId);
++
++  if (String(payment.status) === "payment_proof_submitted") {
++    throw new HttpError(
++      409,
++      "Une preuve de paiement a deja ete deposee. La facture ne peut plus etre modifiee.",
++    );
++  }
++
++  const now = new Date();
++  const title = `Facture frais de delivrance - ${String(dossier.dossierNumber)}`;
++  const invoiceDocumentId = await saveDocument({
++    file,
++    ownerPath: `dossiers/${dossierId}/phase-payments`,
++    ownerType: "phase_payment",
++    ownerId: payment._id,
++    category: "invoice",
++    documentType: "certificate_delivery_fee_invoice",
++    title,
++    visibility: "postulant_visible",
++    status: "uploaded",
++    uploadedById: actorObjId,
++  });
++
++  payment.invoiceDocumentId =
++    invoiceDocumentId as unknown as typeof payment.invoiceDocumentId;
++  payment.invoiceUploadedById =
++    actorObjId as unknown as typeof payment.invoiceUploadedById;
++  payment.invoiceSentAt = now as unknown as typeof payment.invoiceSentAt;
++  payment.status = "invoice_sent" as never;
++  await payment.save();
++
++  phase.deliveryStatus = "delivery_waiting_payment" as never;
++  await phase.save();
++
++  if (dossier.postulantUserId) {
++    await NotificationModel.create({
++      recipientUserId: dossier.postulantUserId,
++      channel: "in_app",
++      title: "Facture de frais de delivrance disponible",
++      message:
++        "Une facture de frais de delivrance du certificat est disponible pour votre dossier. Veuillez la consulter et deposer votre preuve de paiement.",
++      relatedType: "phase",
++      relatedId: phaseObjId,
++      status: "unread",
++    });
++  }
++
++  await writeAuditLog({
++    action: "delivery.certificate_fee_invoice_uploaded",
++    actorId: actor.id,
++    actorRole: actor.role,
++    entityType: "phase",
++    entityId: phaseObjId.toString(),
++    metadata: {
++      dossierId,
++      invoiceDocumentId: invoiceDocumentId.toString(),
++      invoiceReference: payload.invoiceReference,
++    },
++  });
++
++  const paymentRecord = payment as unknown as GenericRecord;
++  return {
++    phase: {
++      id: phaseObjId.toString(),
++      phaseKey: "delivery" as const,
++      status: String(phase.status),
++      deliveryStatus: String(phase.deliveryStatus),
++    },
++    payment: serializeDeliveryPayment(paymentRecord),
++    paymentValidated: computeDeliveryPaymentValidated(paymentRecord),
++  };
++};
++
++export const uploadCertificateDeliveryFeePaymentProof = async (
++  dossierId: string,
++  file: Express.Multer.File | undefined,
++  payload: {
++    paymentReference?: string;
++    paidAt?: string;
++    notes?: string;
++  },
++  actor: Actor,
++) => {
++  const { dossier, portalUser } = await getOwnedDossier(dossierId, actor);
++  if (!file) {
++    throw new HttpError(400, "Un fichier de preuve de paiement est requis.");
++  }
++
++  const dossierObjId = dossier._id as Types.ObjectId;
++  const postulantUserId = portalUser.userId as Types.ObjectId;
++  const phase = await documentEvaluationRepository.findPhaseByKey(
++    dossierObjId,
++    "delivery",
++  );
++  if (!phase) {
++    throw new HttpError(404, "Phase de delivrance non disponible.");
++  }
++  if (phase.status === "closed") {
++    throw new HttpError(409, "La phase de delivrance est deja cloturee.");
++  }
++
++  const phaseObjId = phase._id as Types.ObjectId;
++  const payment = await documentEvaluationRepository.findPhasePaymentOrNull(
++    dossierObjId,
++    "delivery",
++    "certificate_delivery_fee",
++  );
++
++  if (!payment) {
++    throw new HttpError(
++      409,
++      "Aucune facture n'a encore ete emise pour ce dossier.",
++    );
++  }
++  if (!payment.invoiceDocumentId) {
++    throw new HttpError(
++      409,
++      "La facture doit etre disponible avant de deposer la preuve de paiement.",
++    );
++  }
++
++  const now = new Date();
++  const title = `Preuve de paiement delivrance - ${String(
++    (dossier as unknown as GenericRecord).dossierNumber,
++  )}`;
++  const proofDocumentId = await saveDocument({
++    file,
++    ownerPath: `dossiers/${dossierId}/phase-payments`,
++    ownerType: "phase_payment",
++    ownerId: payment._id,
++    category: "payment_proof",
++    documentType: "certificate_delivery_fee_payment_proof",
++    title,
++    visibility: "postulant_visible",
++    status: "uploaded",
++    uploadedById: postulantUserId,
++  });
++
++  const paymentDoc = await PhasePaymentModel.findById(payment._id);
++  if (!paymentDoc) {
++    throw new HttpError(409, "Payment record not found.");
++  }
++
++  const previousProofDocumentId = paymentDoc.paymentProofDocumentId;
++  if (previousProofDocumentId) {
++    await DocumentModel.updateOne(
++      { _id: previousProofDocumentId },
++      { $set: { status: "archived", replacedByDocumentId: proofDocumentId } },
++    );
++  }
++
++  paymentDoc.paymentProofDocumentId = proofDocumentId;
++  paymentDoc.paymentProofUploadedById = postulantUserId;
++  paymentDoc.paymentProofSubmittedAt = now;
++  paymentDoc.status = "payment_proof_submitted" as never;
++  await paymentDoc.save();
++
++  phase.deliveryStatus = "delivery_payment_proof_submitted" as never;
++  await phase.save();
++
++  const dossierRecord = dossier as unknown as GenericRecord;
++  if (dossierRecord.assignedDnAgentId) {
++    await NotificationModel.create({
++      recipientUserId: dossierRecord.assignedDnAgentId,
++      channel: "in_app",
++      title: "Preuve de paiement (delivrance) recue",
++      message: `Une preuve de paiement des frais de delivrance a ete deposee pour le dossier n ${String(
++        dossierRecord.dossierNumber,
++      )}.`,
++      relatedType: "phase",
++      relatedId: phaseObjId,
++      status: "unread",
++    });
++  }
++
++  await writeAuditLog({
++    action: "delivery.certificate_fee_payment_proof_uploaded",
++    actorId: actor.id,
++    actorRole: actor.role,
++    entityType: "phase",
++    entityId: phaseObjId.toString(),
++    metadata: {
++      dossierId,
++      proofDocumentId: proofDocumentId.toString(),
++      paymentReference: payload.paymentReference,
++    },
++  });
++
++  const paymentRecord = payment as unknown as GenericRecord;
++  return {
++    phaseStatus: String(phase.status),
++    deliveryStatus: String(phase.deliveryStatus),
++    payment: {
++      status: String(paymentDoc.status) as "payment_proof_submitted",
++      invoiceDocumentId: toId(paymentRecord.invoiceDocumentId),
++      paymentProofDocumentId: toId(proofDocumentId),
++      invoiceSentAt: toIso(paymentRecord.invoiceSentAt),
++      paymentProofSubmittedAt: toIso(now),
++    },
++    canUploadPaymentProof: true,
++  };
++};
++
++export const validateCertificateDeliveryFeePaymentProof = async (
++  dossierId: string,
++  input: {
++    decision: "validated" | "rejected";
++    observations?: string;
++  },
++  actor: Actor,
++) => {
++  ensureInternalActor(actor);
++
++  const dossierObjId = ensureObjectId(dossierId, "Dossier ID");
++  const actorObjId = ensureObjectId(actor.id, "Actor ID");
++  const dossier =
++    await documentEvaluationRepository.findDossierById(dossierObjId);
++  if (!dossier) throw new HttpError(404, "Dossier introuvable.");
++
++  const phase =
++    await documentEvaluationRepository.findDeliveryPhaseByDossierIdLean(
++      dossierObjId,
++    );
++  const phaseObjId = phase._id as Types.ObjectId;
++
++  const payment = await PhasePaymentModel.findOne({
++    dossierId: dossierObjId,
++    phaseId: phaseObjId,
++    phaseKey: "delivery",
++    paymentType: "certificate_delivery_fee",
++  });
++  if (!payment) {
++    throw new HttpError(409, "Aucun paiement en attente pour ce dossier.");
++  }
++  if (String(payment.status) !== "payment_proof_submitted") {
++    throw new HttpError(
++      409,
++      "Une preuve de paiement doit etre deposee avant de pouvoir etre validee.",
++    );
++  }
++
++  const now = new Date();
++  const observations = input.observations?.trim() || undefined;
++
++  if (input.decision === "validated") {
++    payment.status = "payment_proof_validated" as never;
++    payment.paymentProofValidatedAt = now as unknown as typeof payment.paymentProofValidatedAt;
++    payment.paymentProofValidatedById =
++      actorObjId as unknown as typeof payment.paymentProofValidatedById;
++    payment.paymentProofRejectedAt = null as unknown as typeof payment.paymentProofRejectedAt;
++    payment.paymentProofRejectedById = null as unknown as typeof payment.paymentProofRejectedById;
++    payment.paymentProofRejectionReason =
++      null as unknown as typeof payment.paymentProofRejectionReason;
++    await payment.save();
++
++    phase.deliveryStatus = "delivery_ready_to_close" as never;
++    await phase.save();
++  } else {
++    payment.status = "payment_proof_rejected" as never;
++    payment.paymentProofRejectedAt = now as unknown as typeof payment.paymentProofRejectedAt;
++    payment.paymentProofRejectedById =
++      actorObjId as unknown as typeof payment.paymentProofRejectedById;
++    payment.paymentProofRejectionReason =
++      (observations ??
++        "Preuve de paiement rejetee.") as unknown as typeof payment.paymentProofRejectionReason;
++    await payment.save();
++
++    phase.deliveryStatus = "delivery_waiting_payment" as never;
++    await phase.save();
++
++    const dossierRecord = dossier as unknown as GenericRecord;
++    if (dossierRecord.postulantUserId) {
++      await NotificationModel.create({
++        recipientUserId: dossierRecord.postulantUserId,
++        channel: "in_app",
++        title: "Preuve de paiement (delivrance) rejetee",
++        message:
++          "Votre preuve de paiement des frais de delivrance a ete rejetee. Veuillez deposer une nouvelle preuve.",
++        relatedType: "phase",
++        relatedId: phaseObjId,
++        status: "unread",
++      });
++    }
++  }
++
++  await writeAuditLog({
++    action: "delivery.certificate_fee_payment_proof_reviewed",
++    actorId: actor.id,
++    actorRole: actor.role,
++    entityType: "phase",
++    entityId: phaseObjId.toString(),
++    metadata: {
++      dossierId,
++      decision: input.decision,
++      hasObservations: Boolean(observations),
++    },
++  });
++
++  const paymentRecord = payment as unknown as GenericRecord;
++  return {
++    phase: {
++      id: phaseObjId.toString(),
++      phaseKey: "delivery" as const,
++      status: String(phase.status),
++      deliveryStatus: String(phase.deliveryStatus),
++    },
++    payment: serializeDeliveryPayment(paymentRecord),
++    paymentValidated: computeDeliveryPaymentValidated(paymentRecord),
++  };
++};
+diff --git a/apps/api/src/modules/oma-phases/services/index.ts b/apps/api/src/modules/oma-phases/services/index.ts
+index 2cb052d..300f03e 100644
+--- a/apps/api/src/modules/oma-phases/services/index.ts
++++ b/apps/api/src/modules/oma-phases/services/index.ts
+@@ -16,6 +16,8 @@ export * from "./formal-request-documents.service.js";
+ export * from "./formal-request-overview.service.js";
+ export * from "./formal-request-meeting.service.js";
+ export * from "./formal-request-review.service.js";
++export * from "./delivery-closure.service.js";
++export * from "./delivery-payment.service.js";
+ export * from "./document-evaluation-closure.service.js";
+ export * from "./document-evaluation-correction.service.js";
+ export * from "./document-evaluation-payment.service.js";
+diff --git a/apps/api/src/modules/oma-phases/services/oma-phase-admin-read.service.ts b/apps/api/src/modules/oma-phases/services/oma-phase-admin-read.service.ts
+index 4bcd2a6..1ffd52d 100644
+--- a/apps/api/src/modules/oma-phases/services/oma-phase-admin-read.service.ts
++++ b/apps/api/src/modules/oma-phases/services/oma-phase-admin-read.service.ts
+@@ -11,6 +11,7 @@ import { HttpError } from "../../../shared/errors/http-error.js";
+ import { storageAdapter } from "../../../shared/storage/storage.adapter.js";
+ import { ensureObjectId, toId, toIso } from "../../../shared/utils/service.helpers.js";
+ import { CourrierModel } from "../../courriers/courrier.model.js";
++import { CertificateModel } from "../../certificates/certificate.model.js";
+ import { DGReviewModel } from "../../dg-reviews/dg-review.model.js";
+ import { DocumentModel } from "../../documents/document.model.js";
+ import { DocumentSubmissionModel } from "../../documents/document-submission.model.js";
+@@ -283,7 +284,32 @@ export const downloadAdminDossierDocument = async (
+             .lean();
+ 
+           if (!inspectionPhase) {
+-            throw new HttpError(403, "Document non accessible");
++            const deliveryPhase = await OmaPhaseModel.findOne({
++              dossierId: dossierObjectId,
++              phaseKey: "delivery",
++              $or: [
++                { deliveryClosureCourrierDocumentId: docObjectId },
++                { deliveryApprovalDocumentId: docObjectId },
++              ],
++            })
++              .select("_id")
++              .lean();
++
++            if (!deliveryPhase) {
++              const certificate = await CertificateModel.findOne({
++                dossierId: dossierObjectId,
++                $or: [
++                  { linkedDocumentId: docObjectId },
++                  { scannedDocumentId: docObjectId },
++                ],
++              })
++                .select("_id")
++                .lean();
++
++              if (!certificate) {
++                throw new HttpError(403, "Document non accessible");
++              }
++            }
+           }
+         }
+       }
+diff --git a/apps/api/src/modules/oma-phases/services/oma-phase-portal-documents.service.ts b/apps/api/src/modules/oma-phases/services/oma-phase-portal-documents.service.ts
+index 625074e..163c771 100644
+--- a/apps/api/src/modules/oma-phases/services/oma-phase-portal-documents.service.ts
++++ b/apps/api/src/modules/oma-phases/services/oma-phase-portal-documents.service.ts
+@@ -9,6 +9,7 @@ import { storageAdapter } from "../../../shared/storage/storage.adapter.js";
+ import { ensureObjectId } from "../../../shared/utils/service.helpers.js";
+ import { DocumentModel } from "../../documents/document.model.js";
+ import { DocumentSubmissionModel } from "../../documents/document-submission.model.js";
++import { CertificateModel } from "../../certificates/certificate.model.js";
+ import { PhasePaymentModel } from "../../payments/phase-payment.model.js";
+ import { OmaPhaseModel } from "../models/oma-phase.model.js";
+ import type { Actor } from "../types/oma.types.js";
+@@ -71,7 +72,32 @@ export const downloadPortalDossierDocument = async (
+           .lean();
+ 
+         if (!correctionSubmission) {
+-          throw new HttpError(403, "Document non accessible");
++          const deliveryPhase = await OmaPhaseModel.findOne({
++            dossierId: dossierObjectId,
++            phaseKey: "delivery",
++            $or: [
++              { deliveryClosureCourrierDocumentId: docObjectId },
++              { deliveryApprovalDocumentId: docObjectId },
++            ],
++          })
++            .select("_id")
++            .lean();
++
++          if (!deliveryPhase) {
++            const certificate = await CertificateModel.findOne({
++              dossierId: dossierObjectId,
++              $or: [
++                { linkedDocumentId: docObjectId },
++                { scannedDocumentId: docObjectId },
++              ],
++            })
++              .select("_id")
++              .lean();
++
++            if (!certificate) {
++              throw new HttpError(403, "Document non accessible");
++            }
++          }
+         }
+       }
+     }
+diff --git a/apps/api/src/modules/portal/portal.routes.ts b/apps/api/src/modules/portal/portal.routes.ts
+index 4cbdbeb..2dd25c1 100644
+--- a/apps/api/src/modules/portal/portal.routes.ts
++++ b/apps/api/src/modules/portal/portal.routes.ts
+@@ -43,6 +43,10 @@ import {
+   getPortalInspectionPaymentState,
+   uploadAuditFeePaymentProof,
+ } from "../oma-phases/index.js";
++import {
++  getPortalDeliveryPaymentState,
++  uploadCertificateDeliveryFeePaymentProof,
++} from "../oma-phases/index.js";
+ import {
+   createPortalRequest,
+   declarePortalPhysicalDeposit,
+@@ -377,6 +381,39 @@ portalRouter.post(
+   }),
+ );
+ 
++// ── Phase 5 — Délivrance: payment routes (portal) ─────────────────────────────
++
++portalRouter.get(
++  "/dossiers/:id/phases/delivery/payment",
++  requireAuth({ scope: "portal" }),
++  asyncHandler(async (req, res) => {
++    res.json(
++      await getPortalDeliveryPaymentState(String(req.params.id), req.user!),
++    );
++  }),
++);
++
++portalRouter.post(
++  "/dossiers/:id/phases/delivery/payment-proof",
++  requireAuth({ scope: "portal" }),
++  handleCourrierUpload,
++  asyncHandler(async (req, res) => {
++    res.status(201).json(
++      await uploadCertificateDeliveryFeePaymentProof(
++        String(req.params.id),
++        req.file,
++        {
++          paymentReference:
++            typeof req.body.paymentReference === "string" ? req.body.paymentReference : undefined,
++          paidAt: typeof req.body.paidAt === "string" ? req.body.paidAt : undefined,
++          notes: typeof req.body.notes === "string" ? req.body.notes : undefined,
++        },
++        req.user!,
++      ),
++    );
++  }),
++);
++
+ // ── Phase 3 — Évaluation approfondie: correction upload (portal) ─────────────
+ 
+ portalRouter.post(
+diff --git a/apps/api/src/shared/permissions/permissions.ts b/apps/api/src/shared/permissions/permissions.ts
+index c655317..e9212b3 100644
+--- a/apps/api/src/shared/permissions/permissions.ts
++++ b/apps/api/src/shared/permissions/permissions.ts
+@@ -31,6 +31,8 @@ export const Permissions = {
+   PAYMENT_PROOF_VALIDATE: "PAYMENT_PROOF_VALIDATE",
+   PAYMENT_VIEW: "PAYMENT_VIEW",
+   INSPECTION_AVIS_RECORD: "INSPECTION_AVIS_RECORD",
++  CERTIFICATE_VIEW: "CERTIFICATE_VIEW",
++  CERTIFICATE_MANAGE: "CERTIFICATE_MANAGE",
+   REPORT_VIEW: "REPORT_VIEW",
+   REPORT_EXPORT: "REPORT_EXPORT",
+   AUDIT_VIEW: "AUDIT_VIEW",
+@@ -83,7 +85,9 @@ export const rolePermissions: Record<Role, Permission[]> = {
+     Permissions.PAYMENT_VIEW,
+     Permissions.REPORT_VIEW,
+     Permissions.AUDIT_VIEW,
+-    Permissions.INSPECTION_AVIS_RECORD
++    Permissions.INSPECTION_AVIS_RECORD,
++    Permissions.CERTIFICATE_VIEW,
++    Permissions.CERTIFICATE_MANAGE
+   ],
+   [Roles.DN_AGENT]: [
+     Permissions.REQUEST_VIEW_ALL,
+@@ -100,7 +104,9 @@ export const rolePermissions: Record<Role, Permission[]> = {
+     Permissions.PAYMENT_PROOF_VALIDATE,
+     Permissions.PAYMENT_VIEW,
+     Permissions.REPORT_VIEW,
+-    Permissions.INSPECTION_AVIS_RECORD
++    Permissions.INSPECTION_AVIS_RECORD,
++    Permissions.CERTIFICATE_VIEW,
++    Permissions.CERTIFICATE_MANAGE
+   ],
+   [Roles.DG_SECRETARIAT]: [
+     Permissions.REQUEST_VIEW_ALL,
+@@ -110,7 +116,8 @@ export const rolePermissions: Record<Role, Permission[]> = {
+     Permissions.PRE_EVAL_DG_RETURN_CONSULT,
+     Permissions.PAYMENT_INVOICE_UPLOAD,
+     Permissions.PAYMENT_VIEW,
+-    Permissions.REPORT_VIEW
++    Permissions.REPORT_VIEW,
++    Permissions.CERTIFICATE_VIEW
+   ],
+   [Roles.RECEPTION]: [
+     Permissions.REQUEST_VIEW_ALL,
+@@ -121,7 +128,9 @@ export const rolePermissions: Record<Role, Permission[]> = {
+     Permissions.PAYMENT_INVOICE_UPLOAD,
+     Permissions.PAYMENT_PROOF_VALIDATE,
+     Permissions.PAYMENT_VIEW,
+-    Permissions.REPORT_VIEW
++    Permissions.REPORT_VIEW,
++    Permissions.CERTIFICATE_VIEW,
++    Permissions.CERTIFICATE_MANAGE
+   ],
+   [Roles.BUREAU_COURRIER]: [
+     Permissions.REQUEST_VIEW_ALL,
+@@ -137,7 +146,8 @@ export const rolePermissions: Record<Role, Permission[]> = {
+     Permissions.PAYMENT_INVOICE_UPLOAD,
+     Permissions.PAYMENT_PROOF_VALIDATE,
+     Permissions.PAYMENT_VIEW,
+-    Permissions.REPORT_VIEW
++    Permissions.REPORT_VIEW,
++    Permissions.CERTIFICATE_VIEW
+   ],
+   [Roles.R3_AGENT]: [
+     Permissions.DOSSIER_VIEW_ALL,

@@ -1,4 +1,4 @@
-import { AlertCircle, FolderOpen, MessageSquareWarning, XCircle } from "lucide-react";
+import { AlertCircle, FolderOpen, MessageSquareWarning } from "lucide-react";
 import { useState } from "react";
 
 import { Alert, AlertDescription } from "../../components/ui/alert";
@@ -15,16 +15,12 @@ import { Label } from "../../components/ui/label";
 import { Textarea } from "../../components/ui/textarea";
 import { useAppToast } from "../../hooks/useAppToast";
 import { isMockMode } from "../../lib/data/data-mode";
-import {
-  useOpenDossierDn,
-  useRecordInitialDgDecision,
-  useRequestCorrection,
-} from "../../lib/query";
+import { useOpenDossierDn, useRequestCorrection } from "../../lib/query";
 import { type AdminRequest } from "../../lib/api/requests";
 import { optional } from "./requests.utils";
 
 export type ActionDialogState = {
-  kind: "open_dossier" | "correction" | "dg_rejected";
+  kind: "open_dossier" | "correction";
   request: AdminRequest;
 };
 
@@ -43,7 +39,6 @@ export function ActionDialog({
 
   const openDossierMutation = useOpenDossierDn();
   const correctionMutation = useRequestCorrection();
-  const dgDecisionMutation = useRecordInitialDgDecision();
 
   const copy = {
     open_dossier: {
@@ -63,30 +58,16 @@ export function ActionDialog({
       success: "Correction demandée au postulant.",
       icon: MessageSquareWarning,
     },
-    dg_rejected: {
-      title: "Enregistrer le rejet DG",
-      description:
-        "Confirmer que le DG a rejeté le courrier initial. La demande repasse en correction pour le postulant.",
-      label: "Motif du rejet (lu sur le scan retourné par le DG)",
-      button: "Enregistrer le rejet",
-      success: "Rejet DG enregistré, correction demandée au postulant.",
-      icon: XCircle,
-    },
   }[state.kind];
   const Icon = copy.icon;
 
   const isSubmitting =
-    openDossierMutation.isPending ||
-    correctionMutation.isPending ||
-    dgDecisionMutation.isPending;
+    openDossierMutation.isPending || correctionMutation.isPending;
 
   const handleSubmit = async () => {
     setLocalError("");
 
-    if (
-      (state.kind === "correction" || state.kind === "dg_rejected") &&
-      !text.trim()
-    ) {
+    if (state.kind === "correction" && !text.trim()) {
       setLocalError("Le motif est requis.");
       return;
     }
@@ -107,11 +88,6 @@ export function ActionDialog({
         await correctionMutation.mutateAsync({
           id: state.request.id,
           payload: { reason: text.trim() },
-        });
-      } else if (state.kind === "dg_rejected") {
-        await dgDecisionMutation.mutateAsync({
-          id: state.request.id,
-          payload: { decision: "rejected", observations: text.trim() },
         });
       }
 
@@ -159,9 +135,7 @@ export function ActionDialog({
               placeholder={
                 state.kind === "open_dossier"
                   ? "Ajouter des notes facultatives..."
-                  : state.kind === "dg_rejected"
-                    ? "Reporter le motif de rejet indiqué par le DG sur le scan..."
-                    : "Expliquer les corrections demandées..."
+                  : "Expliquer les corrections demandées..."
               }
               value={text}
               onChange={(event) => setText(event.target.value)}

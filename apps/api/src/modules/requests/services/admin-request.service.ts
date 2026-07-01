@@ -7,7 +7,7 @@ import { saveDocument } from "../../../shared/utils/document.helpers.js";
 import { ensureObjectId, parseDate, toId, toIso } from "../../../shared/utils/service.helpers.js";
 import { writeAuditLog } from "../../audit/audit.service.js";
 import { CourrierModel } from "../../courriers/courrier.model.js";
-import { createDgReview, recordDgDecision, recordDgReturn } from "../../dg-circuit/dg-circuit.service.js";
+import { createDgReview, recordDgReturn } from "../../dg-circuit/dg-circuit.service.js";
 import { DGReviewModel } from "../../dg-reviews/dg-review.model.js";
 import { DocumentModel } from "../../documents/document.model.js";
 import { DossierModel } from "../../dossiers/dossier.model.js";
@@ -598,79 +598,6 @@ export const recordAdminRequestDgReturn = async (
     dgReview: sanitizeDgReview(dgReview),
     document: sanitizeDocument(document),
   };
-};
-
-export const recordInitialRequestDgDecision = async (
-  requestId: string,
-  input: {
-    decision: "approved" | "rejected";
-    observations?: string;
-  },
-  actor: Actor,
-) => {
-  ensureInternalActor(actor);
-  const request = await getRequestForAdminMutation(requestId);
-
-  if (request.status !== "initial_dg_returned") {
-    throw new HttpError(
-      409,
-      "La decision DG ne peut etre enregistree qu'apres reception du scan de retour DG.",
-    );
-  }
-
-  const existingReview = await getInitialDgReviewForRequest(request);
-  if (!existingReview) throw new HttpError(409, "DG review introuvable pour cette demande");
-
-  const observations = trimmed(input.observations);
-
-  await recordDgDecision({
-    reviewId: existingReview._id as Types.ObjectId,
-    decision: input.decision,
-    observations,
-    actorId: new Types.ObjectId(actor.id),
-    handledByRole: actor.role,
-  });
-
-  if (input.decision === "rejected") {
-    request.status = "initial_dg_decision_recorded";
-    request.set("intake.correctionRequestedAt", new Date());
-    request.set("intake.correctionRequestedById", new Types.ObjectId(actor.id));
-    request.set(
-      "intake.correctionReason",
-      observations || "Rejet du courrier initial par le DG.",
-    );
-    await request.save();
-
-    await NotificationModel.create({
-      recipientUserId: request.submittedById,
-      channel: "in_app",
-      title: "Courrier initial rejete par le DG",
-      message: "Votre courrier initial a ete rejete par le DG. Veuillez le corriger et le soumettre a nouveau.",
-      relatedType: "request",
-      relatedId: request._id,
-      status: "unread",
-    });
-  }
-  // "approved" is recorded as an audit trail entry only; it does not mutate
-  // request.status. openAdminDossierDn remains the actual trigger and still
-  // relies on isDgReturnComplete(), which only checks for "initial_dg_returned"
-  // / "oriented_to_dn" plus a registered scan - do not change that guard here.
-
-  await writeAuditLog({
-    actorId: actor.id,
-    actorRole: actor.role,
-    action: "admin.initial_dg_decision_recorded",
-    entityType: "request",
-    entityId: request._id,
-    after: { status: request.status },
-    metadata: {
-      decision: input.decision,
-      dgReviewId: (existingReview._id as Types.ObjectId).toString(),
-      hasObservations: Boolean(observations),
-    },
-  });
-
-  return { request: sanitizeRequest(request) };
 };
 
 export const openAdminDossierDn = async (

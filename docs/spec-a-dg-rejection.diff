@@ -1,0 +1,367 @@
+diff --git a/apps/admin/src/lib/api/requests/index.ts b/apps/admin/src/lib/api/requests/index.ts
+index d0c384f..f67483e 100644
+--- a/apps/admin/src/lib/api/requests/index.ts
++++ b/apps/admin/src/lib/api/requests/index.ts
+@@ -77,6 +77,13 @@ export function openDossierDn(
+   return apiPost(buildRequestActionPath(id, 'open-dossier-dn'), payload);
+ }
+ 
++export function recordInitialDgDecision(
++  id: string,
++  payload: { decision: 'approved' | 'rejected'; observations?: string },
++): Promise<{ request: AdminRequest }> {
++  return apiPost(buildRequestActionPath(id, 'dg-decision'), payload);
++}
++
+ export function sendToDg(
+   id: string,
+   payload: { notes?: string },
+diff --git a/apps/admin/src/lib/query/queries/requests.queries.ts b/apps/admin/src/lib/query/queries/requests.queries.ts
+index ce2cca5..546bd6b 100644
+--- a/apps/admin/src/lib/query/queries/requests.queries.ts
++++ b/apps/admin/src/lib/query/queries/requests.queries.ts
+@@ -4,6 +4,7 @@ import {
+   getRequest,
+   listRequests,
+   openDossierDn,
++  recordInitialDgDecision,
+   requestCorrection,
+   type ListRequestsParams,
+ } from "@/lib/api/requests";
+@@ -19,6 +20,11 @@ type RequestCorrectionVariables = {
+   payload: { reason: string };
+ };
+ 
++type RecordInitialDgDecisionVariables = {
++  id: string;
++  payload: { decision: "approved" | "rejected"; observations?: string };
++};
++
+ export function useRequests(filters: ListRequestsParams = {}) {
+   return useQuery({
+     queryKey: requestKeys.list(filters),
+@@ -76,3 +82,19 @@ export function useRequestCorrection() {
+     },
+   });
+ }
++
++export function useRecordInitialDgDecision() {
++  const invalidateLists = useInvalidateRequestLists();
++  const queryClient = useQueryClient();
++
++  return useMutation({
++    mutationFn: ({ id, payload }: RecordInitialDgDecisionVariables) =>
++      recordInitialDgDecision(id, payload),
++    onSuccess: (_data, variables) => {
++      invalidateLists();
++      queryClient.invalidateQueries({
++        queryKey: requestKeys.detail(variables.id),
++      });
++    },
++  });
++}
+diff --git a/apps/admin/src/pages/requests/ActionDialog.tsx b/apps/admin/src/pages/requests/ActionDialog.tsx
+index 033d536..d785e67 100644
+--- a/apps/admin/src/pages/requests/ActionDialog.tsx
++++ b/apps/admin/src/pages/requests/ActionDialog.tsx
+@@ -1,4 +1,4 @@
+-import { AlertCircle, FolderOpen, MessageSquareWarning } from "lucide-react";
++import { AlertCircle, FolderOpen, MessageSquareWarning, XCircle } from "lucide-react";
+ import { useState } from "react";
+ 
+ import { Alert, AlertDescription } from "../../components/ui/alert";
+@@ -15,12 +15,16 @@ import { Label } from "../../components/ui/label";
+ import { Textarea } from "../../components/ui/textarea";
+ import { useAppToast } from "../../hooks/useAppToast";
+ import { isMockMode } from "../../lib/data/data-mode";
+-import { useOpenDossierDn, useRequestCorrection } from "../../lib/query";
++import {
++  useOpenDossierDn,
++  useRecordInitialDgDecision,
++  useRequestCorrection,
++} from "../../lib/query";
+ import { type AdminRequest } from "../../lib/api/requests";
+ import { optional } from "./requests.utils";
+ 
+ export type ActionDialogState = {
+-  kind: "open_dossier" | "correction";
++  kind: "open_dossier" | "correction" | "dg_rejected";
+   request: AdminRequest;
+ };
+ 
+@@ -39,6 +43,7 @@ export function ActionDialog({
+ 
+   const openDossierMutation = useOpenDossierDn();
+   const correctionMutation = useRequestCorrection();
++  const dgDecisionMutation = useRecordInitialDgDecision();
+ 
+   const copy = {
+     open_dossier: {
+@@ -58,16 +63,30 @@ export function ActionDialog({
+       success: "Correction demandée au postulant.",
+       icon: MessageSquareWarning,
+     },
++    dg_rejected: {
++      title: "Enregistrer le rejet DG",
++      description:
++        "Confirmer que le DG a rejeté le courrier initial. La demande repasse en correction pour le postulant.",
++      label: "Motif du rejet (lu sur le scan retourné par le DG)",
++      button: "Enregistrer le rejet",
++      success: "Rejet DG enregistré, correction demandée au postulant.",
++      icon: XCircle,
++    },
+   }[state.kind];
+   const Icon = copy.icon;
+ 
+   const isSubmitting =
+-    openDossierMutation.isPending || correctionMutation.isPending;
++    openDossierMutation.isPending ||
++    correctionMutation.isPending ||
++    dgDecisionMutation.isPending;
+ 
+   const handleSubmit = async () => {
+     setLocalError("");
+ 
+-    if (state.kind === "correction" && !text.trim()) {
++    if (
++      (state.kind === "correction" || state.kind === "dg_rejected") &&
++      !text.trim()
++    ) {
+       setLocalError("Le motif est requis.");
+       return;
+     }
+@@ -89,6 +108,11 @@ export function ActionDialog({
+           id: state.request.id,
+           payload: { reason: text.trim() },
+         });
++      } else if (state.kind === "dg_rejected") {
++        await dgDecisionMutation.mutateAsync({
++          id: state.request.id,
++          payload: { decision: "rejected", observations: text.trim() },
++        });
+       }
+ 
+       toast.success(copy.success);
+@@ -135,7 +159,9 @@ export function ActionDialog({
+               placeholder={
+                 state.kind === "open_dossier"
+                   ? "Ajouter des notes facultatives..."
+-                  : "Expliquer les corrections demandées..."
++                  : state.kind === "dg_rejected"
++                    ? "Reporter le motif de rejet indiqué par le DG sur le scan..."
++                    : "Expliquer les corrections demandées..."
+               }
+               value={text}
+               onChange={(event) => setText(event.target.value)}
+diff --git a/apps/admin/src/pages/requests/RequestDetailPanel.tsx b/apps/admin/src/pages/requests/RequestDetailPanel.tsx
+index df75adc..fa7f2c6 100644
+--- a/apps/admin/src/pages/requests/RequestDetailPanel.tsx
++++ b/apps/admin/src/pages/requests/RequestDetailPanel.tsx
+@@ -3,6 +3,7 @@ import {
+   ExternalLink,
+   FolderOpen,
+   MessageSquareWarning,
++  XCircle,
+ } from "lucide-react";
+ 
+ import { Badge } from "../../components/ui/badge";
+@@ -28,6 +29,7 @@ import {
+   canMarkPrinted,
+   canOpenDossier,
+   canRecordDgReturn,
++  canRecordInitialDgDecision,
+   canRegisterPhysical,
+   canRequestCorrection,
+   getStatusLabel,
+@@ -364,16 +366,28 @@ export function RequestDetailPanel({
+           ) : null}
+         </div>
+ 
+-        {permissions.canReview && canOpenDossier(request, dgReview) ? (
+-          <Button
+-            size="sm"
+-            onClick={() => onSetDialog({ kind: "open_dossier", request })}
+-            className="bg-emerald-600 hover:bg-emerald-700"
+-          >
+-            <FolderOpen className="mr-1.5 h-4 w-4" aria-hidden="true" />
+-            Démarrer la phase préliminaire
+-          </Button>
+-        ) : null}
++        <div className="flex flex-wrap gap-2">
++          {permissions.canReview && canRecordInitialDgDecision(request) ? (
++            <Button
++              variant="destructive"
++              size="sm"
++              onClick={() => onSetDialog({ kind: "dg_rejected", request })}
++            >
++              <XCircle className="mr-1.5 h-4 w-4" aria-hidden="true" />
++              Enregistrer le rejet DG
++            </Button>
++          ) : null}
++          {permissions.canReview && canOpenDossier(request, dgReview) ? (
++            <Button
++              size="sm"
++              onClick={() => onSetDialog({ kind: "open_dossier", request })}
++              className="bg-emerald-600 hover:bg-emerald-700"
++            >
++              <FolderOpen className="mr-1.5 h-4 w-4" aria-hidden="true" />
++              Démarrer la phase préliminaire
++            </Button>
++          ) : null}
++        </div>
+       </CardFooter>
+     </Card>
+   );
+diff --git a/apps/admin/src/pages/requests/requests.helpers.ts b/apps/admin/src/pages/requests/requests.helpers.ts
+index 64b0e44..0871c44 100644
+--- a/apps/admin/src/pages/requests/requests.helpers.ts
++++ b/apps/admin/src/pages/requests/requests.helpers.ts
+@@ -103,6 +103,12 @@ export function canOpenDossier(
+   return isDgReturnComplete(request, dgReview) && !request.dossierId;
+ }
+ 
++// DN can only record approved/rejected once the DG-signed scan is registered
++// and before a decision has already been recorded for this circuit.
++export function canRecordInitialDgDecision(request: AdminRequest): boolean {
++  return request.status === "initial_dg_returned";
++}
++
+ export function canRequestCorrection(request: AdminRequest): boolean {
+   return (
+     request.status === "submitted" || request.status === "intake_in_review"
+diff --git a/apps/api/src/modules/admin/admin.routes.ts b/apps/api/src/modules/admin/admin.routes.ts
+index e360eb6..52e9f48 100644
+--- a/apps/api/src/modules/admin/admin.routes.ts
++++ b/apps/api/src/modules/admin/admin.routes.ts
+@@ -26,6 +26,7 @@ import {
+   markAdminRequestPrintedForDg,
+   openAdminDossierDn,
+   recordAdminRequestDgReturn,
++  recordInitialRequestDgDecision,
+   registerAdminPhysicalCourrier,
+   requestAdminRequestCorrection,
+   sendAdminRequestToDg,
+@@ -469,6 +470,30 @@ adminRouter.post(
+   }),
+ );
+ 
++adminRouter.post(
++  "/requests/:id/dg-decision",
++  requirePermission(Permissions.DG_DECISION_RECORD),
++  asyncHandler(async (req, res) => {
++    const decision = req.body.decision as string;
++    if (!["approved", "rejected"].includes(decision)) {
++      throw new HttpError(400, "decision doit etre approved ou rejected.");
++    }
++    res.json(
++      await recordInitialRequestDgDecision(
++        String(req.params.id),
++        {
++          decision: decision as "approved" | "rejected",
++          observations:
++            typeof req.body.observations === "string"
++              ? req.body.observations
++              : undefined,
++        },
++        req.user!,
++      ),
++    );
++  }),
++);
++
+ adminRouter.post(
+   "/requests/:id/send-to-dg",
+   requirePermission(Permissions.DG_CIRCUIT_HANDLE),
+diff --git a/apps/api/src/modules/requests/services/admin-request.service.ts b/apps/api/src/modules/requests/services/admin-request.service.ts
+index 20bfe89..7197d5f 100644
+--- a/apps/api/src/modules/requests/services/admin-request.service.ts
++++ b/apps/api/src/modules/requests/services/admin-request.service.ts
+@@ -7,7 +7,7 @@ import { saveDocument } from "../../../shared/utils/document.helpers.js";
+ import { ensureObjectId, parseDate, toId, toIso } from "../../../shared/utils/service.helpers.js";
+ import { writeAuditLog } from "../../audit/audit.service.js";
+ import { CourrierModel } from "../../courriers/courrier.model.js";
+-import { createDgReview, recordDgReturn } from "../../dg-circuit/dg-circuit.service.js";
++import { createDgReview, recordDgDecision, recordDgReturn } from "../../dg-circuit/dg-circuit.service.js";
+ import { DGReviewModel } from "../../dg-reviews/dg-review.model.js";
+ import { DocumentModel } from "../../documents/document.model.js";
+ import { DossierModel } from "../../dossiers/dossier.model.js";
+@@ -600,6 +600,79 @@ export const recordAdminRequestDgReturn = async (
+   };
+ };
+ 
++export const recordInitialRequestDgDecision = async (
++  requestId: string,
++  input: {
++    decision: "approved" | "rejected";
++    observations?: string;
++  },
++  actor: Actor,
++) => {
++  ensureInternalActor(actor);
++  const request = await getRequestForAdminMutation(requestId);
++
++  if (request.status !== "initial_dg_returned") {
++    throw new HttpError(
++      409,
++      "La decision DG ne peut etre enregistree qu'apres reception du scan de retour DG.",
++    );
++  }
++
++  const existingReview = await getInitialDgReviewForRequest(request);
++  if (!existingReview) throw new HttpError(409, "DG review introuvable pour cette demande");
++
++  const observations = trimmed(input.observations);
++
++  await recordDgDecision({
++    reviewId: existingReview._id as Types.ObjectId,
++    decision: input.decision,
++    observations,
++    actorId: new Types.ObjectId(actor.id),
++    handledByRole: actor.role,
++  });
++
++  if (input.decision === "rejected") {
++    request.status = "initial_dg_decision_recorded";
++    request.set("intake.correctionRequestedAt", new Date());
++    request.set("intake.correctionRequestedById", new Types.ObjectId(actor.id));
++    request.set(
++      "intake.correctionReason",
++      observations || "Rejet du courrier initial par le DG.",
++    );
++    await request.save();
++
++    await NotificationModel.create({
++      recipientUserId: request.submittedById,
++      channel: "in_app",
++      title: "Courrier initial rejete par le DG",
++      message: "Votre courrier initial a ete rejete par le DG. Veuillez le corriger et le soumettre a nouveau.",
++      relatedType: "request",
++      relatedId: request._id,
++      status: "unread",
++    });
++  }
++  // "approved" is recorded as an audit trail entry only; it does not mutate
++  // request.status. openAdminDossierDn remains the actual trigger and still
++  // relies on isDgReturnComplete(), which only checks for "initial_dg_returned"
++  // / "oriented_to_dn" plus a registered scan - do not change that guard here.
++
++  await writeAuditLog({
++    actorId: actor.id,
++    actorRole: actor.role,
++    action: "admin.initial_dg_decision_recorded",
++    entityType: "request",
++    entityId: request._id,
++    after: { status: request.status },
++    metadata: {
++      decision: input.decision,
++      dgReviewId: (existingReview._id as Types.ObjectId).toString(),
++      hasObservations: Boolean(observations),
++    },
++  });
++
++  return { request: sanitizeRequest(request) };
++};
++
+ export const openAdminDossierDn = async (
+   requestId: string,
+   input: { notes?: string },

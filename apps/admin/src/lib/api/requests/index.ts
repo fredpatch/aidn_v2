@@ -77,6 +77,13 @@ export function openDossierDn(
   return apiPost(buildRequestActionPath(id, 'open-dossier-dn'), payload);
 }
 
+export function recordInitialDgDecision(
+  id: string,
+  payload: { decision: 'approved' | 'rejected'; observations?: string },
+): Promise<{ request: AdminRequest }> {
+  return apiPost(buildRequestActionPath(id, 'dg-decision'), payload);
+}
+
 export function sendToDg(
   id: string,
   payload: { notes?: string },

@@ -26,6 +26,7 @@ import {
   markAdminRequestPrintedForDg,
   openAdminDossierDn,
   recordAdminRequestDgReturn,
+  recordInitialRequestDgDecision,
   registerAdminPhysicalCourrier,
   requestAdminRequestCorrection,
   sendAdminRequestToDg,
@@ -461,6 +462,30 @@ adminRouter.post(
           returnedAt:
             typeof req.body.returnedAt === "string"
               ? req.body.returnedAt
+              : undefined,
+        },
+        req.user!,
+      ),
+    );
+  }),
+);
+
+adminRouter.post(
+  "/requests/:id/dg-decision",
+  requirePermission(Permissions.DG_DECISION_RECORD),
+  asyncHandler(async (req, res) => {
+    const decision = req.body.decision as string;
+    if (!["approved", "rejected"].includes(decision)) {
+      throw new HttpError(400, "decision doit etre approved ou rejected.");
+    }
+    res.json(
+      await recordInitialRequestDgDecision(
+        String(req.params.id),
+        {
+          decision: decision as "approved" | "rejected",
+          observations:
+            typeof req.body.observations === "string"
+              ? req.body.observations
               : undefined,
         },
         req.user!,

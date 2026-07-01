@@ -3,6 +3,7 @@ import {
   ExternalLink,
   FolderOpen,
   MessageSquareWarning,
+  XCircle,
 } from "lucide-react";
 
 import { Badge } from "../../components/ui/badge";
@@ -28,6 +29,7 @@ import {
   canMarkPrinted,
   canOpenDossier,
   canRecordDgReturn,
+  canRecordInitialDgDecision,
   canRegisterPhysical,
   canRequestCorrection,
   getStatusLabel,
@@ -364,16 +366,28 @@ export function RequestDetailPanel({
           ) : null}
         </div>
 
-        {permissions.canReview && canOpenDossier(request, dgReview) ? (
-          <Button
-            size="sm"
-            onClick={() => onSetDialog({ kind: "open_dossier", request })}
-            className="bg-emerald-600 hover:bg-emerald-700"
-          >
-            <FolderOpen className="mr-1.5 h-4 w-4" aria-hidden="true" />
-            Démarrer la phase préliminaire
-          </Button>
-        ) : null}
+        <div className="flex flex-wrap gap-2">
+          {permissions.canReview && canRecordInitialDgDecision(request) ? (
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => onSetDialog({ kind: "dg_rejected", request })}
+            >
+              <XCircle className="mr-1.5 h-4 w-4" aria-hidden="true" />
+              Enregistrer le rejet DG
+            </Button>
+          ) : null}
+          {permissions.canReview && canOpenDossier(request, dgReview) ? (
+            <Button
+              size="sm"
+              onClick={() => onSetDialog({ kind: "open_dossier", request })}
+              className="bg-emerald-600 hover:bg-emerald-700"
+            >
+              <FolderOpen className="mr-1.5 h-4 w-4" aria-hidden="true" />
+              Démarrer la phase préliminaire
+            </Button>
+          ) : null}
+        </div>
       </CardFooter>
     </Card>
   );

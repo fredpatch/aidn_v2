@@ -4,6 +4,7 @@ import {
   getRequest,
   listRequests,
   openDossierDn,
+  recordInitialDgDecision,
   requestCorrection,
   type ListRequestsParams,
 } from "@/lib/api/requests";
@@ -17,6 +18,11 @@ type OpenDossierDnVariables = {
 type RequestCorrectionVariables = {
   id: string;
   payload: { reason: string };
+};
+
+type RecordInitialDgDecisionVariables = {
+  id: string;
+  payload: { decision: "approved" | "rejected"; observations?: string };
 };
 
 export function useRequests(filters: ListRequestsParams = {}) {
@@ -68,6 +74,22 @@ export function useRequestCorrection() {
   return useMutation({
     mutationFn: ({ id, payload }: RequestCorrectionVariables) =>
       requestCorrection(id, payload),
+    onSuccess: (_data, variables) => {
+      invalidateLists();
+      queryClient.invalidateQueries({
+        queryKey: requestKeys.detail(variables.id),
+      });
+    },
+  });
+}
+
+export function useRecordInitialDgDecision() {
+  const invalidateLists = useInvalidateRequestLists();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, payload }: RecordInitialDgDecisionVariables) =>
+      recordInitialDgDecision(id, payload),
     onSuccess: (_data, variables) => {
       invalidateLists();
       queryClient.invalidateQueries({

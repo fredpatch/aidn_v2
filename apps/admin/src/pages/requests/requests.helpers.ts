@@ -103,6 +103,12 @@ export function canOpenDossier(
   return isDgReturnComplete(request, dgReview) && !request.dossierId;
 }
 
+// DN can only record approved/rejected once the DG-signed scan is registered
+// and before a decision has already been recorded for this circuit.
+export function canRecordInitialDgDecision(request: AdminRequest): boolean {
+  return request.status === "initial_dg_returned";
+}
+
 export function canRequestCorrection(request: AdminRequest): boolean {
   return (
     request.status === "submitted" || request.status === "intake_in_review"

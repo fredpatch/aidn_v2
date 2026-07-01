@@ -20,6 +20,7 @@ import {
   Section,
 } from "./dossier-detail.helpers";
 import { DocumentEvaluationPhaseWorkspace } from "./DocumentEvaluationPhaseWorkspace";
+import { DeliveryPhaseWorkspace } from "./DeliveryPhaseWorkspace";
 import { FormalRequestPhaseChecklist } from "./FormalRequestPhaseChecklist";
 import { FormalRequestPhaseWorkspace } from "./FormalRequestPhaseWorkspace";
 import { InspectionPhaseWorkspace } from "./InspectionPhaseWorkspace";
@@ -442,6 +443,12 @@ export function DossierPhasesTab({
       <InspectionPhaseWorkspace
         dossierId={dossierId}
         phaseRecord={byKey.get("inspection")}
+        onRefresh={onRefresh}
+      />
+    ) : selectedKey === "delivery" ? (
+      <DeliveryPhaseWorkspace
+        dossierId={dossierId}
+        phaseRecord={byKey.get("delivery")}
         onRefresh={onRefresh}
       />
     ) : (

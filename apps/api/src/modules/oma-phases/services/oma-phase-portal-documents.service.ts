@@ -9,6 +9,7 @@ import { storageAdapter } from "../../../shared/storage/storage.adapter.js";
 import { ensureObjectId } from "../../../shared/utils/service.helpers.js";
 import { DocumentModel } from "../../documents/document.model.js";
 import { DocumentSubmissionModel } from "../../documents/document-submission.model.js";
+import { CertificateModel } from "../../certificates/certificate.model.js";
 import { PhasePaymentModel } from "../../payments/phase-payment.model.js";
 import { OmaPhaseModel } from "../models/oma-phase.model.js";
 import type { Actor } from "../types/oma.types.js";
@@ -71,7 +72,32 @@ export const downloadPortalDossierDocument = async (
           .lean();
 
         if (!correctionSubmission) {
-          throw new HttpError(403, "Document non accessible");
+          const deliveryPhase = await OmaPhaseModel.findOne({
+            dossierId: dossierObjectId,
+            phaseKey: "delivery",
+            $or: [
+              { deliveryClosureCourrierDocumentId: docObjectId },
+              { deliveryApprovalDocumentId: docObjectId },
+            ],
+          })
+            .select("_id")
+            .lean();
+
+          if (!deliveryPhase) {
+            const certificate = await CertificateModel.findOne({
+              dossierId: dossierObjectId,
+              $or: [
+                { linkedDocumentId: docObjectId },
+                { signedDocumentId: docObjectId },
+              ],
+            })
+              .select("_id")
+              .lean();
+
+            if (!certificate) {
+              throw new HttpError(403, "Document non accessible");
+            }
+          }
         }
       }
     }

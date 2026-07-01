@@ -31,6 +31,12 @@ const documentSchema = new Schema(
         "study_fee_payment_proof",
         "audit_fee_invoice",
         "audit_fee_payment_proof",
+        "certificate_delivery_fee_invoice",
+        "certificate_delivery_fee_payment_proof",
+        "delivery_approval_letter",
+        "delivery_closure_letter",
+        "certificate_issued",
+        "certificate_signed",
         "r3_avis_report",
         "corrected_document",
         "other"

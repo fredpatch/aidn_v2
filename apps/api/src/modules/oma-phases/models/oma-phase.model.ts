@@ -164,6 +164,34 @@ const omaPhaseSchema = new Schema(
       ref: "Document",
       default: null,
     },
+    // ── Phase 5 - Délivrance ───────────────────────────────────────────────
+    // deliveryStatus only tracks the payment sub-flow. Once payment is
+    // validated the certificate is created and its own lifecycle
+    // (CertificateModel.status) drives everything until collection - the
+    // phase deliberately stays "in progress" through print/sign/archive/
+    // collection because time-to-deliver is the KPI being tracked here.
+    deliveryStatus: {
+      type: String,
+      enum: [
+        "delivery_waiting_invoice",
+        "delivery_waiting_payment",
+        "delivery_payment_proof_submitted",
+        "delivery_certificate_in_progress",
+        "delivery_closed",
+        null,
+      ],
+      default: null,
+    },
+    deliveryClosureCourrierDocumentId: {
+      type: Schema.Types.ObjectId,
+      ref: "Document",
+      default: null,
+    },
+    deliveryApprovalDocumentId: {
+      type: Schema.Types.ObjectId,
+      ref: "Document",
+      default: null,
+    },
     // ── Shared lifecycle ──────────────────────────────────────────────────────
     startedAt: { type: Date },
     closedAt: { type: Date },

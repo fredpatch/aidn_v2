@@ -379,6 +379,89 @@ export type AdminInspectionCloseResult = {
   };
 };
 
+export type DeliveryStatus =
+  | 'delivery_waiting_invoice'
+  | 'delivery_waiting_payment'
+  | 'delivery_payment_proof_submitted'
+  | 'delivery_certificate_in_progress'
+  | 'delivery_closed';
+
+export type AdminDeliveryPhase = {
+  id: string;
+  phaseKey: 'delivery';
+  status: string;
+  deliveryStatus: DeliveryStatus | null;
+};
+
+export type AdminDeliveryState = {
+  phase: AdminDeliveryPhase;
+  payment: AdminDocumentEvaluationPayment;
+  paymentValidated: boolean;
+};
+
+export type AdminDeliveryCloseResult = {
+  phase: {
+    id: string;
+    phaseKey: 'delivery';
+    status: 'closed';
+    deliveryStatus: 'delivery_closed';
+    closedAt: string;
+  };
+  dossier: {
+    id: string;
+    status: 'closed';
+  };
+  certificateId: string;
+};
+
+// Certificate lifecycle: to_prepare -> printed -> sent_for_dg_signature ->
+// ready_for_collection -> collected -> archived. Phase V stays open through
+// this whole cycle - closure only happens once the certificate reaches
+// "collected", not once payment is validated.
+export type CertificateStatus =
+  | 'to_prepare'
+  | 'printed'
+  | 'sent_for_dg_signature'
+  | 'ready_for_collection'
+  | 'collected'
+  | 'archived';
+
+export type CertificateType =
+  | 'agrement'
+  | 'reconnaissance'
+  | 'renewal'
+  | 'modification';
+
+export type AdminCertificate = {
+  id: string;
+  dossierId: string;
+  certificateNumber: string;
+  certificateType: CertificateType;
+  status: CertificateStatus;
+  holderName: string;
+  validUntil: string | null;
+  linkedDocumentId: string | null;
+  signedDocumentId: string | null;
+  printedAt: string | null;
+  sentForSignatureAt: string | null;
+  signedUploadedAt: string | null;
+  readyForCollectionAt: string | null;
+  collectedAt: string | null;
+  collectionVerifiedById: string | null;
+  collectionNote: string | null;
+  archivedAt: string | null;
+};
+
+export type AdminCertificateWithDossier = AdminCertificate & {
+  dossier: {
+    id: string;
+    dossierNumber: string;
+    dossierType: string;
+    status: string;
+    organizationName: string | null;
+  } | null;
+};
+
 export type AdminDocumentEvaluationRequirement = {
   code: string;
   label: string;

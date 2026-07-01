@@ -93,6 +93,30 @@ export const inspectionStatusLabels: Record<string, string> = {
   inspection_closed: "Phase IV clôturée",
 };
 
+export const deliveryStatusLabels: Record<string, string> = {
+  delivery_waiting_invoice: "En attente de facture",
+  delivery_waiting_payment: "En attente du paiement",
+  delivery_payment_proof_submitted: "En attente de validation du paiement",
+  delivery_certificate_in_progress: "Préparation du certificat en cours",
+  delivery_closed: "Phase V clôturée",
+};
+
+export const certificateStatusLabels: Record<string, string> = {
+  to_prepare: "À préparer",
+  printed: "Imprimé",
+  sent_for_dg_signature: "Envoyé pour signature DG",
+  ready_for_collection: "Prêt au retrait",
+  collected: "Remis au postulant",
+  archived: "Archivé",
+};
+
+export const certificateTypeLabels: Record<string, string> = {
+  agrement: "Certificat d'agrément",
+  reconnaissance: "Certificat de reconnaissance",
+  renewal: "Renouvellement",
+  modification: "Modification",
+};
+
 export const phasePaymentStatusLabels: Record<string, string> = {
   invoice_pending: "Facture en attente",
   invoice_sent: "Facture envoyée",

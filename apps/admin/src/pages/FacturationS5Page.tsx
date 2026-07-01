@@ -20,6 +20,7 @@ import {
 } from "@/lib/api/payments";
 import { UploadInvoiceDialog } from "./dossiers/document-evaluation-dialogs";
 import { UploadAuditInvoiceDialog } from "./dossiers/inspection-dialogs";
+import { UploadCertificateFeeInvoiceDialog } from "./dossiers/delivery-dialogs";
 import {
   ActionError,
   DefinitionGrid,
@@ -38,6 +39,7 @@ type ModalState = { kind: "upload-invoice"; task: PhasePaymentTask } | null;
 const PHASE_TABS: Array<{ key: PhasePaymentPhaseKey; label: string }> = [
   { key: "document_evaluation", label: "Phase III — Frais d'étude" },
   { key: "inspection", label: "Phase IV — Frais d'audit" },
+  { key: "delivery", label: "Phase V — Frais de délivrance" },
 ];
 
 // listPhasePaymentTasks requires phaseKey and paymentType to be passed
@@ -546,6 +548,15 @@ export function FacturationS5Page(): React.JSX.Element {
       {/* Upload invoice dialog */}
       {modal?.kind === "upload-invoice" && modal.task.phaseKey === "inspection" ? (
         <UploadAuditInvoiceDialog
+          open
+          onOpenChange={(open) => {
+            if (!open) setModal(null);
+          }}
+          dossierId={modal.task.dossierId}
+          onSuccess={handleUploadSuccess}
+        />
+      ) : modal?.kind === "upload-invoice" && modal.task.phaseKey === "delivery" ? (
+        <UploadCertificateFeeInvoiceDialog
           open
           onOpenChange={(open) => {
             if (!open) setModal(null);

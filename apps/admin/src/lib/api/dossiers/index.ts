@@ -1,5 +1,9 @@
 import { apiGet, apiGetBlob, apiPatch, apiPost, apiPostForm } from '../client';
 import type {
+  AdminCertificate,
+  AdminCertificateWithDossier,
+  AdminDeliveryCloseResult,
+  AdminDeliveryState,
   AdminDocumentEvaluationCloseResult,
   AdminDocumentEvaluationPaymentState,
   AdminDocumentEvaluationReviewPayload,
@@ -16,6 +20,8 @@ import type {
   ReviewFormalDocumentResult,
 } from './types';
 import {
+  buildCertificatesPath,
+  buildDeliveryPath,
   buildDocumentEvaluationPath,
   buildDocumentEvaluationReviewPath,
   buildDocumentSubmissionReviewPath,
@@ -48,12 +54,20 @@ export type {
   AdminFormalRequestPhaseState,
   AdminFormalRequestRequirement,
   AdminFormalRequestSubmission,
+  AdminCertificate,
+  AdminCertificateWithDossier,
+  AdminDeliveryCloseResult,
+  AdminDeliveryPhase,
+  AdminDeliveryState,
   AdminInspectionCloseResult,
   AdminInspectionPhase,
   AdminInspectionR3Avis,
   AdminInspectionState,
   AdminMeetingSummary,
   AdminOmaPhase,
+  CertificateStatus,
+  CertificateType,
+  DeliveryStatus,
   DocumentEvaluationPhaseStatus,
   DocumentEvaluationStatus,
   DossierStatus,
@@ -347,6 +361,69 @@ export function closeInspectionPhase(
   return apiPost<AdminInspectionCloseResult>(
     buildInspectionPath(dossierId, 'close'),
     {},
+  );
+}
+
+export function getDeliveryState(
+  dossierId: string,
+): Promise<AdminDeliveryState> {
+  return apiGet<AdminDeliveryState>(buildDeliveryPath(dossierId, 'payment'));
+}
+
+export function uploadCertificateDeliveryFeeInvoice(
+  dossierId: string,
+  formData: FormData,
+): Promise<AdminDeliveryState> {
+  return apiPostForm<AdminDeliveryState>(
+    buildDeliveryPath(dossierId, 'invoice'),
+    formData,
+  );
+}
+
+export function validateCertificateDeliveryFeePaymentProof(
+  dossierId: string,
+  payload: { decision: 'validated' | 'rejected'; observations?: string },
+): Promise<AdminDeliveryState> {
+  return apiPost<AdminDeliveryState>(
+    buildDeliveryPath(dossierId, 'payment/validate'),
+    payload,
+  );
+}
+
+export function closeDeliveryPhase(
+  dossierId: string,
+  formData: FormData,
+): Promise<AdminDeliveryCloseResult> {
+  return apiPostForm<AdminDeliveryCloseResult>(
+    buildDeliveryPath(dossierId, 'close'),
+    formData,
+  );
+}
+
+export function getCertificateForDossier(
+  dossierId: string,
+): Promise<{ certificate: AdminCertificate }> {
+  return apiGet<{ certificate: AdminCertificate }>(
+    `${buildDossierPath(dossierId)}/certificate`,
+  );
+}
+
+export function listCertificates(
+  status?: string,
+): Promise<{ items: AdminCertificateWithDossier[] }> {
+  const query = status ? `?status=${encodeURIComponent(status)}` : '';
+  return apiGet<{ items: AdminCertificateWithDossier[] }>(
+    `${buildCertificatesPath('')}${query}`,
+  );
+}
+
+export function advanceCertificateLifecycle(
+  certificateId: string,
+  formData: FormData,
+): Promise<{ certificate: AdminCertificate }> {
+  return apiPostForm<{ certificate: AdminCertificate }>(
+    buildCertificatesPath(`${certificateId}/advance`),
+    formData,
   );
 }
 

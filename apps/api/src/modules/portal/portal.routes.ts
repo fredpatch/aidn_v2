@@ -44,6 +44,10 @@ import {
   uploadAuditFeePaymentProof,
 } from "../oma-phases/index.js";
 import {
+  getPortalDeliveryPaymentState,
+  uploadCertificateDeliveryFeePaymentProof,
+} from "../oma-phases/index.js";
+import {
   createPortalRequest,
   declarePortalPhysicalDeposit,
   getPortalRequest,
@@ -363,6 +367,37 @@ portalRouter.post(
   asyncHandler(async (req, res) => {
     res.status(201).json(
       await uploadAuditFeePaymentProof(
+        String(req.params.id),
+        req.file,
+        {
+          paymentReference:
+            typeof req.body.paymentReference === "string" ? req.body.paymentReference : undefined,
+          paidAt: typeof req.body.paidAt === "string" ? req.body.paidAt : undefined,
+          notes: typeof req.body.notes === "string" ? req.body.notes : undefined,
+        },
+        req.user!,
+      ),
+    );
+  }),
+);
+
+portalRouter.get(
+  "/dossiers/:id/phases/delivery/payment",
+  requireAuth({ scope: "portal" }),
+  asyncHandler(async (req, res) => {
+    res.json(
+      await getPortalDeliveryPaymentState(String(req.params.id), req.user!),
+    );
+  }),
+);
+
+portalRouter.post(
+  "/dossiers/:id/phases/delivery/payment-proof",
+  requireAuth({ scope: "portal" }),
+  handleCourrierUpload,
+  asyncHandler(async (req, res) => {
+    res.status(201).json(
+      await uploadCertificateDeliveryFeePaymentProof(
         String(req.params.id),
         req.file,
         {

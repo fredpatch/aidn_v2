@@ -11,6 +11,7 @@ import { HttpError } from "../../../shared/errors/http-error.js";
 import { storageAdapter } from "../../../shared/storage/storage.adapter.js";
 import { ensureObjectId, toId, toIso } from "../../../shared/utils/service.helpers.js";
 import { CourrierModel } from "../../courriers/courrier.model.js";
+import { CertificateModel } from "../../certificates/certificate.model.js";
 import { DGReviewModel } from "../../dg-reviews/dg-review.model.js";
 import { DocumentModel } from "../../documents/document.model.js";
 import { DocumentSubmissionModel } from "../../documents/document-submission.model.js";
@@ -283,7 +284,32 @@ export const downloadAdminDossierDocument = async (
             .lean();
 
           if (!inspectionPhase) {
-            throw new HttpError(403, "Document non accessible");
+            const deliveryPhase = await OmaPhaseModel.findOne({
+              dossierId: dossierObjectId,
+              phaseKey: "delivery",
+              $or: [
+                { deliveryClosureCourrierDocumentId: docObjectId },
+                { deliveryApprovalDocumentId: docObjectId },
+              ],
+            })
+              .select("_id")
+              .lean();
+
+            if (!deliveryPhase) {
+              const certificate = await CertificateModel.findOne({
+                dossierId: dossierObjectId,
+                $or: [
+                  { linkedDocumentId: docObjectId },
+                  { signedDocumentId: docObjectId },
+                ],
+              })
+                .select("_id")
+                .lean();
+
+              if (!certificate) {
+                throw new HttpError(403, "Document non accessible");
+              }
+            }
           }
         }
       }

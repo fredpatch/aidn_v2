@@ -83,6 +83,17 @@ import {
   validateAuditFeePaymentProof,
 } from "../oma-phases/index.js";
 import {
+  closeDeliveryPhase,
+  getDeliveryPaymentState,
+  uploadCertificateDeliveryFeeInvoice,
+  validateCertificateDeliveryFeePaymentProof,
+} from "../oma-phases/index.js";
+import {
+  advanceCertificateLifecycle,
+  getCertificateForDossier,
+  listCertificatesAdmin,
+} from "../certificates/certificate.service.js";
+import {
   listPhasePaymentTasks,
   type PhasePaymentTaskFilters,
 } from "../payments/phase-payment.service.js";
@@ -1054,6 +1065,133 @@ adminRouter.post(
   requirePermission(Permissions.PHASE_CLOSE),
   asyncHandler(async (req, res) => {
     res.json(await closeInspectionPhase(String(req.params.id), req.user!));
+  }),
+);
+
+// ── Phase 5 — Délivrance: payment routes ──────────────────────────────────────
+
+adminRouter.get(
+  "/dossiers/:id/phases/delivery/payment",
+  requirePermission(Permissions.PAYMENT_VIEW),
+  asyncHandler(async (req, res) => {
+    res.json(await getDeliveryPaymentState(String(req.params.id), req.user!));
+  }),
+);
+
+adminRouter.post(
+  "/dossiers/:id/phases/delivery/invoice",
+  requirePermission(Permissions.PAYMENT_INVOICE_UPLOAD),
+  handleOmaDocumentUpload,
+  asyncHandler(async (req, res) => {
+    res.status(201).json(
+      await uploadCertificateDeliveryFeeInvoice(
+        String(req.params.id),
+        req.file,
+        {
+          invoiceReference:
+            typeof req.body.invoiceReference === "string"
+              ? req.body.invoiceReference
+              : undefined,
+          issuedAt:
+            typeof req.body.issuedAt === "string"
+              ? req.body.issuedAt
+              : undefined,
+          amount:
+            typeof req.body.amount === "string" ? req.body.amount : undefined,
+          currency:
+            typeof req.body.currency === "string"
+              ? req.body.currency
+              : undefined,
+          notes:
+            typeof req.body.notes === "string" ? req.body.notes : undefined,
+        },
+        req.user!,
+      ),
+    );
+  }),
+);
+
+adminRouter.post(
+  "/dossiers/:id/phases/delivery/payment/validate",
+  requirePermission(Permissions.PAYMENT_PROOF_VALIDATE),
+  asyncHandler(async (req, res) => {
+    const decision = req.body.decision as string;
+    if (!["validated", "rejected"].includes(decision)) {
+      throw new HttpError(400, "decision doit etre validated ou rejected.");
+    }
+    res.json(
+      await validateCertificateDeliveryFeePaymentProof(
+        String(req.params.id),
+        {
+          decision: decision as "validated" | "rejected",
+          observations:
+            typeof req.body.observations === "string"
+              ? req.body.observations
+              : undefined,
+        },
+        req.user!,
+      ),
+    );
+  }),
+);
+
+// ── Phase 5 — Délivrance: close route (only after certificate collected) ─────
+
+adminRouter.post(
+  "/dossiers/:id/phases/delivery/close",
+  requirePermission(Permissions.PHASE_CLOSE),
+  handleOmaDocumentUpload,
+  asyncHandler(async (req, res) => {
+    res.json(
+      await closeDeliveryPhase(String(req.params.id), req.file, req.user!),
+    );
+  }),
+);
+
+// ── Certificates ───────────────────────────────────────────────────────────────
+
+adminRouter.get(
+  "/certificates",
+  requirePermission(Permissions.CERTIFICATE_VIEW),
+  asyncHandler(async (req, res) => {
+    res.json(
+      await listCertificatesAdmin(
+        {
+          status:
+            typeof req.query.status === "string" ? req.query.status : undefined,
+        },
+        req.user!,
+      ),
+    );
+  }),
+);
+
+adminRouter.get(
+  "/dossiers/:id/certificate",
+  requirePermission(Permissions.CERTIFICATE_VIEW),
+  asyncHandler(async (req, res) => {
+    res.json(await getCertificateForDossier(String(req.params.id), req.user!));
+  }),
+);
+
+adminRouter.post(
+  "/certificates/:id/advance",
+  requirePermission(Permissions.CERTIFICATE_MANAGE),
+  handleOmaDocumentUpload,
+  asyncHandler(async (req, res) => {
+    res.json(
+      await advanceCertificateLifecycle(
+        String(req.params.id),
+        req.file,
+        {
+          collectionNote:
+            typeof req.body.collectionNote === "string"
+              ? req.body.collectionNote
+              : undefined,
+        },
+        req.user!,
+      ),
+    );
   }),
 );
 

@@ -1,191 +1,282 @@
-import { useCallback, useMemo, useState } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
-import { Award, FileText, FolderOpen } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Award } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import {
-  AIDN_CERTIFICATE_STATUSES,
-  AIDN_DOSSIER_STATUSES,
-  AidnStatusBadge,
-  OmaPhaseBadge,
-  advanceCertificateLifecycle,
-  getNextCertificateLifecycleActionLabel,
-  useAidnCertificates,
-  useAidnDocuments,
-  useAidnOmaPhases,
-  useDemandes,
-  useDossiers,
-  type AidnCertificate,
-  type AidnCertificateStatus,
-  type AidnDemande,
-  type AidnDocument,
-  type AidnDossier,
-  type AidnDossierStatus,
-  type AidnOmaPhase,
-} from '@/features/aidn';
-import { DataTable, DataTablePagination, DataTableRowActions, createColumnHelper, type ColumnDef, type PaginationState, type RowAction, type SortingState } from '@/components/data-table';
-import { ManagementFilterPanel, ManagementHeader, ManagementPageShell, ManagementToolbar, NoResultsState, type ActiveFilter } from '@/components/management';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useAppToast } from '@/hooks/useAppToast';
+  DataTable,
+  DataTablePagination,
+  DataTableRowActions,
+  createColumnHelper,
+  type ColumnDef,
+  type PaginationState,
+  type RowAction,
+  type SortingState,
+} from "@/components/data-table";
+import {
+  ManagementFilterPanel,
+  ManagementHeader,
+  ManagementPageShell,
+  ManagementToolbar,
+  NoResultsState,
+  type ActiveFilter,
+} from "@/components/management";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { isMockMode } from "@/lib/data/data-mode";
+import {
+  downloadDossierDocument,
+  listCertificates,
+  type AdminCertificate,
+  type AdminCertificateWithDossier,
+  type CertificateStatus,
+  type CertificateType,
+  type DossierStatus,
+} from "@/lib/api/dossiers";
+import { openBlobInNewTab } from "@/lib/utils/blob";
+import {
+  certificateStatusLabels,
+  certificateTypeLabels,
+  dossierStatusLabels,
+  formatDate,
+} from "./dossiers/dossier-detail.labels";
+import { AdvanceCertificateDialog } from "./dossiers/delivery-dialogs";
 
-type CertificateType = AidnCertificate['certificateType'];
-
-type CertificateRow = AidnCertificate & {
-  dossier?: AidnDossier;
-  demande?: AidnDemande;
-  currentPhase?: AidnOmaPhase;
-  linkedDocument?: AidnDocument;
-  scannedDocument?: AidnDocument;
-  dossierDocuments: AidnDocument[];
-};
-
-const helper = createColumnHelper<CertificateRow>();
+const helper = createColumnHelper<AdminCertificateWithDossier>();
 const pageSize = 8;
 
-const certificateStatusLabels: Record<AidnCertificateStatus, string> = {
-  to_prepare: 'A preparer',
-  printed: 'Imprime',
-  signed_stamped: 'Signe/cachete',
-  scanned_in_aidn: 'Scanne dans AIDN',
-  ready_for_collection: 'Pret au retrait',
-  collected: 'Remis au postulant',
-  archived: 'Archive',
+const CERTIFICATE_STATUSES: CertificateStatus[] = [
+  "to_prepare",
+  "printed",
+  "sent_for_dg_signature",
+  "ready_for_collection",
+  "collected",
+  "archived",
+];
+
+const CERTIFICATE_TYPES: CertificateType[] = [
+  "agrement",
+  "reconnaissance",
+  "renewal",
+  "modification",
+];
+
+const DOSSIER_STATUSES: DossierStatus[] = [
+  "opened",
+  "preliminary_phase",
+  "formal_request_phase",
+  "document_evaluation_phase",
+  "inspection_phase",
+  "delivery_phase",
+  "closed",
+  "suspended",
+  "cancelled",
+];
+
+const CERTIFICATE_STATUS_CLASS_NAMES: Record<CertificateStatus, string> = {
+  to_prepare:
+    "border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300",
+  printed:
+    "border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-900 dark:bg-blue-950 dark:text-blue-200",
+  sent_for_dg_signature: "border-primary/20 bg-primary/10 text-primary",
+  ready_for_collection:
+    "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200",
+  collected:
+    "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-200",
+  archived:
+    "border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300",
 };
 
-const certificateStatusClassNames: Record<AidnCertificateStatus, string> = {
-  to_prepare: 'border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300',
-  printed: 'border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-900 dark:bg-blue-950 dark:text-blue-200',
-  signed_stamped: 'border-primary/20 bg-primary/10 text-primary',
-  scanned_in_aidn: 'border-primary/20 bg-primary/10 text-primary',
-  ready_for_collection: 'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200',
-  collected: 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-200',
-  archived: 'border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300',
+const CERTIFICATE_NEXT_ACTION_LABELS: Partial<Record<CertificateStatus, string>> = {
+  to_prepare: "Marquer imprimé",
+  printed: "Marquer envoyé pour signature DG",
+  sent_for_dg_signature: "Téléverser le certificat signé",
+  ready_for_collection: "Confirmer le retrait",
+  collected: "Archiver",
 };
 
-const certificateTypeLabels: Record<CertificateType, string> = {
-  initial: 'Initial',
-  renewal: 'Renouvellement',
-  extension: 'Extension',
-};
-
-const dossierStatusLabels: Record<AidnDossierStatus, string> = {
-  open: 'Ouvert',
-  in_progress: 'En cours',
-  waiting_postulant: 'Attente postulant',
-  late: 'En retard',
-  certificate_ready: 'Certificat pret',
-  closed: 'Cloture',
-};
-
-function formatDate(value?: string): string {
-  if (!value) return 'Non renseigne';
-  return new Intl.DateTimeFormat('fr-FR', { dateStyle: 'medium' }).format(new Date(value));
-}
-
-function isCertificateStatus(value: string | null): value is AidnCertificateStatus {
-  return AIDN_CERTIFICATE_STATUSES.includes(value as AidnCertificateStatus);
+function isCertificateStatus(value: string | null): value is CertificateStatus {
+  return CERTIFICATE_STATUSES.includes(value as CertificateStatus);
 }
 
 function isCertificateType(value: string | null): value is CertificateType {
-  return value === 'initial' || value === 'renewal' || value === 'extension';
+  return CERTIFICATE_TYPES.includes(value as CertificateType);
 }
 
-function isDossierStatus(value: string | null): value is AidnDossierStatus {
-  return AIDN_DOSSIER_STATUSES.includes(value as AidnDossierStatus);
+function isDossierStatus(value: string | null): value is DossierStatus {
+  return DOSSIER_STATUSES.includes(value as DossierStatus);
 }
 
-function KpiCard({ title, value, subtitle }: { title: string; value: number; subtitle: string }): React.JSX.Element {
+function KpiCard({
+  title,
+  value,
+  subtitle,
+}: {
+  title: string;
+  value: number;
+  subtitle: string;
+}): React.JSX.Element {
   return (
     <Card>
       <CardContent className="p-4">
         <p className="text-sm text-muted-foreground">{title}</p>
-        <p className="mt-2 text-2xl font-bold text-slate-950 dark:text-white">{value}</p>
+        <p className="mt-2 text-2xl font-bold text-slate-950 dark:text-white">
+          {value}
+        </p>
         <p className="mt-1 text-xs text-muted-foreground">{subtitle}</p>
       </CardContent>
     </Card>
   );
 }
 
-function CertificateStatusBadge({ status }: { status: AidnCertificateStatus }): React.JSX.Element {
+function CertificateStatusBadge({
+  status,
+}: {
+  status: CertificateStatus;
+}): React.JSX.Element {
   return (
-    <Badge variant="outline" className={certificateStatusClassNames[status]}>
-      {certificateStatusLabels[status]}
+    <Badge
+      variant="outline"
+      className={CERTIFICATE_STATUS_CLASS_NAMES[status]}
+    >
+      {certificateStatusLabels[status] ?? status}
     </Badge>
   );
 }
 
 function buildColumns(
-  onView: (row: CertificateRow) => void,
-  onViewDossier: (row: CertificateRow) => void,
-  onViewDocument: (row: CertificateRow) => void,
-  onAdvanceLifecycle: (row: CertificateRow) => void,
-): ColumnDef<CertificateRow>[] {
+  onView: (row: AdminCertificateWithDossier) => void,
+  onViewDossier: (row: AdminCertificateWithDossier) => void,
+  onAdvanceLifecycle: (row: AdminCertificateWithDossier) => void,
+): ColumnDef<AdminCertificateWithDossier>[] {
   return [
-    helper.accessor('certificateNumber', {
-      header: 'Numero',
+    helper.accessor("certificateNumber", {
+      header: "Numéro",
       cell: (info) => <span className="font-semibold">{info.getValue()}</span>,
     }),
-    helper.accessor('certificateType', {
-      header: 'Type',
-      cell: (info) => <Badge variant="secondary">{certificateTypeLabels[info.getValue()]}</Badge>,
+    helper.accessor("certificateType", {
+      header: "Type",
+      cell: (info) => (
+        <Badge variant="secondary">
+          {certificateTypeLabels[info.getValue()] ?? info.getValue()}
+        </Badge>
+      ),
     }),
     helper.display({
-      id: 'dossier',
-      header: 'Dossier DN',
-      cell: ({ row }) => <span className="font-medium">{row.original.dossier?.reference ?? 'Non lie'}</span>,
+      id: "dossier",
+      header: "Dossier DN",
+      cell: ({ row }) => (
+        <span className="font-medium">
+          {row.original.dossier?.dossierNumber ?? "Non lié"}
+        </span>
+      ),
     }),
-    helper.accessor('holderName', {
-      header: 'Organisme',
-      cell: (info) => <span>{info.getValue()}</span>,
+    helper.display({
+      id: "organization",
+      header: "Organisme",
+      cell: ({ row }) => (
+        <span>
+          {row.original.dossier?.organizationName ?? row.original.holderName}
+        </span>
+      ),
     }),
-    helper.accessor('status', {
-      header: 'Statut certificat',
+    helper.accessor("status", {
+      header: "Statut certificat",
       cell: (info) => <CertificateStatusBadge status={info.getValue()} />,
     }),
-    helper.accessor('printedAt', {
-      header: 'Impression',
+    helper.accessor("printedAt", {
+      header: "Impression",
       meta: { hideOnMobile: true },
-      cell: (info) => <span className="text-muted-foreground">{formatDate(info.getValue())}</span>,
+      cell: (info) => (
+        <span className="text-muted-foreground">
+          {info.getValue() ? formatDate(info.getValue()!) : "Non renseigné"}
+        </span>
+      ),
+    }),
+    helper.accessor("sentForSignatureAt", {
+      header: "Envoi signature DG",
+      meta: { hideOnMobile: true },
+      cell: (info) => (
+        <span className="text-muted-foreground">
+          {info.getValue() ? formatDate(info.getValue()!) : "Non renseigné"}
+        </span>
+      ),
     }),
     helper.display({
-      id: 'signatureStamp',
-      header: 'Signature/cachet',
-      meta: { hideOnMobile: true },
-      cell: ({ row }) => <span className="text-muted-foreground">{formatDate(row.original.signedAt ?? row.original.stampedAt)}</span>,
-    }),
-    helper.accessor('scannedAt', {
-      header: 'Scan AIDN',
-      meta: { hideOnMobile: true },
-      cell: (info) => <span className="text-muted-foreground">{formatDate(info.getValue())}</span>,
-    }),
-    helper.display({
-      id: 'collection',
-      header: 'Retrait/remise',
-      cell: ({ row }) => <span className="text-muted-foreground">{formatDate(row.original.collectedAt ?? row.original.readyForCollectionAt)}</span>,
+      id: "collection",
+      header: "Retrait",
+      cell: ({ row }) => (
+        <span className="text-muted-foreground">
+          {row.original.collectedAt
+            ? formatDate(row.original.collectedAt)
+            : row.original.readyForCollectionAt
+              ? formatDate(row.original.readyForCollectionAt)
+              : "Non renseigné"}
+        </span>
+      ),
     }),
     helper.display({
-      id: 'actions',
+      id: "actions",
       header: () => <span className="sr-only">Actions</span>,
       cell: ({ row }) => {
-        const nextActionLabel = getNextCertificateLifecycleActionLabel(row.original.status);
-        const actions: RowAction<CertificateRow>[] = [
-          { label: 'Voir details', onClick: onView },
-          ...(nextActionLabel ? [{ label: nextActionLabel, onClick: onAdvanceLifecycle, separated: true }] satisfies RowAction<CertificateRow>[] : []),
-          ...(row.original.dossier ? [{ label: 'Voir dossier DN', onClick: onViewDossier }] satisfies RowAction<CertificateRow>[] : []),
-          ...(row.original.scannedDocument ?? row.original.linkedDocument ? [{ label: 'Voir document scanne', onClick: onViewDocument, separated: true }] satisfies RowAction<CertificateRow>[] : []),
+        const nextActionLabel =
+          CERTIFICATE_NEXT_ACTION_LABELS[row.original.status];
+        const actions: RowAction<AdminCertificateWithDossier>[] = [
+          { label: "Voir détails", onClick: onView },
+          ...(nextActionLabel
+            ? ([
+                {
+                  label: nextActionLabel,
+                  onClick: onAdvanceLifecycle,
+                  separated: true,
+                },
+              ] satisfies RowAction<AdminCertificateWithDossier>[])
+            : []),
+          ...(row.original.dossier
+            ? ([
+                { label: "Voir dossier DN", onClick: onViewDossier },
+              ] satisfies RowAction<AdminCertificateWithDossier>[])
+            : []),
         ];
 
-        return <DataTableRowActions row={row.original} actions={actions} triggerLabel={`Actions pour ${row.original.certificateNumber}`} />;
+        return (
+          <DataTableRowActions
+            row={row.original}
+            actions={actions}
+            triggerLabel={`Actions pour ${row.original.certificateNumber}`}
+          />
+        );
       },
     }),
-  ] as ColumnDef<CertificateRow>[];
+  ] as ColumnDef<AdminCertificateWithDossier>[];
 }
 
-function DetailField({ label, children }: { label: string; children: React.ReactNode }): React.JSX.Element {
-  return <div><dt className="text-muted-foreground">{label}</dt><dd className="font-medium">{children}</dd></div>;
+function DetailField({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}): React.JSX.Element {
+  return (
+    <div>
+      <dt className="text-muted-foreground">{label}</dt>
+      <dd className="font-medium">{children}</dd>
+    </div>
+  );
 }
 
 function CertificateDetailsDialog({
@@ -193,79 +284,128 @@ function CertificateDetailsDialog({
   open,
   onClose,
   onAdvanceLifecycle,
+  onDownloadSigned,
 }: {
-  row: CertificateRow | null;
+  row: AdminCertificateWithDossier | null;
   open: boolean;
   onClose: () => void;
-  onAdvanceLifecycle: (row: CertificateRow) => void;
+  onAdvanceLifecycle: (row: AdminCertificateWithDossier) => void;
+  onDownloadSigned: (row: AdminCertificateWithDossier) => void;
 }): React.JSX.Element {
-  const nextActionLabel = row ? getNextCertificateLifecycleActionLabel(row.status) : null;
+  const nextActionLabel = row
+    ? CERTIFICATE_NEXT_ACTION_LABELS[row.status]
+    : undefined;
+  const canDownloadSigned =
+    row?.signedDocumentId &&
+    (row.status === "collected" || row.status === "archived");
 
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => (nextOpen ? undefined : onClose())}>
       <DialogContent className="max-h-[85vh] max-w-3xl overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{row?.certificateNumber ?? 'Certificat'}</DialogTitle>
+          <DialogTitle>{row?.certificateNumber ?? "Certificat"}</DialogTitle>
           <DialogDescription>
-            Lecture seule du cycle manuel certificat. Generation automatique non active dans le prototype.
+            Cycle de préparation, signature et retrait du certificat.
           </DialogDescription>
         </DialogHeader>
 
         {row ? (
           <div className="grid gap-4">
             <section className="rounded-lg border bg-muted/20 p-4">
-              <h2 className="mb-3 text-sm font-bold text-slate-950 dark:text-white">Cycle manuel du certificat</h2>
+              <h2 className="mb-3 text-sm font-bold text-slate-950 dark:text-white">
+                Cycle du certificat
+              </h2>
               <dl className="grid gap-3 text-sm sm:grid-cols-2">
-                <DetailField label="Numero">{row.certificateNumber}</DetailField>
-                <DetailField label="Type">{certificateTypeLabels[row.certificateType]}</DetailField>
-                <DetailField label="Statut"><CertificateStatusBadge status={row.status} /></DetailField>
-                <DetailField label="Preparation">{formatDate(row.preparedAt)}</DetailField>
-                <DetailField label="Impression">{formatDate(row.printedAt)}</DetailField>
-                <DetailField label="Signature">{formatDate(row.signedAt)}</DetailField>
-                <DetailField label="Cachet">{formatDate(row.stampedAt)}</DetailField>
-                <DetailField label="Scan AIDN">{formatDate(row.scannedAt)}</DetailField>
-                <DetailField label="Pret au retrait">{formatDate(row.readyForCollectionAt)}</DetailField>
-                <DetailField label="Remise">{formatDate(row.collectedAt ?? row.deliveredAt)}</DetailField>
-                <DetailField label="Archivage">{formatDate(row.archivedAt)}</DetailField>
-                <DetailField label="Validite">{formatDate(row.validUntil)}</DetailField>
+                <DetailField label="Numéro">{row.certificateNumber}</DetailField>
+                <DetailField label="Type">
+                  {certificateTypeLabels[row.certificateType] ?? row.certificateType}
+                </DetailField>
+                <DetailField label="Statut">
+                  <CertificateStatusBadge status={row.status} />
+                </DetailField>
+                <DetailField label="Impression">
+                  {row.printedAt ? formatDate(row.printedAt) : "Non renseigné"}
+                </DetailField>
+                <DetailField label="Envoi signature DG">
+                  {row.sentForSignatureAt
+                    ? formatDate(row.sentForSignatureAt)
+                    : "Non renseigné"}
+                </DetailField>
+                <DetailField label="Certificat signé archivé">
+                  {row.signedUploadedAt
+                    ? formatDate(row.signedUploadedAt)
+                    : "Non renseigné"}
+                </DetailField>
+                <DetailField label="Prêt au retrait">
+                  {row.readyForCollectionAt
+                    ? formatDate(row.readyForCollectionAt)
+                    : "Non renseigné"}
+                </DetailField>
+                <DetailField label="Retrait">
+                  {row.collectedAt ? formatDate(row.collectedAt) : "Non renseigné"}
+                </DetailField>
+                <DetailField label="Archivage">
+                  {row.archivedAt ? formatDate(row.archivedAt) : "Non renseigné"}
+                </DetailField>
+                <DetailField label="Validité">
+                  {row.validUntil ? formatDate(row.validUntil) : "Non renseignée"}
+                </DetailField>
               </dl>
             </section>
 
+            {row.status === "collected" && row.collectionNote ? (
+              <section className="rounded-lg border bg-muted/20 p-4">
+                <h2 className="mb-3 text-sm font-bold text-slate-950 dark:text-white">
+                  Retrait
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                  {row.collectionNote}
+                </p>
+              </section>
+            ) : null}
+
             <section className="rounded-lg border bg-muted/20 p-4">
-              <h2 className="mb-3 text-sm font-bold text-slate-950 dark:text-white">Responsables et retrait</h2>
+              <h2 className="mb-3 text-sm font-bold text-slate-950 dark:text-white">
+                Dossier
+              </h2>
               <dl className="grid gap-3 text-sm sm:grid-cols-2">
-                <DetailField label="Prepare par">{row.preparedBy ?? 'Non renseigne'}</DetailField>
-                <DetailField label="Signe par">{row.signedBy ?? 'Non renseigne'}</DetailField>
-                <DetailField label="Retire par">{row.collectedBy ?? 'Non renseigne'}</DetailField>
-                <DetailField label="Note retrait">{row.collectionNote ?? 'Non renseignee'}</DetailField>
+                <DetailField label="Dossier DN">
+                  {row.dossier?.dossierNumber ?? "Non lié"}
+                </DetailField>
+                <DetailField label="Statut dossier">
+                  {row.dossier
+                    ? (dossierStatusLabels[
+                        row.dossier.status as DossierStatus
+                      ] ?? row.dossier.status)
+                    : "Non lié"}
+                </DetailField>
+                <DetailField label="Organisme">
+                  {row.dossier?.organizationName ?? row.holderName}
+                </DetailField>
               </dl>
             </section>
 
-            <section className="rounded-lg border bg-muted/20 p-4">
-              <h2 className="mb-3 text-sm font-bold text-slate-950 dark:text-white">Dossier et document scanne</h2>
-              <dl className="grid gap-3 text-sm sm:grid-cols-2">
-                <DetailField label="Dossier DN">{row.dossier?.reference ?? 'Non lie'}</DetailField>
-                <DetailField label="Statut dossier">{row.dossier ? <AidnStatusBadge status={row.dossier.globalStatus} /> : 'Non lie'}</DetailField>
-                <DetailField label="Demande source">{row.demande?.reference ?? 'Non liee'}</DetailField>
-                <DetailField label="Phase courante">{row.currentPhase ? <OmaPhaseBadge status={row.currentPhase.status} /> : 'Non renseignee'}</DetailField>
-                <DetailField label="Organisme">{row.demande?.organizationName ?? row.holderName}</DetailField>
-                <DetailField label="Postulant">{row.demande?.postulantName ?? 'Non renseigne'}</DetailField>
-                <DetailField label="Document scanne">{row.scannedDocument?.title ?? 'Non rattache'}</DetailField>
-                <DetailField label="Document support">{row.linkedDocument?.title ?? 'Aucun document lie'}</DetailField>
-              </dl>
-            </section>
-
-            <section className="rounded-lg border bg-muted/20 p-4">
-              <h2 className="mb-3 text-sm font-bold text-slate-950 dark:text-white">Note prototype</h2>
-              <p className="text-sm text-muted-foreground">
-                Generation automatique non active dans le prototype. La page trace uniquement la preparation, l'impression, la signature/cachet physique, le scan AIDN, le retrait et l'archive.
-              </p>
+            <section className="flex flex-wrap gap-2">
+              {canDownloadSigned ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => onDownloadSigned(row)}
+                >
+                  Télécharger le certificat signé
+                </Button>
+              ) : null}
               {nextActionLabel ? (
-                <Button type="button" size="sm" variant="outline" className="mt-3" onClick={() => onAdvanceLifecycle(row)}>
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => onAdvanceLifecycle(row)}
+                >
                   {nextActionLabel}
                 </Button>
               ) : (
-                <Badge variant="secondary" className="mt-3">Cycle archive dans la demo</Badge>
+                <Badge variant="secondary">Cycle terminé</Badge>
               )}
             </section>
           </div>
@@ -277,110 +417,128 @@ function CertificateDetailsDialog({
 
 export function CertificatsPage(): React.JSX.Element {
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
-  const toast = useAppToast();
-  const [search, setSearch] = useState('');
-  const [status, setStatus] = useState<AidnCertificateStatus | ''>('');
-  const [certificateType, setCertificateType] = useState<CertificateType | ''>('');
-  const [dossierStatus, setDossierStatus] = useState<AidnDossierStatus | ''>('');
+
+  const [items, setItems] = useState<AdminCertificateWithDossier[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [search, setSearch] = useState("");
+  const [status, setStatus] = useState<CertificateStatus | "">("");
+  const [certificateType, setCertificateType] = useState<CertificateType | "">("");
+  const [dossierStatus, setDossierStatus] = useState<DossierStatus | "">("");
   const [isFilterOpen, setIsFilterOpen] = useState(false);
-  const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize });
+  const [pagination, setPagination] = useState<PaginationState>({
+    pageIndex: 0,
+    pageSize,
+  });
   const [sorting, setSorting] = useState<SortingState>([]);
-  const [selectedRow, setSelectedRow] = useState<CertificateRow | null>(null);
+  const [selectedRow, setSelectedRow] = useState<AdminCertificateWithDossier | null>(
+    null,
+  );
+  const [advanceRow, setAdvanceRow] = useState<AdminCertificateWithDossier | null>(
+    null,
+  );
 
-  const certificatesQuery = useAidnCertificates();
-  const dossiersQuery = useDossiers();
-  const demandesQuery = useDemandes();
-  const documentsQuery = useAidnDocuments();
-  const phasesQuery = useAidnOmaPhases();
+  const load = useCallback(async () => {
+    if (isMockMode()) {
+      setItems([]);
+      return;
+    }
+    setError("");
+    setIsLoading(true);
+    try {
+      const response = await listCertificates();
+      setItems(response.items);
+    } catch {
+      setError("Impossible de charger les certificats.");
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
-  const rows = useMemo<CertificateRow[]>(() => {
-    const dossiersById = new Map((dossiersQuery.data ?? []).map((dossier) => [dossier.id, dossier]));
-    const demandesById = new Map((demandesQuery.data ?? []).map((demande) => [demande.id, demande]));
-    const documentsById = new Map((documentsQuery.data ?? []).map((document) => [document.id, document]));
-    const documents = documentsQuery.data ?? [];
-    const phasesByDossierAndKey = new Map((phasesQuery.data ?? []).map((phase) => [`${phase.dossierId}:${phase.key}`, phase]));
-
-    return (certificatesQuery.data ?? []).map((certificate) => {
-      const dossier = dossiersById.get(certificate.dossierId);
-      const demande = dossier ? demandesById.get(dossier.demandeId) : undefined;
-      const currentPhase = dossier ? phasesByDossierAndKey.get(`${dossier.id}:${dossier.currentPhase}`) : undefined;
-
-      return {
-        ...certificate,
-        dossier,
-        demande,
-        currentPhase,
-        linkedDocument: certificate.linkedDocumentId ? documentsById.get(certificate.linkedDocumentId) : undefined,
-        scannedDocument: certificate.scannedDocumentId ? documentsById.get(certificate.scannedDocumentId) : undefined,
-        dossierDocuments: documents.filter((document) => document.dossierId === certificate.dossierId),
-      };
-    });
-  }, [certificatesQuery.data, demandesQuery.data, documentsQuery.data, dossiersQuery.data, phasesQuery.data]);
+  useEffect(() => {
+    void load();
+  }, [load]);
 
   const filteredRows = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase();
 
-    return rows.filter((row) => {
+    return items.filter((row) => {
       const matchesSearch = normalizedSearch
         ? [
             row.certificateNumber,
-            certificateTypeLabels[row.certificateType],
-            certificateStatusLabels[row.status],
-            row.dossier?.reference ?? '',
-            row.demande?.reference ?? '',
-            row.demande?.organizationName ?? '',
-            row.demande?.postulantName ?? '',
+            certificateTypeLabels[row.certificateType] ?? "",
+            certificateStatusLabels[row.status] ?? "",
+            row.dossier?.dossierNumber ?? "",
+            row.dossier?.organizationName ?? "",
             row.holderName,
           ].some((value) => value.toLowerCase().includes(normalizedSearch))
         : true;
       const matchesStatus = status ? row.status === status : true;
-      const matchesType = certificateType ? row.certificateType === certificateType : true;
-      const matchesDossierStatus = dossierStatus ? row.dossier?.globalStatus === dossierStatus : true;
-      return matchesSearch && matchesStatus && matchesType && matchesDossierStatus;
+      const matchesType = certificateType
+        ? row.certificateType === certificateType
+        : true;
+      const matchesDossierStatus = dossierStatus
+        ? row.dossier?.status === dossierStatus
+        : true;
+      return (
+        matchesSearch && matchesStatus && matchesType && matchesDossierStatus
+      );
     });
-  }, [certificateType, dossierStatus, rows, search, status]);
+  }, [certificateType, dossierStatus, items, search, status]);
 
   const activeFilters = useMemo((): ActiveFilter[] => {
     const filters: ActiveFilter[] = [];
-    if (status) filters.push({ id: 'status', label: `Statut : ${certificateStatusLabels[status]}`, onRemove: () => setStatus('') });
-    if (certificateType) filters.push({ id: 'certificateType', label: `Type : ${certificateTypeLabels[certificateType]}`, onRemove: () => setCertificateType('') });
-    if (dossierStatus) filters.push({ id: 'dossierStatus', label: `Dossier : ${dossierStatusLabels[dossierStatus]}`, onRemove: () => setDossierStatus('') });
+    if (status)
+      filters.push({
+        id: "status",
+        label: `Statut : ${certificateStatusLabels[status]}`,
+        onRemove: () => setStatus(""),
+      });
+    if (certificateType)
+      filters.push({
+        id: "certificateType",
+        label: `Type : ${certificateTypeLabels[certificateType]}`,
+        onRemove: () => setCertificateType(""),
+      });
+    if (dossierStatus)
+      filters.push({
+        id: "dossierStatus",
+        label: `Dossier : ${dossierStatusLabels[dossierStatus]}`,
+        onRemove: () => setDossierStatus(""),
+      });
     return filters;
   }, [certificateType, dossierStatus, status]);
 
   const kpis = useMemo(
     () => ({
-      total: rows.length,
-      preparationPrinted: rows.filter((row) => row.status === 'to_prepare' || row.status === 'printed').length,
-      signedScanned: rows.filter((row) => row.status === 'signed_stamped' || row.status === 'scanned_in_aidn').length,
-      readyCollected: rows.filter((row) => row.status === 'ready_for_collection' || row.status === 'collected').length,
+      total: items.length,
+      preparationPrinted: items.filter(
+        (row) => row.status === "to_prepare" || row.status === "printed",
+      ).length,
+      inSignature: items.filter(
+        (row) => row.status === "sent_for_dg_signature",
+      ).length,
+      readyCollected: items.filter(
+        (row) =>
+          row.status === "ready_for_collection" ||
+          row.status === "collected" ||
+          row.status === "archived",
+      ).length,
     }),
-    [rows],
+    [items],
   );
 
-  const isLoading = certificatesQuery.isLoading || dossiersQuery.isLoading || demandesQuery.isLoading || documentsQuery.isLoading || phasesQuery.isLoading;
-  const error = certificatesQuery.error ?? dossiersQuery.error ?? demandesQuery.error ?? documentsQuery.error ?? phasesQuery.error;
-  const hasActiveFilters = Boolean(search || status || certificateType || dossierStatus);
-  const showNoResults = !isLoading && !error && hasActiveFilters && filteredRows.length === 0;
-
-  const refetchAll = useCallback(() => {
-    void certificatesQuery.refetch();
-    void dossiersQuery.refetch();
-    void demandesQuery.refetch();
-    void documentsQuery.refetch();
-    void phasesQuery.refetch();
-  }, [certificatesQuery, demandesQuery, documentsQuery, dossiersQuery, phasesQuery]);
-
-  const refreshAidnQueries = (): void => {
-    void queryClient.invalidateQueries({ queryKey: ['aidn'] });
-  };
+  const hasActiveFilters = Boolean(
+    search || status || certificateType || dossierStatus,
+  );
+  const showNoResults =
+    !isLoading && !error && hasActiveFilters && filteredRows.length === 0;
 
   const handleClearAll = () => {
-    setSearch('');
-    setStatus('');
-    setCertificateType('');
-    setDossierStatus('');
+    setSearch("");
+    setStatus("");
+    setCertificateType("");
+    setDossierStatus("");
     setPagination((current) => ({ ...current, pageIndex: 0 }));
   };
 
@@ -389,27 +547,49 @@ export function CertificatsPage(): React.JSX.Element {
     setPagination((current) => ({ ...current, pageIndex: 0 }));
   };
 
-  const handleViewDossier = useCallback((row: CertificateRow) => {
-    if (!row.dossier) return;
-    setSelectedRow(null);
-    navigate(`/dossiers/${row.dossier.id}`);
-  }, [navigate]);
+  const handleViewDossier = useCallback(
+    (row: AdminCertificateWithDossier) => {
+      if (!row.dossier) return;
+      setSelectedRow(null);
+      navigate(`/dossiers/${row.dossier.id}`);
+    },
+    [navigate],
+  );
 
-  const handleViewDocument = useCallback((row: CertificateRow) => {
-    setSelectedRow(null);
-    navigate('/documents', { state: { aidnSearch: row.scannedDocument?.title ?? row.linkedDocument?.title ?? row.certificateNumber } });
-  }, [navigate]);
+  const handleDownloadSigned = useCallback(
+    (row: AdminCertificateWithDossier) => {
+      if (!row.dossier?.id || !row.signedDocumentId) return;
+      void downloadDossierDocument(row.dossier.id, row.signedDocumentId).then(
+        (result) => {
+          openBlobInNewTab(
+            result.blob,
+            result.fileName || "certificat-signe.pdf",
+          );
+        },
+      );
+    },
+    [],
+  );
 
-  const handleAdvanceLifecycle = useCallback((row: CertificateRow) => {
-    advanceCertificateLifecycle(row.id);
-    refreshAidnQueries();
-    setSelectedRow(null);
-    toast.success('Cycle certificat mis a jour localement');
-  }, [queryClient, toast]);
+  const handleAdvanceLifecycle = useCallback(
+    (row: AdminCertificateWithDossier) => {
+      setSelectedRow(null);
+      setAdvanceRow(row);
+    },
+    [],
+  );
+
+  const handleAdvanceSuccess = useCallback(
+    (_certificate: AdminCertificate) => {
+      setAdvanceRow(null);
+      void load();
+    },
+    [load],
+  );
 
   const columns = useMemo(
-    () => buildColumns(setSelectedRow, handleViewDossier, handleViewDocument, handleAdvanceLifecycle),
-    [handleAdvanceLifecycle, handleViewDocument, handleViewDossier],
+    () => buildColumns(setSelectedRow, handleViewDossier, handleAdvanceLifecycle),
+    [handleAdvanceLifecycle, handleViewDossier],
   );
 
   return (
@@ -418,66 +598,126 @@ export function CertificatsPage(): React.JSX.Element {
       header={
         <ManagementHeader
           title="Certificats"
-          subtitle="Suivi mock du cycle manuel des certificats OMA rattaches aux dossiers DN."
-          actionsSlot={
-            <Button type="button" variant="outline" disabled>
-              <FileText className="h-4 w-4" aria-hidden="true" />
-              Lecture seule
-            </Button>
-          }
+          subtitle="Suivi de la préparation, signature et retrait des certificats OMA rattachés aux dossiers DN."
         />
       }
       toolbar={
         <div className="space-y-4">
           <div className="grid gap-3 md:grid-cols-4">
-            <KpiCard title="Certificats suivis" value={kpis.total} subtitle="Records certificat mock" />
-            <KpiCard title="A preparer / imprimes" value={kpis.preparationPrinted} subtitle="Preparation et impression manuelles" />
-            <KpiCard title="Signes / scannes" value={kpis.signedScanned} subtitle="Signature, cachet ou scan AIDN" />
-            <KpiCard title="Prets / remis" value={kpis.readyCollected} subtitle="Retrait ou remise tracee" />
+            <KpiCard
+              title="Certificats suivis"
+              value={kpis.total}
+              subtitle="Tous les certificats"
+            />
+            <KpiCard
+              title="À préparer / imprimés"
+              value={kpis.preparationPrinted}
+              subtitle="Avant envoi pour signature DG"
+            />
+            <KpiCard
+              title="En signature"
+              value={kpis.inSignature}
+              subtitle="Envoyés pour signature DG"
+            />
+            <KpiCard
+              title="Prêts / remis"
+              value={kpis.readyCollected}
+              subtitle="Retrait ou remise tracée"
+            />
           </div>
           <ManagementToolbar
             searchValue={search}
             onSearchChange={handleSearch}
-            searchPlaceholder="Rechercher certificat, dossier, demande, organisme..."
+            searchPlaceholder="Rechercher certificat, dossier, organisme..."
             filterCount={activeFilters.length}
             onFilterToggle={() => setIsFilterOpen((open) => !open)}
             isFilterOpen={isFilterOpen}
-            onRefresh={refetchAll}
-            isRefreshing={certificatesQuery.isFetching || dossiersQuery.isFetching || demandesQuery.isFetching || documentsQuery.isFetching || phasesQuery.isFetching}
+            onRefresh={load}
+            isRefreshing={isLoading}
           />
         </div>
       }
       filterPanel={
-        <ManagementFilterPanel isOpen={isFilterOpen} activeFilters={activeFilters} onClear={handleClearAll}>
+        <ManagementFilterPanel
+          isOpen={isFilterOpen}
+          activeFilters={activeFilters}
+          onClear={handleClearAll}
+        >
           <div className="flex items-center gap-2">
-            <label className="shrink-0 text-sm font-medium" htmlFor="filter-certificate-status">Statut</label>
-            <Select value={status || 'all'} onValueChange={(value) => setStatus(isCertificateStatus(value) ? value : '')}>
-              <SelectTrigger id="filter-certificate-status" className="h-9 w-52"><SelectValue placeholder="Tous les statuts" /></SelectTrigger>
+            <label
+              className="shrink-0 text-sm font-medium"
+              htmlFor="filter-certificate-status"
+            >
+              Statut
+            </label>
+            <Select
+              value={status || "all"}
+              onValueChange={(value) =>
+                setStatus(isCertificateStatus(value) ? value : "")
+              }
+            >
+              <SelectTrigger id="filter-certificate-status" className="h-9 w-52">
+                <SelectValue placeholder="Tous les statuts" />
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Tous les statuts</SelectItem>
-                {AIDN_CERTIFICATE_STATUSES.map((item) => <SelectItem key={item} value={item}>{certificateStatusLabels[item]}</SelectItem>)}
+                {CERTIFICATE_STATUSES.map((item) => (
+                  <SelectItem key={item} value={item}>
+                    {certificateStatusLabels[item]}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
           <div className="flex items-center gap-2">
-            <label className="shrink-0 text-sm font-medium" htmlFor="filter-certificate-type">Type</label>
-            <Select value={certificateType || 'all'} onValueChange={(value) => setCertificateType(isCertificateType(value) ? value : '')}>
-              <SelectTrigger id="filter-certificate-type" className="h-9 w-48"><SelectValue placeholder="Tous les types" /></SelectTrigger>
+            <label
+              className="shrink-0 text-sm font-medium"
+              htmlFor="filter-certificate-type"
+            >
+              Type
+            </label>
+            <Select
+              value={certificateType || "all"}
+              onValueChange={(value) =>
+                setCertificateType(isCertificateType(value) ? value : "")
+              }
+            >
+              <SelectTrigger id="filter-certificate-type" className="h-9 w-48">
+                <SelectValue placeholder="Tous les types" />
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Tous les types</SelectItem>
-                <SelectItem value="initial">{certificateTypeLabels.initial}</SelectItem>
-                <SelectItem value="renewal">{certificateTypeLabels.renewal}</SelectItem>
-                <SelectItem value="extension">{certificateTypeLabels.extension}</SelectItem>
+                {CERTIFICATE_TYPES.map((item) => (
+                  <SelectItem key={item} value={item}>
+                    {certificateTypeLabels[item]}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
           <div className="flex items-center gap-2">
-            <label className="shrink-0 text-sm font-medium" htmlFor="filter-dossier-status">Statut dossier</label>
-            <Select value={dossierStatus || 'all'} onValueChange={(value) => setDossierStatus(isDossierStatus(value) ? value : '')}>
-              <SelectTrigger id="filter-dossier-status" className="h-9 w-52"><SelectValue placeholder="Tous les dossiers" /></SelectTrigger>
+            <label
+              className="shrink-0 text-sm font-medium"
+              htmlFor="filter-dossier-status"
+            >
+              Statut dossier
+            </label>
+            <Select
+              value={dossierStatus || "all"}
+              onValueChange={(value) =>
+                setDossierStatus(isDossierStatus(value) ? value : "")
+              }
+            >
+              <SelectTrigger id="filter-dossier-status" className="h-9 w-52">
+                <SelectValue placeholder="Tous les dossiers" />
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Tous les dossiers</SelectItem>
-                {AIDN_DOSSIER_STATUSES.map((item) => <SelectItem key={item} value={item}>{dossierStatusLabels[item]}</SelectItem>)}
+                {DOSSIER_STATUSES.map((item) => (
+                  <SelectItem key={item} value={item}>
+                    {dossierStatusLabels[item]}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -487,7 +727,7 @@ export function CertificatsPage(): React.JSX.Element {
         showNoResults ? (
           <NoResultsState
             message="Aucun certificat ne correspond aux filtres"
-            description="Aucun certificat mock ne combine ces criteres. Effacez les filtres ou recherchez un certificat, un dossier DN, une demande, un organisme ou un postulant."
+            description="Effacez les filtres ou recherchez un certificat, un dossier, un organisme."
             onClear={handleClearAll}
           />
         ) : (
@@ -496,9 +736,9 @@ export function CertificatsPage(): React.JSX.Element {
             data={filteredRows}
             getRowId={(row) => row.id}
             isLoading={isLoading}
-            error={error}
-            emptyMessage="Aucun certificat trouve."
-            onRetry={refetchAll}
+            error={error ? new Error(error) : null}
+            emptyMessage="Aucun certificat trouvé."
+            onRetry={load}
             onRowClick={setSelectedRow}
             sorting={sorting}
             onSortingChange={setSorting}
@@ -514,8 +754,12 @@ export function CertificatsPage(): React.JSX.Element {
             pageSize={pagination.pageSize}
             pageCount={Math.max(1, Math.ceil(filteredRows.length / pagination.pageSize))}
             totalRows={filteredRows.length}
-            onPageChange={(pageIndex) => setPagination((current) => ({ ...current, pageIndex }))}
-            onPageSizeChange={(nextPageSize) => setPagination({ pageIndex: 0, pageSize: nextPageSize })}
+            onPageChange={(pageIndex) =>
+              setPagination((current) => ({ ...current, pageIndex }))
+            }
+            onPageSizeChange={(nextPageSize) =>
+              setPagination({ pageIndex: 0, pageSize: nextPageSize })
+            }
           />
         )
       }
@@ -524,17 +768,26 @@ export function CertificatsPage(): React.JSX.Element {
         <div className="flex items-start gap-3">
           <Award className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
           <p>
-            Mode demonstration : le cycle du certificat est simule localement. Le prototype ne declenche aucune generation, signature, cachet, scan ou remise reelle.
+            Le certificat ne peut être retiré que par le postulant en
+            personne — vérifiez son identité avant de confirmer un retrait.
           </p>
         </div>
       </div>
-      <div className="rounded-lg border bg-muted/30 p-4 text-sm text-muted-foreground">
-        <div className="flex items-start gap-3">
-          <FolderOpen className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-          <p>Chaque certificat affiche est un record mock existant rattache a un Dossier DN.</p>
-        </div>
-      </div>
-      <CertificateDetailsDialog row={selectedRow} open={Boolean(selectedRow)} onClose={() => setSelectedRow(null)} onAdvanceLifecycle={handleAdvanceLifecycle} />
+      <CertificateDetailsDialog
+        row={selectedRow}
+        open={Boolean(selectedRow)}
+        onClose={() => setSelectedRow(null)}
+        onAdvanceLifecycle={handleAdvanceLifecycle}
+        onDownloadSigned={handleDownloadSigned}
+      />
+      <AdvanceCertificateDialog
+        open={Boolean(advanceRow)}
+        onOpenChange={(open) => {
+          if (!open) setAdvanceRow(null);
+        }}
+        certificate={advanceRow}
+        onSuccess={handleAdvanceSuccess}
+      />
     </ManagementPageShell>
   );
 }

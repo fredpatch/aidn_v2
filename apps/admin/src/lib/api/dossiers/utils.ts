@@ -35,6 +35,14 @@ export function buildInspectionPath(dossierId: string, action: string): string {
   return `${buildDossierPath(dossierId)}/phases/inspection/${action}`;
 }
 
+export function buildDeliveryPath(dossierId: string, action: string): string {
+  return `${buildDossierPath(dossierId)}/phases/delivery/${action}`;
+}
+
+export function buildCertificatesPath(action: string): string {
+  return `/api/v1/admin/certificates${action ? `/${action}` : ''}`;
+}
+
 export function buildDocumentEvaluationReviewPath(
   dossierId: string,
   evaluationId: string,

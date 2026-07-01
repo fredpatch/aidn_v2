@@ -1,0 +1,1350 @@
+diff --git a/apps/admin/src/lib/api/dossiers/index.ts b/apps/admin/src/lib/api/dossiers/index.ts
+index dea35e5..f79276e 100644
+--- a/apps/admin/src/lib/api/dossiers/index.ts
++++ b/apps/admin/src/lib/api/dossiers/index.ts
+@@ -1,5 +1,9 @@
+ import { apiGet, apiGetBlob, apiPatch, apiPost, apiPostForm } from '../client';
+ import type {
++  AdminCertificate,
++  AdminCertificateWithDossier,
++  AdminDeliveryCloseResult,
++  AdminDeliveryState,
+   AdminDocumentEvaluationCloseResult,
+   AdminDocumentEvaluationPaymentState,
+   AdminDocumentEvaluationReviewPayload,
+@@ -16,6 +20,8 @@ import type {
+   ReviewFormalDocumentResult,
+ } from './types';
+ import {
++  buildCertificatesPath,
++  buildDeliveryPath,
+   buildDocumentEvaluationPath,
+   buildDocumentEvaluationReviewPath,
+   buildDocumentSubmissionReviewPath,
+@@ -48,12 +54,20 @@ export type {
+   AdminFormalRequestPhaseState,
+   AdminFormalRequestRequirement,
+   AdminFormalRequestSubmission,
++  AdminCertificate,
++  AdminCertificateWithDossier,
++  AdminDeliveryCloseResult,
++  AdminDeliveryPhase,
++  AdminDeliveryState,
+   AdminInspectionCloseResult,
+   AdminInspectionPhase,
+   AdminInspectionR3Avis,
+   AdminInspectionState,
+   AdminMeetingSummary,
+   AdminOmaPhase,
++  CertificateStatus,
++  CertificateType,
++  DeliveryStatus,
+   DocumentEvaluationPhaseStatus,
+   DocumentEvaluationStatus,
+   DossierStatus,
+@@ -350,6 +364,69 @@ export function closeInspectionPhase(
+   );
+ }
+ 
++export function getDeliveryState(
++  dossierId: string,
++): Promise<AdminDeliveryState> {
++  return apiGet<AdminDeliveryState>(buildDeliveryPath(dossierId, 'payment'));
++}
++
++export function uploadCertificateDeliveryFeeInvoice(
++  dossierId: string,
++  formData: FormData,
++): Promise<AdminDeliveryState> {
++  return apiPostForm<AdminDeliveryState>(
++    buildDeliveryPath(dossierId, 'invoice'),
++    formData,
++  );
++}
++
++export function validateCertificateDeliveryFeePaymentProof(
++  dossierId: string,
++  payload: { decision: 'validated' | 'rejected'; observations?: string },
++): Promise<AdminDeliveryState> {
++  return apiPost<AdminDeliveryState>(
++    buildDeliveryPath(dossierId, 'payment/validate'),
++    payload,
++  );
++}
++
++export function closeDeliveryPhase(
++  dossierId: string,
++  formData: FormData,
++): Promise<AdminDeliveryCloseResult> {
++  return apiPostForm<AdminDeliveryCloseResult>(
++    buildDeliveryPath(dossierId, 'close'),
++    formData,
++  );
++}
++
++export function getCertificateForDossier(
++  dossierId: string,
++): Promise<{ certificate: AdminCertificate }> {
++  return apiGet<{ certificate: AdminCertificate }>(
++    `${buildDossierPath(dossierId)}/certificate`,
++  );
++}
++
++export function listCertificates(
++  status?: string,
++): Promise<{ items: AdminCertificateWithDossier[] }> {
++  const query = status ? `?status=${encodeURIComponent(status)}` : '';
++  return apiGet<{ items: AdminCertificateWithDossier[] }>(
++    `${buildCertificatesPath('')}${query}`,
++  );
++}
++
++export function advanceCertificateLifecycle(
++  certificateId: string,
++  formData: FormData,
++): Promise<{ certificate: AdminCertificate }> {
++  return apiPostForm<{ certificate: AdminCertificate }>(
++    buildCertificatesPath(`${certificateId}/advance`),
++    formData,
++  );
++}
++
+ // TODO(OMA-EVAL-5B): downloadAdminDossierDocument only covers Phase 1+2 documents.
+ // Phase 3 invoice/proof (ownerType=phase_payment) and correction docs (ownerType=phase)
+ // will return 403. A new admin download endpoint or an extension to the existing one
+diff --git a/apps/admin/src/lib/api/dossiers/types.ts b/apps/admin/src/lib/api/dossiers/types.ts
+index 5b90e10..f61eca9 100644
+--- a/apps/admin/src/lib/api/dossiers/types.ts
++++ b/apps/admin/src/lib/api/dossiers/types.ts
+@@ -379,6 +379,89 @@ export type AdminInspectionCloseResult = {
+   };
+ };
+ 
++export type DeliveryStatus =
++  | 'delivery_waiting_invoice'
++  | 'delivery_waiting_payment'
++  | 'delivery_payment_proof_submitted'
++  | 'delivery_certificate_in_progress'
++  | 'delivery_closed';
++
++export type AdminDeliveryPhase = {
++  id: string;
++  phaseKey: 'delivery';
++  status: string;
++  deliveryStatus: DeliveryStatus | null;
++};
++
++export type AdminDeliveryState = {
++  phase: AdminDeliveryPhase;
++  payment: AdminDocumentEvaluationPayment;
++  paymentValidated: boolean;
++};
++
++export type AdminDeliveryCloseResult = {
++  phase: {
++    id: string;
++    phaseKey: 'delivery';
++    status: 'closed';
++    deliveryStatus: 'delivery_closed';
++    closedAt: string;
++  };
++  dossier: {
++    id: string;
++    status: 'closed';
++  };
++  certificateId: string;
++};
++
++// Certificate lifecycle: to_prepare -> printed -> sent_for_dg_signature ->
++// ready_for_collection -> collected -> archived. Phase V stays open through
++// this whole cycle - closure only happens once the certificate reaches
++// "collected", not once payment is validated.
++export type CertificateStatus =
++  | 'to_prepare'
++  | 'printed'
++  | 'sent_for_dg_signature'
++  | 'ready_for_collection'
++  | 'collected'
++  | 'archived';
++
++export type CertificateType =
++  | 'agrement'
++  | 'reconnaissance'
++  | 'renewal'
++  | 'modification';
++
++export type AdminCertificate = {
++  id: string;
++  dossierId: string;
++  certificateNumber: string;
++  certificateType: CertificateType;
++  status: CertificateStatus;
++  holderName: string;
++  validUntil: string | null;
++  linkedDocumentId: string | null;
++  signedDocumentId: string | null;
++  printedAt: string | null;
++  sentForSignatureAt: string | null;
++  signedUploadedAt: string | null;
++  readyForCollectionAt: string | null;
++  collectedAt: string | null;
++  collectionVerifiedById: string | null;
++  collectionNote: string | null;
++  archivedAt: string | null;
++};
++
++export type AdminCertificateWithDossier = AdminCertificate & {
++  dossier: {
++    id: string;
++    dossierNumber: string;
++    dossierType: string;
++    status: string;
++    organizationName: string | null;
++  } | null;
++};
++
+ export type AdminDocumentEvaluationRequirement = {
+   code: string;
+   label: string;
+diff --git a/apps/admin/src/lib/api/dossiers/utils.ts b/apps/admin/src/lib/api/dossiers/utils.ts
+index 3e40855..f1db7e3 100644
+--- a/apps/admin/src/lib/api/dossiers/utils.ts
++++ b/apps/admin/src/lib/api/dossiers/utils.ts
+@@ -35,6 +35,14 @@ export function buildInspectionPath(dossierId: string, action: string): string {
+   return `${buildDossierPath(dossierId)}/phases/inspection/${action}`;
+ }
+ 
++export function buildDeliveryPath(dossierId: string, action: string): string {
++  return `${buildDossierPath(dossierId)}/phases/delivery/${action}`;
++}
++
++export function buildCertificatesPath(action: string): string {
++  return `/api/v1/admin/certificates${action ? `/${action}` : ''}`;
++}
++
+ export function buildDocumentEvaluationReviewPath(
+   dossierId: string,
+   evaluationId: string,
+diff --git a/apps/admin/src/pages/FacturationS5Page.tsx b/apps/admin/src/pages/FacturationS5Page.tsx
+index 9f7563f..7040843 100644
+--- a/apps/admin/src/pages/FacturationS5Page.tsx
++++ b/apps/admin/src/pages/FacturationS5Page.tsx
+@@ -20,6 +20,7 @@ import {
+ } from "@/lib/api/payments";
+ import { UploadInvoiceDialog } from "./dossiers/document-evaluation-dialogs";
+ import { UploadAuditInvoiceDialog } from "./dossiers/inspection-dialogs";
++import { UploadCertificateFeeInvoiceDialog } from "./dossiers/delivery-dialogs";
+ import {
+   ActionError,
+   DefinitionGrid,
+@@ -38,6 +39,7 @@ type ModalState = { kind: "upload-invoice"; task: PhasePaymentTask } | null;
+ const PHASE_TABS: Array<{ key: PhasePaymentPhaseKey; label: string }> = [
+   { key: "document_evaluation", label: "Phase III — Frais d'étude" },
+   { key: "inspection", label: "Phase IV — Frais d'audit" },
++  { key: "delivery", label: "Phase V — Frais de délivrance" },
+ ];
+ 
+ // listPhasePaymentTasks requires phaseKey and paymentType to be passed
+@@ -553,6 +555,15 @@ export function FacturationS5Page(): React.JSX.Element {
+           dossierId={modal.task.dossierId}
+           onSuccess={handleUploadSuccess}
+         />
++      ) : modal?.kind === "upload-invoice" && modal.task.phaseKey === "delivery" ? (
++        <UploadCertificateFeeInvoiceDialog
++          open
++          onOpenChange={(open) => {
++            if (!open) setModal(null);
++          }}
++          dossierId={modal.task.dossierId}
++          onSuccess={handleUploadSuccess}
++        />
+       ) : (
+         <UploadInvoiceDialog
+           open={modal?.kind === "upload-invoice"}
+diff --git a/apps/admin/src/pages/dossiers/DeliveryPhaseWorkspace.tsx b/apps/admin/src/pages/dossiers/DeliveryPhaseWorkspace.tsx
+new file mode 100644
+index 0000000..59ddc24
+--- /dev/null
++++ b/apps/admin/src/pages/dossiers/DeliveryPhaseWorkspace.tsx
+@@ -0,0 +1,512 @@
++import { useCallback, useContext, useEffect, useState } from "react";
++import { CheckCircle2, Download } from "lucide-react";
++import { Badge } from "@/components/ui/badge";
++import { Button } from "@/components/ui/button";
++import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
++import { AuthContext } from "@/contexts/AuthContext";
++import {
++  downloadDossierDocument,
++  getCertificateForDossier,
++  getDeliveryState,
++  type AdminCertificate,
++  type AdminDeliveryState,
++  type AdminOmaPhase,
++} from "@/lib/api/dossiers";
++import { hasPermission } from "@/lib/auth/permissions";
++import { openBlobInNewTab } from "@/lib/utils/blob";
++import { extractError } from "@/lib/utils/error";
++import {
++  ActionError,
++  DefinitionGrid,
++  Field,
++  Note,
++  PhaseStatusBadge,
++  WaitingState,
++} from "./dossier-detail.helpers";
++import {
++  certificateStatusLabels,
++  certificateTypeLabels,
++  deliveryStatusLabels,
++  formatDate,
++  phasePaymentStatusLabels,
++} from "./dossier-detail.labels";
++import {
++  AdvanceCertificateDialog,
++  CloseDeliveryDialog,
++  UploadCertificateFeeInvoiceDialog,
++  ValidateCertificateFeePaymentProofDialog,
++} from "./delivery-dialogs";
++import {
++  getPhasePaymentStatusBadgeClass,
++  getPhasePaymentStatusBadgeVariant,
++} from "./document-evaluation-progress.helpers";
++
++type DialogKey =
++  | "upload_invoice"
++  | "validate_proof"
++  | "advance_certificate"
++  | "close_phase";
++
++const CERTIFICATE_ADVANCE_LABELS: Record<string, string> = {
++  to_prepare: "Marquer imprimé",
++  printed: "Marquer envoyé pour signature DG",
++  sent_for_dg_signature: "Téléverser le certificat signé",
++  ready_for_collection: "Confirmer le retrait",
++  collected: "Archiver",
++};
++
++function formatOptionalDate(value?: string | null): string {
++  return value ? formatDate(value) : "Non renseigné";
++}
++
++export function DeliveryPhaseWorkspace({
++  dossierId,
++  phaseRecord,
++  onRefresh,
++}: {
++  dossierId: string;
++  phaseRecord?: AdminOmaPhase;
++  onRefresh?: () => void;
++}): React.JSX.Element {
++  const auth = useContext(AuthContext);
++  const user = auth?.user ?? null;
++
++  const [state, setState] = useState<AdminDeliveryState | null>(null);
++  const [certificate, setCertificate] = useState<AdminCertificate | null>(null);
++  const [isLoading, setIsLoading] = useState(true);
++  const [error, setError] = useState("");
++  const [openDialog, setOpenDialog] = useState<DialogKey | null>(null);
++  const [downloadingId, setDownloadingId] = useState<string | null>(null);
++
++  const canUploadInvoice = hasPermission(user, "PAYMENT_INVOICE_UPLOAD");
++  const canValidatePayment = hasPermission(user, "PAYMENT_PROOF_VALIDATE");
++  const canViewPayment = hasPermission(user, "PAYMENT_VIEW");
++  const canManageCertificate = hasPermission(user, "CERTIFICATE_MANAGE");
++  const canViewCertificate = hasPermission(user, "CERTIFICATE_VIEW");
++  const canClose = hasPermission(user, "PHASE_CLOSE");
++
++  const loadData = useCallback(async () => {
++    setIsLoading(true);
++    setError("");
++    try {
++      const next = await getDeliveryState(dossierId);
++      setState(next);
++
++      if (next.paymentValidated) {
++        try {
++          const { certificate: cert } = await getCertificateForDossier(
++            dossierId,
++          );
++          setCertificate(cert);
++        } catch {
++          setCertificate(null);
++        }
++      } else {
++        setCertificate(null);
++      }
++    } catch (err) {
++      setError(
++        extractError(err, "Impossible de charger la phase de délivrance."),
++      );
++    } finally {
++      setIsLoading(false);
++    }
++  }, [dossierId]);
++
++  useEffect(() => {
++    void loadData();
++  }, [loadData]);
++
++  const handleSuccess = useCallback(() => {
++    void loadData();
++    onRefresh?.();
++  }, [loadData, onRefresh]);
++
++  const downloadDocument = (documentId: string, fileName: string) => {
++    setDownloadingId(documentId);
++    void downloadDossierDocument(dossierId, documentId)
++      .then((result) => {
++        openBlobInNewTab(result.blob, result.fileName || fileName);
++      })
++      .catch(() => {
++        // silently handled — user sees no change on download failure
++      })
++      .finally(() => {
++        setDownloadingId(null);
++      });
++  };
++
++  if (isLoading) {
++    return (
++      <Card>
++        <CardContent className="p-4 text-sm text-muted-foreground">
++          Chargement de la phase V...
++        </CardContent>
++      </Card>
++    );
++  }
++
++  if (error) {
++    return <ActionError message={error} />;
++  }
++
++  if (!state) {
++    return (
++      <Card>
++        <CardContent className="p-4 text-sm text-muted-foreground">
++          Aucune donnée disponible pour cette phase.
++        </CardContent>
++      </Card>
++    );
++  }
++
++  const deliveryStatus = state.phase.deliveryStatus;
++  const isClosed = deliveryStatus === "delivery_closed";
++  const phaseStatusLabel = deliveryStatus
++    ? (deliveryStatusLabels[deliveryStatus] ?? deliveryStatus)
++    : "Non démarrée";
++  const payment = state.payment;
++  const paymentStatusLabel =
++    phasePaymentStatusLabels[payment.status] ?? payment.status;
++  const paymentBadgeVariant = getPhasePaymentStatusBadgeVariant(payment.status);
++  const paymentBadgeClass = getPhasePaymentStatusBadgeClass(payment.status);
++
++  const showInvoiceUpload = !payment.invoiceDocumentId && !isClosed;
++  const canCloseNow =
++    certificate &&
++    (certificate.status === "collected" || certificate.status === "archived");
++  const advanceLabel = certificate
++    ? CERTIFICATE_ADVANCE_LABELS[certificate.status]
++    : undefined;
++
++  return (
++    <>
++      <div className="space-y-4">
++        {/* ── Section 1 — État de la phase ──────────────────────────────── */}
++        <Card>
++          <CardHeader className="pb-3">
++            <CardTitle className="text-base">
++              Phase 5 — Délivrance du certificat
++            </CardTitle>
++          </CardHeader>
++          <CardContent className="space-y-3">
++            <DefinitionGrid>
++              <Field label="Statut délivrance">
++                <Badge variant="outline">{phaseStatusLabel}</Badge>
++              </Field>
++              <Field label="Phase statut">
++                <PhaseStatusBadge status={state.phase.status} />
++              </Field>
++              <Field label="Démarrée le">
++                {formatOptionalDate(phaseRecord?.startedAt)}
++              </Field>
++              {isClosed ? (
++                <Field label="Clôturée le">
++                  {formatOptionalDate(phaseRecord?.closedAt)}
++                </Field>
++              ) : null}
++            </DefinitionGrid>
++            <Note>
++              La phase V reste ouverte jusqu'au retrait effectif du
++              certificat par le postulant — le délai de délivrance est
++              l'indicateur suivi sur cette phase.
++            </Note>
++          </CardContent>
++        </Card>
++
++        {/* ── Section 2 — Paiement des frais de délivrance ──────────────── */}
++        {canViewPayment ? (
++          <Card>
++            <CardHeader className="pb-3">
++              <CardTitle className="text-base">
++                Paiement des frais de délivrance
++              </CardTitle>
++            </CardHeader>
++            <CardContent className="space-y-3">
++              <div className="flex flex-wrap items-center gap-2">
++                <Badge
++                  variant={paymentBadgeVariant}
++                  className={paymentBadgeClass || undefined}
++                >
++                  {paymentStatusLabel}
++                </Badge>
++              </div>
++
++              <div className="flex flex-wrap gap-2">
++                {payment.invoiceDocumentId ? (
++                  <Button
++                    type="button"
++                    variant="outline"
++                    size="sm"
++                    disabled={downloadingId === payment.invoiceDocumentId}
++                    onClick={() =>
++                      downloadDocument(
++                        payment.invoiceDocumentId!,
++                        "facture-frais-delivrance.pdf",
++                      )
++                    }
++                  >
++                    <Download className="mr-1.5 h-3.5 w-3.5" />
++                    {downloadingId === payment.invoiceDocumentId
++                      ? "Téléchargement..."
++                      : "Télécharger la facture"}
++                  </Button>
++                ) : null}
++
++                {payment.paymentProofDocumentId ? (
++                  <Button
++                    type="button"
++                    variant="outline"
++                    size="sm"
++                    disabled={
++                      downloadingId === payment.paymentProofDocumentId
++                    }
++                    onClick={() =>
++                      downloadDocument(
++                        payment.paymentProofDocumentId!,
++                        "preuve-paiement-frais-delivrance.pdf",
++                      )
++                    }
++                  >
++                    <Download className="mr-1.5 h-3.5 w-3.5" />
++                    {downloadingId === payment.paymentProofDocumentId
++                      ? "Téléchargement..."
++                      : "Télécharger la preuve de paiement"}
++                  </Button>
++                ) : null}
++
++                {showInvoiceUpload && canUploadInvoice ? (
++                  <Button
++                    type="button"
++                    size="sm"
++                    onClick={() => setOpenDialog("upload_invoice")}
++                  >
++                    Téléverser la facture
++                  </Button>
++                ) : null}
++
++                {payment.status === "payment_proof_submitted" &&
++                canValidatePayment ? (
++                  <Button
++                    type="button"
++                    size="sm"
++                    onClick={() => setOpenDialog("validate_proof")}
++                  >
++                    Valider la preuve de paiement
++                  </Button>
++                ) : null}
++              </div>
++
++              {showInvoiceUpload && !canUploadInvoice ? (
++                <WaitingState>
++                  En attente du téléversement de la facture par le S5.
++                </WaitingState>
++              ) : null}
++
++              {payment.status === "payment_proof_submitted" &&
++              !canValidatePayment ? (
++                <WaitingState>
++                  En attente de validation de la preuve de paiement.
++                </WaitingState>
++              ) : null}
++
++              {payment.status === "payment_proof_rejected" &&
++              payment.paymentProofRejectionReason ? (
++                <Note>
++                  Preuve de paiement rejetée : {payment.paymentProofRejectionReason}
++                </Note>
++              ) : null}
++
++              {!state.paymentValidated ? (
++                <Note>
++                  La préparation du certificat démarre après validation du
++                  paiement des frais de délivrance.
++                </Note>
++              ) : null}
++            </CardContent>
++          </Card>
++        ) : (
++          <Card>
++            <CardContent className="p-4">
++              <WaitingState>
++                Accès au détail du paiement non autorisé.
++              </WaitingState>
++            </CardContent>
++          </Card>
++        )}
++
++        {/* ── Section 3 — Certificat ─────────────────────────────────────── */}
++        {state.paymentValidated && canViewCertificate ? (
++          <Card>
++            <CardHeader className="pb-3">
++              <CardTitle className="text-base">Certificat</CardTitle>
++            </CardHeader>
++            <CardContent className="space-y-3">
++              {certificate ? (
++                <>
++                  <DefinitionGrid>
++                    <Field label="Numéro">
++                      {certificate.certificateNumber}
++                    </Field>
++                    <Field label="Type">
++                      {certificateTypeLabels[certificate.certificateType] ??
++                        certificate.certificateType}
++                    </Field>
++                    <Field label="Statut">
++                      <Badge
++                        variant={
++                          certificate.status === "collected" ||
++                          certificate.status === "archived"
++                            ? "outline"
++                            : "secondary"
++                        }
++                        className={
++                          certificate.status === "collected" ||
++                          certificate.status === "archived"
++                            ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-200"
++                            : undefined
++                        }
++                      >
++                        {certificateStatusLabels[certificate.status] ??
++                          certificate.status}
++                      </Badge>
++                    </Field>
++                  </DefinitionGrid>
++
++                  {certificate.signedDocumentId &&
++                  (certificate.status === "collected" ||
++                    certificate.status === "archived") ? (
++                    <Button
++                      type="button"
++                      variant="outline"
++                      size="sm"
++                      disabled={downloadingId === certificate.signedDocumentId}
++                      onClick={() =>
++                        downloadDocument(
++                          certificate.signedDocumentId!,
++                          "certificat-signe.pdf",
++                        )
++                      }
++                    >
++                      <Download className="mr-1.5 h-3.5 w-3.5" />
++                      {downloadingId === certificate.signedDocumentId
++                        ? "Téléchargement..."
++                        : "Télécharger le certificat signé"}
++                    </Button>
++                  ) : null}
++
++                  {certificate.status === "collected" &&
++                  certificate.collectionNote ? (
++                    <Note>Note de retrait : {certificate.collectionNote}</Note>
++                  ) : null}
++
++                  {advanceLabel && canManageCertificate ? (
++                    <div>
++                      <Button
++                        type="button"
++                        size="sm"
++                        onClick={() => setOpenDialog("advance_certificate")}
++                      >
++                        {advanceLabel}
++                      </Button>
++                    </div>
++                  ) : advanceLabel ? (
++                    <WaitingState>
++                      En attente de l'étape suivante ({advanceLabel}).
++                    </WaitingState>
++                  ) : null}
++                </>
++              ) : (
++                <WaitingState>Certificat en cours de création...</WaitingState>
++              )}
++            </CardContent>
++          </Card>
++        ) : null}
++
++        {/* ── Section 4 — Clôture ───────────────────────────────────────── */}
++        <Card>
++          <CardHeader className="pb-2">
++            <CardTitle className="text-sm font-medium text-muted-foreground">
++              Clôture de la phase V
++            </CardTitle>
++          </CardHeader>
++          <CardContent>
++            {isClosed ? (
++              <div className="flex items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm font-medium text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-200">
++                <CheckCircle2 className="h-4 w-4 shrink-0" aria-hidden="true" />
++                Dossier clôturé.
++              </div>
++            ) : canCloseNow ? (
++              canClose ? (
++                <Button
++                  variant="destructive"
++                  onClick={() => setOpenDialog("close_phase")}
++                >
++                  Clôturer le dossier
++                </Button>
++              ) : (
++                <WaitingState>
++                  Certificat retiré — en attente de la clôture par le
++                  responsable.
++                </WaitingState>
++              )
++            ) : (
++              <WaitingState>
++                Le certificat doit être retiré par le postulant avant la
++                clôture.
++              </WaitingState>
++            )}
++          </CardContent>
++        </Card>
++      </div>
++
++      <UploadCertificateFeeInvoiceDialog
++        open={openDialog === "upload_invoice"}
++        onOpenChange={(value) => {
++          if (!value) setOpenDialog(null);
++        }}
++        dossierId={dossierId}
++        onSuccess={() => {
++          setOpenDialog(null);
++          handleSuccess();
++        }}
++      />
++
++      <ValidateCertificateFeePaymentProofDialog
++        open={openDialog === "validate_proof"}
++        onOpenChange={(value) => {
++          if (!value) setOpenDialog(null);
++        }}
++        dossierId={dossierId}
++        onSuccess={() => {
++          setOpenDialog(null);
++          handleSuccess();
++        }}
++      />
++
++      <AdvanceCertificateDialog
++        open={openDialog === "advance_certificate"}
++        onOpenChange={(value) => {
++          if (!value) setOpenDialog(null);
++        }}
++        certificate={certificate}
++        onSuccess={() => {
++          setOpenDialog(null);
++          handleSuccess();
++        }}
++      />
++
++      <CloseDeliveryDialog
++        open={openDialog === "close_phase"}
++        onOpenChange={(value) => {
++          if (!value) setOpenDialog(null);
++        }}
++        dossierId={dossierId}
++        onSuccess={() => {
++          setOpenDialog(null);
++          handleSuccess();
++        }}
++      />
++    </>
++  );
++}
+diff --git a/apps/admin/src/pages/dossiers/DossierPhasesTab.tsx b/apps/admin/src/pages/dossiers/DossierPhasesTab.tsx
+index 585b0dd..edc5c21 100644
+--- a/apps/admin/src/pages/dossiers/DossierPhasesTab.tsx
++++ b/apps/admin/src/pages/dossiers/DossierPhasesTab.tsx
+@@ -20,6 +20,7 @@ import {
+   Section,
+ } from "./dossier-detail.helpers";
+ import { DocumentEvaluationPhaseWorkspace } from "./DocumentEvaluationPhaseWorkspace";
++import { DeliveryPhaseWorkspace } from "./DeliveryPhaseWorkspace";
+ import { FormalRequestPhaseChecklist } from "./FormalRequestPhaseChecklist";
+ import { FormalRequestPhaseWorkspace } from "./FormalRequestPhaseWorkspace";
+ import { InspectionPhaseWorkspace } from "./InspectionPhaseWorkspace";
+@@ -444,6 +445,12 @@ export function DossierPhasesTab({
+         phaseRecord={byKey.get("inspection")}
+         onRefresh={onRefresh}
+       />
++    ) : selectedKey === "delivery" ? (
++      <DeliveryPhaseWorkspace
++        dossierId={dossierId}
++        phaseRecord={byKey.get("delivery")}
++        onRefresh={onRefresh}
++      />
+     ) : (
+       <PhaseWorkspacePlaceholder
+         phaseKey={selectedKey}
+diff --git a/apps/admin/src/pages/dossiers/delivery-dialogs.tsx b/apps/admin/src/pages/dossiers/delivery-dialogs.tsx
+new file mode 100644
+index 0000000..a2a9a58
+--- /dev/null
++++ b/apps/admin/src/pages/dossiers/delivery-dialogs.tsx
+@@ -0,0 +1,503 @@
++import { useRef, useState } from "react";
++import { Clock } from "lucide-react";
++import { Button } from "@/components/ui/button";
++import {
++  Dialog,
++  DialogContent,
++  DialogDescription,
++  DialogFooter,
++  DialogHeader,
++  DialogTitle,
++} from "@/components/ui/dialog";
++import { Label } from "@/components/ui/label";
++import { Textarea } from "@/components/ui/textarea";
++import {
++  advanceCertificateLifecycle,
++  closeDeliveryPhase,
++  uploadCertificateDeliveryFeeInvoice,
++  validateCertificateDeliveryFeePaymentProof,
++  type AdminCertificate,
++  type AdminDeliveryCloseResult,
++  type AdminDeliveryState,
++} from "@/lib/api/dossiers";
++import { extractError } from "@/lib/utils/error";
++import { ActionError } from "./dossier-detail.helpers";
++import { UploadDocumentDialog } from "./components/UploadDocumentDialog";
++
++// ── UploadCertificateFeeInvoiceDialog ───────────────────────────────────────
++
++export function UploadCertificateFeeInvoiceDialog({
++  open,
++  onOpenChange,
++  dossierId,
++  onSuccess,
++}: {
++  open: boolean;
++  onOpenChange: (open: boolean) => void;
++  dossierId: string;
++  onSuccess: (state: AdminDeliveryState) => void;
++}): React.JSX.Element {
++  const handleSubmit = async ({
++    file,
++    date,
++    notes,
++  }: {
++    file: File;
++    date?: string;
++    notes?: string;
++  }) => {
++    const formData = new FormData();
++    formData.append("file", file);
++    if (date) formData.append("issuedAt", date);
++    if (notes) formData.append("notes", notes);
++    const nextState = await uploadCertificateDeliveryFeeInvoice(
++      dossierId,
++      formData,
++    );
++    onSuccess(nextState);
++  };
++
++  return (
++    <UploadDocumentDialog
++      open={open}
++      onOpenChange={onOpenChange}
++      title="Téléverser la facture des frais de délivrance"
++      description="Joignez la facture émise par le S5 pour la délivrance du certificat. Le postulant sera notifié pour effectuer le paiement."
++      fileLabel="Facture"
++      dateLabel="Date d'émission"
++      notesLabel="Notes"
++      submitLabel="Téléverser la facture"
++      onSubmit={handleSubmit}
++    />
++  );
++}
++
++// ── ValidateCertificateFeePaymentProofDialog ────────────────────────────────
++
++export function ValidateCertificateFeePaymentProofDialog({
++  open,
++  onOpenChange,
++  dossierId,
++  onSuccess,
++}: {
++  open: boolean;
++  onOpenChange: (open: boolean) => void;
++  dossierId: string;
++  onSuccess: (state: AdminDeliveryState) => void;
++}): React.JSX.Element {
++  const [decision, setDecision] = useState<"validated" | "rejected">(
++    "validated",
++  );
++  const [observations, setObservations] = useState("");
++  const [isSubmitting, setIsSubmitting] = useState(false);
++  const [error, setError] = useState("");
++
++  const reset = () => {
++    setDecision("validated");
++    setObservations("");
++    setError("");
++  };
++
++  const handleSubmit = async (e: React.FormEvent) => {
++    e.preventDefault();
++    if (decision === "rejected" && !observations.trim()) {
++      setError("Un motif est requis pour rejeter la preuve de paiement.");
++      return;
++    }
++
++    setIsSubmitting(true);
++    setError("");
++    try {
++      const nextState = await validateCertificateDeliveryFeePaymentProof(
++        dossierId,
++        { decision, observations: observations.trim() || undefined },
++      );
++      reset();
++      onOpenChange(false);
++      onSuccess(nextState);
++    } catch (err) {
++      setError(extractError(err, "Impossible d'enregistrer la décision."));
++    } finally {
++      setIsSubmitting(false);
++    }
++  };
++
++  return (
++    <Dialog
++      open={open}
++      onOpenChange={(value) => {
++        if (!value) reset();
++        onOpenChange(value);
++      }}
++    >
++      <DialogContent>
++        <DialogHeader>
++          <DialogTitle>Valider la preuve de paiement (délivrance)</DialogTitle>
++          <DialogDescription>
++            Confirmez que la quittance déposée correspond bien au paiement
++            des frais de délivrance. La validation démarre la préparation du
++            certificat.
++          </DialogDescription>
++        </DialogHeader>
++        <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4">
++          <div className="space-y-2">
++            <Label className="text-xs">
++              Décision <span className="text-red-500">*</span>
++            </Label>
++            <div className="flex gap-2">
++              <Button
++                type="button"
++                size="sm"
++                variant={decision === "validated" ? "default" : "outline"}
++                className={
++                  decision === "validated"
++                    ? "border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700"
++                    : ""
++                }
++                onClick={() => {
++                  setDecision("validated");
++                  setError("");
++                }}
++              >
++                Valider
++              </Button>
++              <Button
++                type="button"
++                size="sm"
++                variant={decision === "rejected" ? "destructive" : "outline"}
++                onClick={() => setDecision("rejected")}
++              >
++                Rejeter
++              </Button>
++            </div>
++          </div>
++
++          <div className="space-y-1">
++            <Label htmlFor="cert-payment-proof-observations" className="text-xs">
++              Observations
++              {decision === "rejected" ? (
++                <> <span className="text-red-500">*</span></>
++              ) : null}
++            </Label>
++            <Textarea
++              id="cert-payment-proof-observations"
++              value={observations}
++              onChange={(e) => setObservations(e.target.value)}
++              placeholder="Motif du rejet, référence de paiement vérifiée..."
++              rows={3}
++              required={decision === "rejected"}
++              className="text-sm"
++            />
++          </div>
++
++          {error ? <ActionError message={error} /> : null}
++
++          <DialogFooter>
++            <Button
++              type="button"
++              variant="outline"
++              onClick={() => {
++                reset();
++                onOpenChange(false);
++              }}
++              disabled={isSubmitting}
++            >
++              Annuler
++            </Button>
++            <Button type="submit" disabled={isSubmitting}>
++              {isSubmitting ? (
++                <>
++                  <Clock className="mr-2 h-4 w-4 animate-spin" />
++                  En cours...
++                </>
++              ) : (
++                "Enregistrer la décision"
++              )}
++            </Button>
++          </DialogFooter>
++        </form>
++      </DialogContent>
++    </Dialog>
++  );
++}
++
++// ── AdvanceCertificateDialog ─────────────────────────────────────────────────
++// One generic dialog for every certificate lifecycle transition. Only two
++// transitions need extra input: uploading the signed certificate (file
++// required - this single action both archives it and marks the certificate
++// ready for pickup) and confirming collection (optional note, no "collected
++// by" field since the postulant is the only valid collector).
++
++const ADVANCE_ACTION_CONFIG: Record<
++  string,
++  { title: string; description: string; buttonLabel: string; requiresFile?: boolean; isCollection?: boolean }
++> = {
++  to_prepare: {
++    title: "Marquer le certificat imprimé",
++    description:
++      "Confirmez que les informations du certificat ont été vérifiées et que le document a été imprimé.",
++    buttonLabel: "Marquer imprimé",
++  },
++  printed: {
++    title: "Marquer envoyé pour signature DG",
++    description:
++      "Confirmez que le certificat imprimé a été envoyé physiquement pour signature au DG.",
++    buttonLabel: "Marquer envoyé pour signature",
++  },
++  sent_for_dg_signature: {
++    title: "Téléverser le certificat signé",
++    description:
++      "Une fois le certificat signé par le DG et retourné à la DN, téléversez-le ici. Cette action archive le document et marque le certificat prêt au retrait en une seule étape.",
++    buttonLabel: "Téléverser et marquer prêt au retrait",
++    requiresFile: true,
++  },
++  ready_for_collection: {
++    title: "Confirmer le retrait par le postulant",
++    description:
++      "Le certificat ne peut être retiré que par le postulant en personne. Vérifiez son identité avant de confirmer.",
++    buttonLabel: "Confirmer le retrait",
++    isCollection: true,
++  },
++  collected: {
++    title: "Archiver le certificat",
++    description: "Marquer ce certificat comme archivé.",
++    buttonLabel: "Archiver",
++  },
++};
++
++export function AdvanceCertificateDialog({
++  open,
++  onOpenChange,
++  certificate,
++  onSuccess,
++}: {
++  open: boolean;
++  onOpenChange: (open: boolean) => void;
++  certificate: AdminCertificate | null;
++  onSuccess: (certificate: AdminCertificate) => void;
++}): React.JSX.Element | null {
++  const fileRef = useRef<HTMLInputElement>(null);
++  const [collectionNote, setCollectionNote] = useState("");
++  const [isSubmitting, setIsSubmitting] = useState(false);
++  const [error, setError] = useState("");
++
++  if (!certificate) return null;
++  const config = ADVANCE_ACTION_CONFIG[certificate.status];
++  if (!config) return null;
++
++  const reset = () => {
++    setCollectionNote("");
++    setError("");
++    if (fileRef.current) fileRef.current.value = "";
++  };
++
++  const handleSubmit = async (e: React.FormEvent) => {
++    e.preventDefault();
++    const file = fileRef.current?.files?.[0];
++    if (config.requiresFile && !file) {
++      setError("Un fichier est requis pour cette étape.");
++      return;
++    }
++
++    setIsSubmitting(true);
++    setError("");
++    try {
++      const formData = new FormData();
++      if (file) formData.append("file", file);
++      if (config.isCollection && collectionNote.trim()) {
++        formData.append("collectionNote", collectionNote.trim());
++      }
++      const { certificate: nextCertificate } = await advanceCertificateLifecycle(
++        certificate.id,
++        formData,
++      );
++      reset();
++      onOpenChange(false);
++      onSuccess(nextCertificate);
++    } catch (err) {
++      setError(extractError(err, "Impossible d'enregistrer cette étape."));
++    } finally {
++      setIsSubmitting(false);
++    }
++  };
++
++  return (
++    <Dialog
++      open={open}
++      onOpenChange={(value) => {
++        if (!value) reset();
++        onOpenChange(value);
++      }}
++    >
++      <DialogContent>
++        <DialogHeader>
++          <DialogTitle>{config.title}</DialogTitle>
++          <DialogDescription>{config.description}</DialogDescription>
++        </DialogHeader>
++        <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4">
++          {config.requiresFile ? (
++            <div className="space-y-1">
++              <Label htmlFor="certificate-signed-file" className="text-xs">
++                Certificat signé <span className="text-red-500">*</span>
++              </Label>
++              <input
++                id="certificate-signed-file"
++                ref={fileRef}
++                type="file"
++                className="block w-full text-sm text-muted-foreground file:mr-3 file:rounded-md file:border file:bg-muted file:px-3 file:py-1.5 file:text-sm"
++                accept=".pdf,.jpg,.jpeg,.png"
++              />
++            </div>
++          ) : null}
++
++          {config.isCollection ? (
++            <div className="space-y-1">
++              <Label htmlFor="collection-note" className="text-xs">
++                Note (optionnel)
++              </Label>
++              <Textarea
++                id="collection-note"
++                value={collectionNote}
++                onChange={(e) => setCollectionNote(e.target.value)}
++                placeholder="Pièce d'identité vérifiée, remarque particulière..."
++                rows={2}
++                className="text-sm"
++              />
++            </div>
++          ) : null}
++
++          {error ? <ActionError message={error} /> : null}
++
++          <DialogFooter>
++            <Button
++              type="button"
++              variant="outline"
++              onClick={() => {
++                reset();
++                onOpenChange(false);
++              }}
++              disabled={isSubmitting}
++            >
++              Annuler
++            </Button>
++            <Button type="submit" disabled={isSubmitting}>
++              {isSubmitting ? (
++                <>
++                  <Clock className="mr-2 h-4 w-4 animate-spin" />
++                  En cours...
++                </>
++              ) : (
++                config.buttonLabel
++              )}
++            </Button>
++          </DialogFooter>
++        </form>
++      </DialogContent>
++    </Dialog>
++  );
++}
++
++// ── CloseDeliveryDialog ──────────────────────────────────────────────────────
++
++export function CloseDeliveryDialog({
++  open,
++  onOpenChange,
++  dossierId,
++  onSuccess,
++}: {
++  open: boolean;
++  onOpenChange: (open: boolean) => void;
++  dossierId: string;
++  onSuccess: (result: AdminDeliveryCloseResult) => void;
++}): React.JSX.Element {
++  const fileRef = useRef<HTMLInputElement>(null);
++  const [isSubmitting, setIsSubmitting] = useState(false);
++  const [error, setError] = useState("");
++
++  const reset = () => {
++    setError("");
++    if (fileRef.current) fileRef.current.value = "";
++  };
++
++  const handleConfirm = async () => {
++    setIsSubmitting(true);
++    setError("");
++    try {
++      const formData = new FormData();
++      const file = fileRef.current?.files?.[0];
++      if (file) formData.append("file", file);
++      const result = await closeDeliveryPhase(dossierId, formData);
++      reset();
++      onOpenChange(false);
++      onSuccess(result);
++    } catch (err) {
++      setError(extractError(err, "Impossible de clôturer la phase V."));
++    } finally {
++      setIsSubmitting(false);
++    }
++  };
++
++  return (
++    <Dialog
++      open={open}
++      onOpenChange={(value) => {
++        if (!value) reset();
++        onOpenChange(value);
++      }}
++    >
++      <DialogContent>
++        <DialogHeader>
++          <DialogTitle>Clôturer la Phase V — Délivrance</DialogTitle>
++          <DialogDescription>
++            Le certificat a été retiré par le postulant. Cette action clôture
++            définitivement le dossier.
++          </DialogDescription>
++        </DialogHeader>
++
++        <div className="space-y-1">
++          <Label htmlFor="delivery-closure-file" className="text-xs">
++            Lettre de clôture + approbations (optionnel)
++          </Label>
++          <input
++            id="delivery-closure-file"
++            ref={fileRef}
++            type="file"
++            className="block w-full text-sm text-muted-foreground file:mr-3 file:rounded-md file:border file:bg-muted file:px-3 file:py-1.5 file:text-sm"
++            accept=".pdf,.jpg,.jpeg,.png"
++          />
++        </div>
++
++        {error ? <ActionError message={error} /> : null}
++
++        <DialogFooter>
++          <Button
++            type="button"
++            variant="outline"
++            onClick={() => {
++              reset();
++              onOpenChange(false);
++            }}
++            disabled={isSubmitting}
++          >
++            Annuler
++          </Button>
++          <Button
++            type="button"
++            variant="destructive"
++            onClick={() => void handleConfirm()}
++            disabled={isSubmitting}
++          >
++            {isSubmitting ? (
++              <>
++                <Clock className="mr-2 h-4 w-4 animate-spin" />
++                En cours...
++              </>
++            ) : (
++              "Clôturer le dossier"
++            )}
++          </Button>
++        </DialogFooter>
++      </DialogContent>
++    </Dialog>
++  );
++}
+diff --git a/apps/admin/src/pages/dossiers/dossier-detail.labels.ts b/apps/admin/src/pages/dossiers/dossier-detail.labels.ts
+index 632a11b..01a4896 100644
+--- a/apps/admin/src/pages/dossiers/dossier-detail.labels.ts
++++ b/apps/admin/src/pages/dossiers/dossier-detail.labels.ts
+@@ -93,6 +93,30 @@ export const inspectionStatusLabels: Record<string, string> = {
+   inspection_closed: "Phase IV clôturée",
+ };
+ 
++export const deliveryStatusLabels: Record<string, string> = {
++  delivery_waiting_invoice: "En attente de facture",
++  delivery_waiting_payment: "En attente du paiement",
++  delivery_payment_proof_submitted: "En attente de validation du paiement",
++  delivery_certificate_in_progress: "Préparation du certificat en cours",
++  delivery_closed: "Phase V clôturée",
++};
++
++export const certificateStatusLabels: Record<string, string> = {
++  to_prepare: "À préparer",
++  printed: "Imprimé",
++  sent_for_dg_signature: "Envoyé pour signature DG",
++  ready_for_collection: "Prêt au retrait",
++  collected: "Remis au postulant",
++  archived: "Archivé",
++};
++
++export const certificateTypeLabels: Record<string, string> = {
++  agrement: "Certificat d'agrément",
++  reconnaissance: "Certificat de reconnaissance",
++  renewal: "Renouvellement",
++  modification: "Modification",
++};
++
+ export const phasePaymentStatusLabels: Record<string, string> = {
+   invoice_pending: "Facture en attente",
+   invoice_sent: "Facture envoyée",

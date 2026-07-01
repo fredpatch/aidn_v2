@@ -31,6 +31,8 @@ export const Permissions = {
   PAYMENT_PROOF_VALIDATE: "PAYMENT_PROOF_VALIDATE",
   PAYMENT_VIEW: "PAYMENT_VIEW",
   INSPECTION_AVIS_RECORD: "INSPECTION_AVIS_RECORD",
+  CERTIFICATE_VIEW: "CERTIFICATE_VIEW",
+  CERTIFICATE_MANAGE: "CERTIFICATE_MANAGE",
   REPORT_VIEW: "REPORT_VIEW",
   REPORT_EXPORT: "REPORT_EXPORT",
   AUDIT_VIEW: "AUDIT_VIEW",
@@ -83,7 +85,9 @@ export const rolePermissions: Record<Role, Permission[]> = {
     Permissions.PAYMENT_VIEW,
     Permissions.REPORT_VIEW,
     Permissions.AUDIT_VIEW,
-    Permissions.INSPECTION_AVIS_RECORD
+    Permissions.INSPECTION_AVIS_RECORD,
+    Permissions.CERTIFICATE_VIEW,
+    Permissions.CERTIFICATE_MANAGE
   ],
   [Roles.DN_AGENT]: [
     Permissions.REQUEST_VIEW_ALL,
@@ -100,7 +104,9 @@ export const rolePermissions: Record<Role, Permission[]> = {
     Permissions.PAYMENT_PROOF_VALIDATE,
     Permissions.PAYMENT_VIEW,
     Permissions.REPORT_VIEW,
-    Permissions.INSPECTION_AVIS_RECORD
+    Permissions.INSPECTION_AVIS_RECORD,
+    Permissions.CERTIFICATE_VIEW,
+    Permissions.CERTIFICATE_MANAGE
   ],
   [Roles.DG_SECRETARIAT]: [
     Permissions.REQUEST_VIEW_ALL,
@@ -110,7 +116,8 @@ export const rolePermissions: Record<Role, Permission[]> = {
     Permissions.PRE_EVAL_DG_RETURN_CONSULT,
     Permissions.PAYMENT_INVOICE_UPLOAD,
     Permissions.PAYMENT_VIEW,
-    Permissions.REPORT_VIEW
+    Permissions.REPORT_VIEW,
+    Permissions.CERTIFICATE_VIEW
   ],
   [Roles.RECEPTION]: [
     Permissions.REQUEST_VIEW_ALL,
@@ -121,7 +128,9 @@ export const rolePermissions: Record<Role, Permission[]> = {
     Permissions.PAYMENT_INVOICE_UPLOAD,
     Permissions.PAYMENT_PROOF_VALIDATE,
     Permissions.PAYMENT_VIEW,
-    Permissions.REPORT_VIEW
+    Permissions.REPORT_VIEW,
+    Permissions.CERTIFICATE_VIEW,
+    Permissions.CERTIFICATE_MANAGE
   ],
   [Roles.BUREAU_COURRIER]: [
     Permissions.REQUEST_VIEW_ALL,
@@ -137,7 +146,8 @@ export const rolePermissions: Record<Role, Permission[]> = {
     Permissions.PAYMENT_INVOICE_UPLOAD,
     Permissions.PAYMENT_PROOF_VALIDATE,
     Permissions.PAYMENT_VIEW,
-    Permissions.REPORT_VIEW
+    Permissions.REPORT_VIEW,
+    Permissions.CERTIFICATE_VIEW
   ],
   [Roles.R3_AGENT]: [
     Permissions.DOSSIER_VIEW_ALL,

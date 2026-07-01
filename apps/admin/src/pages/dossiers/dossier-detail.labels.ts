@@ -87,7 +87,9 @@ export const documentEvaluationStatusLabels: Record<string, string> = {
 export const phasePaymentStatusLabels: Record<string, string> = {
   invoice_pending: "Facture en attente",
   invoice_sent: "Facture envoyée",
-  payment_proof_submitted: "Preuve de paiement reçue",
+  payment_proof_submitted: "En attente de validation",
+  payment_proof_validated: "Paiement validé",
+  payment_proof_rejected: "Preuve rejetée",
 };
 
 export const documentEvaluationReviewStatusLabels: Record<string, string> = {

@@ -27,6 +27,7 @@ export type PortalDossierDocumentEvaluation = {
     paymentProofDocumentId: string | null;
     invoiceSentAt: string | null;
     paymentProofSubmittedAt: string | null;
+    paymentProofRejectionReason: string | null;
   };
   canUploadPaymentProof: boolean;
 };

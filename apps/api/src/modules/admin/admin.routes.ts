@@ -73,6 +73,7 @@ import {
   getDocumentEvaluations,
   reviewDocumentEvaluation,
   uploadStudyFeeInvoice,
+  validateStudyFeePaymentProof,
 } from "../oma-phases/index.js";
 import {
   listPhasePaymentTasks,
@@ -894,6 +895,32 @@ adminRouter.post(
               : undefined,
           notes:
             typeof req.body.notes === "string" ? req.body.notes : undefined,
+        },
+        req.user!,
+      ),
+    );
+  }),
+);
+
+// ── Phase 3 — Évaluation approfondie: payment validation route ───────────────
+
+adminRouter.post(
+  "/dossiers/:id/phases/document-evaluation/payment/validate",
+  requirePermission(Permissions.PAYMENT_PROOF_VALIDATE),
+  asyncHandler(async (req, res) => {
+    const decision = req.body.decision as string;
+    if (!["validated", "rejected"].includes(decision)) {
+      throw new HttpError(400, "decision doit etre validated ou rejected.");
+    }
+    res.json(
+      await validateStudyFeePaymentProof(
+        String(req.params.id),
+        {
+          decision: decision as "validated" | "rejected",
+          observations:
+            typeof req.body.observations === "string"
+              ? req.body.observations
+              : undefined,
         },
         req.user!,
       ),

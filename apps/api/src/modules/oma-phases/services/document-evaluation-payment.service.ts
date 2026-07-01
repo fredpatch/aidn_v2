@@ -14,6 +14,7 @@ import {
   toIso,
 } from "../../../shared/utils/service.helpers.js";
 import { writeAuditLog } from "../../audit/audit.service.js";
+import { DocumentModel } from "../../documents/document.model.js";
 import { NotificationModel } from "../../notifications/notification.model.js";
 import { PhasePaymentModel } from "../../payments/phase-payment.model.js";
 import { ensureInternalActor } from "../helpers/access.helpers.js";
@@ -94,12 +95,15 @@ export const getPortalDocumentEvaluationPaymentState = async (
     ? (String(payment.status) as
         | "invoice_pending"
         | "invoice_sent"
-        | "payment_proof_submitted")
+        | "payment_proof_submitted"
+        | "payment_proof_validated"
+        | "payment_proof_rejected")
     : "invoice_pending";
 
   const canUploadPaymentProof =
     paymentStatus === "invoice_sent" ||
-    paymentStatus === "payment_proof_submitted";
+    paymentStatus === "payment_proof_submitted" ||
+    paymentStatus === "payment_proof_rejected";
 
   return {
     phaseStatus: String(phase.status),
@@ -116,6 +120,10 @@ export const getPortalDocumentEvaluationPaymentState = async (
       invoiceSentAt: payment ? toIso(payment.invoiceSentAt) : undefined,
       paymentProofSubmittedAt: payment
         ? toIso(payment.paymentProofSubmittedAt)
+        : undefined,
+      paymentProofRejectionReason: payment
+        ? ((payment.paymentProofRejectionReason as string | null | undefined) ??
+          undefined)
         : undefined,
     },
     canUploadPaymentProof,
@@ -309,6 +317,17 @@ export const uploadStudyFeePaymentProof = async (
     throw new HttpError(409, "Payment record not found.");
   }
 
+  // If a proof was already submitted (e.g. this is a re-upload after
+  // rejection), archive the previous document rather than leaving it
+  // orphaned - mirrors the versioning pattern used for courrier uploads.
+  const previousProofDocumentId = paymentDoc.paymentProofDocumentId;
+  if (previousProofDocumentId) {
+    await DocumentModel.updateOne(
+      { _id: previousProofDocumentId },
+      { $set: { status: "archived", replacedByDocumentId: proofDocumentId } },
+    );
+  }
+
   paymentDoc.paymentProofDocumentId = proofDocumentId;
   paymentDoc.paymentProofUploadedById = postulantUserId;
   paymentDoc.paymentProofSubmittedAt = now;
@@ -359,5 +378,116 @@ export const uploadStudyFeePaymentProof = async (
       paymentProofSubmittedAt: toIso(now),
     },
     canUploadPaymentProof: true,
+  };
+};
+
+export const validateStudyFeePaymentProof = async (
+  dossierId: string,
+  input: {
+    decision: "validated" | "rejected";
+    observations?: string;
+  },
+  actor: Actor,
+) => {
+  ensureInternalActor(actor);
+
+  const dossierObjId = ensureObjectId(dossierId, "Dossier ID");
+  const actorObjId = ensureObjectId(actor.id, "Actor ID");
+  const dossier =
+    await documentEvaluationRepository.findDossierById(dossierObjId);
+  if (!dossier) throw new HttpError(404, "Dossier introuvable.");
+
+  const phase =
+    await documentEvaluationRepository.findDocEvalPhaseByDossierIdLean(
+      dossierObjId,
+    );
+  const phaseObjId = phase._id as Types.ObjectId;
+
+  const payment = await PhasePaymentModel.findOne({
+    dossierId: dossierObjId,
+    phaseId: phaseObjId,
+    phaseKey: "document_evaluation",
+    paymentType: "study_fee",
+  });
+  if (!payment) {
+    throw new HttpError(409, "Aucun paiement en attente pour ce dossier.");
+  }
+  if (String(payment.status) !== "payment_proof_submitted") {
+    throw new HttpError(
+      409,
+      "Une preuve de paiement doit etre deposee avant de pouvoir etre validee.",
+    );
+  }
+
+  const now = new Date();
+  const observations = input.observations?.trim() || undefined;
+
+  if (input.decision === "validated") {
+    payment.status = "payment_proof_validated" as never;
+    payment.paymentProofValidatedAt = now as unknown as typeof payment.paymentProofValidatedAt;
+    payment.paymentProofValidatedById =
+      actorObjId as unknown as typeof payment.paymentProofValidatedById;
+    payment.paymentProofRejectedAt = null as unknown as typeof payment.paymentProofRejectedAt;
+    payment.paymentProofRejectedById = null as unknown as typeof payment.paymentProofRejectedById;
+    payment.paymentProofRejectionReason =
+      null as unknown as typeof payment.paymentProofRejectionReason;
+    await payment.save();
+
+    phase.documentEvaluationStatus =
+      "document_evaluation_study_in_progress" as never;
+    await phase.save();
+  } else {
+    payment.status = "payment_proof_rejected" as never;
+    payment.paymentProofRejectedAt = now as unknown as typeof payment.paymentProofRejectedAt;
+    payment.paymentProofRejectedById =
+      actorObjId as unknown as typeof payment.paymentProofRejectedById;
+    payment.paymentProofRejectionReason =
+      (observations ??
+        "Preuve de paiement rejetee.") as unknown as typeof payment.paymentProofRejectionReason;
+    await payment.save();
+
+    phase.documentEvaluationStatus =
+      "document_evaluation_waiting_payment" as never;
+    await phase.save();
+
+    const dossierRecord = dossier as unknown as GenericRecord;
+    if (dossierRecord.postulantUserId) {
+      await NotificationModel.create({
+        recipientUserId: dossierRecord.postulantUserId,
+        channel: "in_app",
+        title: "Preuve de paiement rejetee",
+        message:
+          "Votre preuve de paiement des frais d'etude a ete rejetee. Veuillez deposer une nouvelle preuve.",
+        relatedType: "phase",
+        relatedId: phaseObjId,
+        status: "unread",
+      });
+    }
+  }
+
+  await writeAuditLog({
+    action: "document_evaluation.study_fee_payment_proof_reviewed",
+    actorId: actor.id,
+    actorRole: actor.role,
+    entityType: "phase",
+    entityId: phaseObjId.toString(),
+    metadata: {
+      dossierId,
+      decision: input.decision,
+      hasObservations: Boolean(observations),
+    },
+  });
+
+  const paymentRecord = payment as unknown as GenericRecord;
+  return {
+    phase: {
+      id: phaseObjId.toString(),
+      phaseKey: "document_evaluation" as const,
+      status: String(phase.status),
+      documentEvaluationStatus: String(phase.documentEvaluationStatus),
+    },
+    payment: serializeDocumentEvaluationPayment(paymentRecord),
+    canStartDocumentEvaluation:
+      computeDocumentEvaluationCanStart(paymentRecord),
   };
 };

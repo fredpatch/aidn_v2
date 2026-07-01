@@ -69,7 +69,7 @@ export const findOrInitDocumentEvaluationPayment = async (
 };
 
 export const computeDocumentEvaluationCanStart = (payment: GenericRecord) =>
-  !!(payment.invoiceDocumentId && payment.paymentProofDocumentId);
+  String(payment.status) === "payment_proof_validated";
 
 export const serializeDocumentEvaluationPayment = (payment: GenericRecord) => ({
   id: payment._id.toString(),
@@ -77,11 +77,18 @@ export const serializeDocumentEvaluationPayment = (payment: GenericRecord) => ({
   status: String(payment.status) as
     | "invoice_pending"
     | "invoice_sent"
-    | "payment_proof_submitted",
+    | "payment_proof_submitted"
+    | "payment_proof_validated"
+    | "payment_proof_rejected",
   invoiceDocumentId: toId(payment.invoiceDocumentId),
   paymentProofDocumentId: toId(payment.paymentProofDocumentId),
   invoiceSentAt: toIso(payment.invoiceSentAt),
   paymentProofSubmittedAt: toIso(payment.paymentProofSubmittedAt),
+  paymentProofValidatedAt: toIso(payment.paymentProofValidatedAt),
+  paymentProofRejectedAt: toIso(payment.paymentProofRejectedAt),
+  paymentProofRejectionReason:
+    (payment.paymentProofRejectionReason as string | null | undefined) ??
+    undefined,
 });
 
 export const computeDocumentEvaluationProgress = <

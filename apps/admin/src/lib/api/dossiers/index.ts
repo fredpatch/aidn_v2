@@ -259,6 +259,16 @@ export function uploadStudyFeeInvoice(
   );
 }
 
+export function validateStudyFeePaymentProof(
+  dossierId: string,
+  payload: { decision: 'validated' | 'rejected'; observations?: string },
+): Promise<AdminDocumentEvaluationPaymentState> {
+  return apiPost<AdminDocumentEvaluationPaymentState>(
+    buildDocumentEvaluationPath(dossierId, 'payment/validate'),
+    payload,
+  );
+}
+
 export function getDocumentEvaluations(
   dossierId: string,
 ): Promise<AdminDocumentEvaluationState> {

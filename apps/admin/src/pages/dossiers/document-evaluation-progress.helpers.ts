@@ -35,7 +35,7 @@ export function getDocumentEvaluationProgress(
 ): DocEvalProgress {
   const docEvalStatus = paymentState?.phase.documentEvaluationStatus ?? null;
   const invoiceExists = Boolean(paymentState?.payment.invoiceDocumentId);
-  const proofExists = Boolean(paymentState?.payment.paymentProofDocumentId);
+  const paymentValidated = paymentState?.canStartDocumentEvaluation ?? false;
   const evalTotal = evalState?.progress.total ?? 0;
 
   const correctionSubmitted = evalState
@@ -61,8 +61,8 @@ export function getDocumentEvaluationProgress(
     },
     {
       key: "payment_received",
-      label: "Paiement reçu",
-      done: proofExists,
+      label: "Paiement validé",
+      done: paymentValidated,
     },
     {
       key: "evaluation_started",
@@ -149,7 +149,12 @@ export function getDocumentEvaluationReviewBadgeClass(
 export function getPhasePaymentStatusBadgeVariant(
   status: PhasePaymentStatus | string,
 ): "secondary" | "outline" {
-  if (status === "invoice_sent" || status === "payment_proof_submitted") {
+  if (
+    status === "invoice_sent" ||
+    status === "payment_proof_submitted" ||
+    status === "payment_proof_validated" ||
+    status === "payment_proof_rejected"
+  ) {
     return "outline";
   }
   return "secondary";
@@ -158,10 +163,13 @@ export function getPhasePaymentStatusBadgeVariant(
 export function getPhasePaymentStatusBadgeClass(
   status: PhasePaymentStatus | string,
 ): string {
-  if (status === "payment_proof_submitted") {
+  if (status === "payment_proof_validated") {
     return "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-200";
   }
-  if (status === "invoice_sent") {
+  if (status === "payment_proof_rejected") {
+    return "border-red-200 bg-red-50 text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-200";
+  }
+  if (status === "payment_proof_submitted" || status === "invoice_sent") {
     return "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200";
   }
   return "";

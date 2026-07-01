@@ -1,0 +1,830 @@
+diff --git a/apps/admin/src/lib/api/dossiers/index.ts b/apps/admin/src/lib/api/dossiers/index.ts
+index 97fb5a8..e3d62d3 100644
+--- a/apps/admin/src/lib/api/dossiers/index.ts
++++ b/apps/admin/src/lib/api/dossiers/index.ts
+@@ -259,6 +259,16 @@ export function uploadStudyFeeInvoice(
+   );
+ }
+ 
++export function validateStudyFeePaymentProof(
++  dossierId: string,
++  payload: { decision: 'validated' | 'rejected'; observations?: string },
++): Promise<AdminDocumentEvaluationPaymentState> {
++  return apiPost<AdminDocumentEvaluationPaymentState>(
++    buildDocumentEvaluationPath(dossierId, 'payment/validate'),
++    payload,
++  );
++}
++
+ export function getDocumentEvaluations(
+   dossierId: string,
+ ): Promise<AdminDocumentEvaluationState> {
+diff --git a/apps/admin/src/lib/api/dossiers/types.ts b/apps/admin/src/lib/api/dossiers/types.ts
+index 0ec8225..eb64eff 100644
+--- a/apps/admin/src/lib/api/dossiers/types.ts
++++ b/apps/admin/src/lib/api/dossiers/types.ts
+@@ -299,7 +299,9 @@ export type DocumentEvaluationPhaseStatus =
+ export type PhasePaymentStatus =
+   | 'invoice_pending'
+   | 'invoice_sent'
+-  | 'payment_proof_submitted';
++  | 'payment_proof_submitted'
++  | 'payment_proof_validated'
++  | 'payment_proof_rejected';
+ 
+ export type AdminDocumentEvaluationPhase = {
+   id: string;
+@@ -318,6 +320,9 @@ export type AdminDocumentEvaluationPayment = {
+   paymentProofDocumentId?: string | null;
+   invoiceSentAt?: string | null;
+   paymentProofSubmittedAt?: string | null;
++  paymentProofValidatedAt?: string | null;
++  paymentProofRejectedAt?: string | null;
++  paymentProofRejectionReason?: string | null;
+ };
+ 
+ export type AdminDocumentEvaluationPaymentState = {
+diff --git a/apps/admin/src/pages/dossiers/DocumentEvaluationPhaseWorkspace.tsx b/apps/admin/src/pages/dossiers/DocumentEvaluationPhaseWorkspace.tsx
+index 8ea5124..9f3079b 100644
+--- a/apps/admin/src/pages/dossiers/DocumentEvaluationPhaseWorkspace.tsx
++++ b/apps/admin/src/pages/dossiers/DocumentEvaluationPhaseWorkspace.tsx
+@@ -34,6 +34,7 @@ import {
+   CloseDocumentEvaluationDialog,
+   ReviewDocumentDialog,
+   UploadInvoiceDialog,
++  ValidatePaymentProofDialog,
+ } from "./document-evaluation-dialogs";
+ import {
+   getDocumentEvaluationReviewBadgeClass,
+@@ -43,7 +44,7 @@ import {
+   getPhasePaymentStatusBadgeVariant,
+ } from "./document-evaluation-progress.helpers";
+ 
+-type DialogKey = "upload_invoice" | "review_document" | "close_phase";
++type DialogKey = "upload_invoice" | "validate_proof" | "review_document" | "close_phase";
+ 
+ function formatOptionalDate(value?: string | null): string {
+   return value ? formatDate(value) : "Non renseigné";
+@@ -185,6 +186,7 @@ export function DocumentEvaluationPhaseWorkspace({
+   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+ 
+   const canUploadInvoice = hasPermission(user, "PAYMENT_INVOICE_UPLOAD");
++  const canValidatePayment = hasPermission(user, "PAYMENT_PROOF_VALIDATE");
+   const canViewPayment = hasPermission(user, "PAYMENT_VIEW");
+   const canReview = hasPermission(user, "DOCUMENT_REVIEW");
+   const canClose = hasPermission(user, "PHASE_CLOSE");
+@@ -385,6 +387,17 @@ export function DocumentEvaluationPhaseWorkspace({
+                     Téléverser la facture
+                   </Button>
+                 ) : null}
++
++                {payment.status === "payment_proof_submitted" &&
++                canValidatePayment ? (
++                  <Button
++                    type="button"
++                    size="sm"
++                    onClick={() => setOpenDialog("validate_proof")}
++                  >
++                    Valider la preuve de paiement
++                  </Button>
++                ) : null}
+               </div>
+ 
+               {vis.showInvoiceUpload && !canUploadInvoice ? (
+@@ -393,10 +406,24 @@ export function DocumentEvaluationPhaseWorkspace({
+                 </WaitingState>
+               ) : null}
+ 
++              {payment.status === "payment_proof_submitted" &&
++              !canValidatePayment ? (
++                <WaitingState>
++                  En attente de validation de la preuve de paiement.
++                </WaitingState>
++              ) : null}
++
++              {payment.status === "payment_proof_rejected" &&
++              payment.paymentProofRejectionReason ? (
++                <Note>
++                  Preuve de paiement rejetée : {payment.paymentProofRejectionReason}
++                </Note>
++              ) : null}
++
+               {!paymentState.canStartDocumentEvaluation ? (
+                 <Note>
+-                  L'évaluation documentaire démarre après réception de la preuve
+-                  de paiement.
++                  L'évaluation documentaire démarre après validation de la
++                  preuve de paiement.
+                 </Note>
+               ) : (
+                 <div className="flex items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm font-medium text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-200">
+@@ -553,6 +580,19 @@ export function DocumentEvaluationPhaseWorkspace({
+         }}
+       />
+ 
++      <ValidatePaymentProofDialog
++        open={openDialog === "validate_proof"}
++        onOpenChange={(value) => {
++          if (!value) setOpenDialog(null);
++        }}
++        dossierId={dossierId}
++        onSuccess={(nextState) => {
++          setPaymentState(nextState);
++          setOpenDialog(null);
++          onRefresh?.();
++        }}
++      />
++
+       <ReviewDocumentDialog
+         open={openDialog === "review_document"}
+         onOpenChange={(value) => {
+diff --git a/apps/admin/src/pages/dossiers/document-evaluation-dialogs.tsx b/apps/admin/src/pages/dossiers/document-evaluation-dialogs.tsx
+index 1464474..d489a05 100644
+--- a/apps/admin/src/pages/dossiers/document-evaluation-dialogs.tsx
++++ b/apps/admin/src/pages/dossiers/document-evaluation-dialogs.tsx
+@@ -15,6 +15,7 @@ import {
+   closeDocumentEvaluationPhase,
+   reviewDocumentEvaluation,
+   uploadStudyFeeInvoice,
++  validateStudyFeePaymentProof,
+   type AdminDocumentEvaluationItem,
+   type AdminDocumentEvaluationPaymentState,
+ } from "@/lib/api/dossiers";
+@@ -67,6 +68,154 @@ export function UploadInvoiceDialog({
+   );
+ }
+ 
++// ── ValidatePaymentProofDialog ─────────────────────────────────────────────────
++
++export function ValidatePaymentProofDialog({
++  open,
++  onOpenChange,
++  dossierId,
++  onSuccess,
++}: {
++  open: boolean;
++  onOpenChange: (open: boolean) => void;
++  dossierId: string;
++  onSuccess: (state: AdminDocumentEvaluationPaymentState) => void;
++}): React.JSX.Element {
++  const [decision, setDecision] = useState<"validated" | "rejected">(
++    "validated",
++  );
++  const [observations, setObservations] = useState("");
++  const [isSubmitting, setIsSubmitting] = useState(false);
++  const [error, setError] = useState("");
++
++  const reset = () => {
++    setDecision("validated");
++    setObservations("");
++    setError("");
++  };
++
++  const handleSubmit = async (e: React.FormEvent) => {
++    e.preventDefault();
++    if (decision === "rejected" && !observations.trim()) {
++      setError("Un motif est requis pour rejeter la preuve de paiement.");
++      return;
++    }
++
++    setIsSubmitting(true);
++    setError("");
++    try {
++      const nextState = await validateStudyFeePaymentProof(dossierId, {
++        decision,
++        observations: observations.trim() || undefined,
++      });
++      reset();
++      onOpenChange(false);
++      onSuccess(nextState);
++    } catch (err) {
++      setError(extractError(err, "Impossible d'enregistrer la décision."));
++    } finally {
++      setIsSubmitting(false);
++    }
++  };
++
++  return (
++    <Dialog
++      open={open}
++      onOpenChange={(value) => {
++        if (!value) reset();
++        onOpenChange(value);
++      }}
++    >
++      <DialogContent>
++        <DialogHeader>
++          <DialogTitle>Valider la preuve de paiement</DialogTitle>
++          <DialogDescription>
++            Confirmez que la quittance déposée correspond bien au paiement
++            reçu avant d'ouvrir l'évaluation documentaire.
++          </DialogDescription>
++        </DialogHeader>
++        <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4">
++          <div className="space-y-2">
++            <Label className="text-xs">
++              Décision <span className="text-red-500">*</span>
++            </Label>
++            <div className="flex gap-2">
++              <Button
++                type="button"
++                size="sm"
++                variant={decision === "validated" ? "default" : "outline"}
++                className={
++                  decision === "validated"
++                    ? "border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700"
++                    : ""
++                }
++                onClick={() => {
++                  setDecision("validated");
++                  setError("");
++                }}
++              >
++                Valider
++              </Button>
++              <Button
++                type="button"
++                size="sm"
++                variant={decision === "rejected" ? "destructive" : "outline"}
++                onClick={() => setDecision("rejected")}
++              >
++                Rejeter
++              </Button>
++            </div>
++          </div>
++
++          <div className="space-y-1">
++            <Label htmlFor="payment-proof-observations" className="text-xs">
++              Observations
++              {decision === "rejected" ? (
++                <> <span className="text-red-500">*</span></>
++              ) : null}
++            </Label>
++            <Textarea
++              id="payment-proof-observations"
++              value={observations}
++              onChange={(e) => setObservations(e.target.value)}
++              placeholder="Motif du rejet, référence de paiement vérifiée..."
++              rows={3}
++              required={decision === "rejected"}
++              className="text-sm"
++            />
++          </div>
++
++          {error ? <ActionError message={error} /> : null}
++
++          <DialogFooter>
++            <Button
++              type="button"
++              variant="outline"
++              onClick={() => {
++                reset();
++                onOpenChange(false);
++              }}
++              disabled={isSubmitting}
++            >
++              Annuler
++            </Button>
++            <Button type="submit" disabled={isSubmitting}>
++              {isSubmitting ? (
++                <>
++                  <Clock className="mr-2 h-4 w-4 animate-spin" />
++                  En cours...
++                </>
++              ) : (
++                "Enregistrer la décision"
++              )}
++            </Button>
++          </DialogFooter>
++        </form>
++      </DialogContent>
++    </Dialog>
++  );
++}
++
+ // ── ReviewDocumentDialog ──────────────────────────────────────────────────────
+ 
+ export function ReviewDocumentDialog({
+diff --git a/apps/admin/src/pages/dossiers/document-evaluation-progress.helpers.ts b/apps/admin/src/pages/dossiers/document-evaluation-progress.helpers.ts
+index 6cb6485..b63570f 100644
+--- a/apps/admin/src/pages/dossiers/document-evaluation-progress.helpers.ts
++++ b/apps/admin/src/pages/dossiers/document-evaluation-progress.helpers.ts
+@@ -35,7 +35,7 @@ export function getDocumentEvaluationProgress(
+ ): DocEvalProgress {
+   const docEvalStatus = paymentState?.phase.documentEvaluationStatus ?? null;
+   const invoiceExists = Boolean(paymentState?.payment.invoiceDocumentId);
+-  const proofExists = Boolean(paymentState?.payment.paymentProofDocumentId);
++  const paymentValidated = paymentState?.canStartDocumentEvaluation ?? false;
+   const evalTotal = evalState?.progress.total ?? 0;
+ 
+   const correctionSubmitted = evalState
+@@ -61,8 +61,8 @@ export function getDocumentEvaluationProgress(
+     },
+     {
+       key: "payment_received",
+-      label: "Paiement reçu",
+-      done: proofExists,
++      label: "Paiement validé",
++      done: paymentValidated,
+     },
+     {
+       key: "evaluation_started",
+@@ -149,7 +149,12 @@ export function getDocumentEvaluationReviewBadgeClass(
+ export function getPhasePaymentStatusBadgeVariant(
+   status: PhasePaymentStatus | string,
+ ): "secondary" | "outline" {
+-  if (status === "invoice_sent" || status === "payment_proof_submitted") {
++  if (
++    status === "invoice_sent" ||
++    status === "payment_proof_submitted" ||
++    status === "payment_proof_validated" ||
++    status === "payment_proof_rejected"
++  ) {
+     return "outline";
+   }
+   return "secondary";
+@@ -158,10 +163,13 @@ export function getPhasePaymentStatusBadgeVariant(
+ export function getPhasePaymentStatusBadgeClass(
+   status: PhasePaymentStatus | string,
+ ): string {
+-  if (status === "payment_proof_submitted") {
++  if (status === "payment_proof_validated") {
+     return "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-200";
+   }
+-  if (status === "invoice_sent") {
++  if (status === "payment_proof_rejected") {
++    return "border-red-200 bg-red-50 text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-200";
++  }
++  if (status === "payment_proof_submitted" || status === "invoice_sent") {
+     return "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200";
+   }
+   return "";
+diff --git a/apps/admin/src/pages/dossiers/dossier-detail.labels.ts b/apps/admin/src/pages/dossiers/dossier-detail.labels.ts
+index bcfdef0..9a46c8b 100644
+--- a/apps/admin/src/pages/dossiers/dossier-detail.labels.ts
++++ b/apps/admin/src/pages/dossiers/dossier-detail.labels.ts
+@@ -87,7 +87,9 @@ export const documentEvaluationStatusLabels: Record<string, string> = {
+ export const phasePaymentStatusLabels: Record<string, string> = {
+   invoice_pending: "Facture en attente",
+   invoice_sent: "Facture envoyée",
+-  payment_proof_submitted: "Preuve de paiement reçue",
++  payment_proof_submitted: "En attente de validation",
++  payment_proof_validated: "Paiement validé",
++  payment_proof_rejected: "Preuve rejetée",
+ };
+ 
+ export const documentEvaluationReviewStatusLabels: Record<string, string> = {
+diff --git a/apps/api/src/modules/admin/admin.routes.ts b/apps/api/src/modules/admin/admin.routes.ts
+index e360eb6..c0c83b4 100644
+--- a/apps/api/src/modules/admin/admin.routes.ts
++++ b/apps/api/src/modules/admin/admin.routes.ts
+@@ -73,6 +73,7 @@ import {
+   getDocumentEvaluations,
+   reviewDocumentEvaluation,
+   uploadStudyFeeInvoice,
++  validateStudyFeePaymentProof,
+ } from "../oma-phases/index.js";
+ import {
+   listPhasePaymentTasks,
+@@ -901,6 +902,32 @@ adminRouter.post(
+   }),
+ );
+ 
++// ── Phase 3 — Évaluation approfondie: payment validation route ───────────────
++
++adminRouter.post(
++  "/dossiers/:id/phases/document-evaluation/payment/validate",
++  requirePermission(Permissions.PAYMENT_PROOF_VALIDATE),
++  asyncHandler(async (req, res) => {
++    const decision = req.body.decision as string;
++    if (!["validated", "rejected"].includes(decision)) {
++      throw new HttpError(400, "decision doit etre validated ou rejected.");
++    }
++    res.json(
++      await validateStudyFeePaymentProof(
++        String(req.params.id),
++        {
++          decision: decision as "validated" | "rejected",
++          observations:
++            typeof req.body.observations === "string"
++              ? req.body.observations
++              : undefined,
++        },
++        req.user!,
++      ),
++    );
++  }),
++);
++
+ // ── Phase 3 — Évaluation approfondie: close route ─────────────────────────────
+ 
+ adminRouter.post(
+diff --git a/apps/api/src/modules/oma-phases/constants/document-evaluation.constants.ts b/apps/api/src/modules/oma-phases/constants/document-evaluation.constants.ts
+index 6b38cbd..b3f0426 100644
+--- a/apps/api/src/modules/oma-phases/constants/document-evaluation.constants.ts
++++ b/apps/api/src/modules/oma-phases/constants/document-evaluation.constants.ts
+@@ -5,7 +5,6 @@
+  * state slices. Keep status spelling aligned with the OMA phase model enum.
+  */
+ export const DOCUMENT_EVALUATION_PAYMENT_PASSED_STATUSES = new Set([
+-  "document_evaluation_payment_proof_submitted",
+   "document_evaluation_study_in_progress",
+   "document_evaluation_waiting_corrections",
+   "document_evaluation_ready_to_close",
+diff --git a/apps/api/src/modules/oma-phases/helpers/document-evaluation.helpers.ts b/apps/api/src/modules/oma-phases/helpers/document-evaluation.helpers.ts
+index f790e7b..1fcbbee 100644
+--- a/apps/api/src/modules/oma-phases/helpers/document-evaluation.helpers.ts
++++ b/apps/api/src/modules/oma-phases/helpers/document-evaluation.helpers.ts
+@@ -69,7 +69,7 @@ export const findOrInitDocumentEvaluationPayment = async (
+ };
+ 
+ export const computeDocumentEvaluationCanStart = (payment: GenericRecord) =>
+-  !!(payment.invoiceDocumentId && payment.paymentProofDocumentId);
++  String(payment.status) === "payment_proof_validated";
+ 
+ export const serializeDocumentEvaluationPayment = (payment: GenericRecord) => ({
+   id: payment._id.toString(),
+@@ -77,11 +77,18 @@ export const serializeDocumentEvaluationPayment = (payment: GenericRecord) => ({
+   status: String(payment.status) as
+     | "invoice_pending"
+     | "invoice_sent"
+-    | "payment_proof_submitted",
++    | "payment_proof_submitted"
++    | "payment_proof_validated"
++    | "payment_proof_rejected",
+   invoiceDocumentId: toId(payment.invoiceDocumentId),
+   paymentProofDocumentId: toId(payment.paymentProofDocumentId),
+   invoiceSentAt: toIso(payment.invoiceSentAt),
+   paymentProofSubmittedAt: toIso(payment.paymentProofSubmittedAt),
++  paymentProofValidatedAt: toIso(payment.paymentProofValidatedAt),
++  paymentProofRejectedAt: toIso(payment.paymentProofRejectedAt),
++  paymentProofRejectionReason:
++    (payment.paymentProofRejectionReason as string | null | undefined) ??
++    undefined,
+ });
+ 
+ export const computeDocumentEvaluationProgress = <
+diff --git a/apps/api/src/modules/oma-phases/services/document-evaluation-payment.service.ts b/apps/api/src/modules/oma-phases/services/document-evaluation-payment.service.ts
+index eafe7ab..af7cc59 100644
+--- a/apps/api/src/modules/oma-phases/services/document-evaluation-payment.service.ts
++++ b/apps/api/src/modules/oma-phases/services/document-evaluation-payment.service.ts
+@@ -14,6 +14,7 @@ import {
+   toIso,
+ } from "../../../shared/utils/service.helpers.js";
+ import { writeAuditLog } from "../../audit/audit.service.js";
++import { DocumentModel } from "../../documents/document.model.js";
+ import { NotificationModel } from "../../notifications/notification.model.js";
+ import { PhasePaymentModel } from "../../payments/phase-payment.model.js";
+ import { ensureInternalActor } from "../helpers/access.helpers.js";
+@@ -94,12 +95,15 @@ export const getPortalDocumentEvaluationPaymentState = async (
+     ? (String(payment.status) as
+         | "invoice_pending"
+         | "invoice_sent"
+-        | "payment_proof_submitted")
++        | "payment_proof_submitted"
++        | "payment_proof_validated"
++        | "payment_proof_rejected")
+     : "invoice_pending";
+ 
+   const canUploadPaymentProof =
+     paymentStatus === "invoice_sent" ||
+-    paymentStatus === "payment_proof_submitted";
++    paymentStatus === "payment_proof_submitted" ||
++    paymentStatus === "payment_proof_rejected";
+ 
+   return {
+     phaseStatus: String(phase.status),
+@@ -117,6 +121,10 @@ export const getPortalDocumentEvaluationPaymentState = async (
+       paymentProofSubmittedAt: payment
+         ? toIso(payment.paymentProofSubmittedAt)
+         : undefined,
++      paymentProofRejectionReason: payment
++        ? ((payment.paymentProofRejectionReason as string | null | undefined) ??
++          undefined)
++        : undefined,
+     },
+     canUploadPaymentProof,
+   };
+@@ -309,6 +317,17 @@ export const uploadStudyFeePaymentProof = async (
+     throw new HttpError(409, "Payment record not found.");
+   }
+ 
++  // If a proof was already submitted (e.g. this is a re-upload after
++  // rejection), archive the previous document rather than leaving it
++  // orphaned - mirrors the versioning pattern used for courrier uploads.
++  const previousProofDocumentId = paymentDoc.paymentProofDocumentId;
++  if (previousProofDocumentId) {
++    await DocumentModel.updateOne(
++      { _id: previousProofDocumentId },
++      { $set: { status: "archived", replacedByDocumentId: proofDocumentId } },
++    );
++  }
++
+   paymentDoc.paymentProofDocumentId = proofDocumentId;
+   paymentDoc.paymentProofUploadedById = postulantUserId;
+   paymentDoc.paymentProofSubmittedAt = now;
+@@ -361,3 +380,114 @@ export const uploadStudyFeePaymentProof = async (
+     canUploadPaymentProof: true,
+   };
+ };
++
++export const validateStudyFeePaymentProof = async (
++  dossierId: string,
++  input: {
++    decision: "validated" | "rejected";
++    observations?: string;
++  },
++  actor: Actor,
++) => {
++  ensureInternalActor(actor);
++
++  const dossierObjId = ensureObjectId(dossierId, "Dossier ID");
++  const actorObjId = ensureObjectId(actor.id, "Actor ID");
++  const dossier =
++    await documentEvaluationRepository.findDossierById(dossierObjId);
++  if (!dossier) throw new HttpError(404, "Dossier introuvable.");
++
++  const phase =
++    await documentEvaluationRepository.findDocEvalPhaseByDossierIdLean(
++      dossierObjId,
++    );
++  const phaseObjId = phase._id as Types.ObjectId;
++
++  const payment = await PhasePaymentModel.findOne({
++    dossierId: dossierObjId,
++    phaseId: phaseObjId,
++    phaseKey: "document_evaluation",
++    paymentType: "study_fee",
++  });
++  if (!payment) {
++    throw new HttpError(409, "Aucun paiement en attente pour ce dossier.");
++  }
++  if (String(payment.status) !== "payment_proof_submitted") {
++    throw new HttpError(
++      409,
++      "Une preuve de paiement doit etre deposee avant de pouvoir etre validee.",
++    );
++  }
++
++  const now = new Date();
++  const observations = input.observations?.trim() || undefined;
++
++  if (input.decision === "validated") {
++    payment.status = "payment_proof_validated" as never;
++    payment.paymentProofValidatedAt = now as unknown as typeof payment.paymentProofValidatedAt;
++    payment.paymentProofValidatedById =
++      actorObjId as unknown as typeof payment.paymentProofValidatedById;
++    payment.paymentProofRejectedAt = null as unknown as typeof payment.paymentProofRejectedAt;
++    payment.paymentProofRejectedById = null as unknown as typeof payment.paymentProofRejectedById;
++    payment.paymentProofRejectionReason =
++      null as unknown as typeof payment.paymentProofRejectionReason;
++    await payment.save();
++
++    phase.documentEvaluationStatus =
++      "document_evaluation_study_in_progress" as never;
++    await phase.save();
++  } else {
++    payment.status = "payment_proof_rejected" as never;
++    payment.paymentProofRejectedAt = now as unknown as typeof payment.paymentProofRejectedAt;
++    payment.paymentProofRejectedById =
++      actorObjId as unknown as typeof payment.paymentProofRejectedById;
++    payment.paymentProofRejectionReason =
++      (observations ??
++        "Preuve de paiement rejetee.") as unknown as typeof payment.paymentProofRejectionReason;
++    await payment.save();
++
++    phase.documentEvaluationStatus =
++      "document_evaluation_waiting_payment" as never;
++    await phase.save();
++
++    const dossierRecord = dossier as unknown as GenericRecord;
++    if (dossierRecord.postulantUserId) {
++      await NotificationModel.create({
++        recipientUserId: dossierRecord.postulantUserId,
++        channel: "in_app",
++        title: "Preuve de paiement rejetee",
++        message:
++          "Votre preuve de paiement des frais d'etude a ete rejetee. Veuillez deposer une nouvelle preuve.",
++        relatedType: "phase",
++        relatedId: phaseObjId,
++        status: "unread",
++      });
++    }
++  }
++
++  await writeAuditLog({
++    action: "document_evaluation.study_fee_payment_proof_reviewed",
++    actorId: actor.id,
++    actorRole: actor.role,
++    entityType: "phase",
++    entityId: phaseObjId.toString(),
++    metadata: {
++      dossierId,
++      decision: input.decision,
++      hasObservations: Boolean(observations),
++    },
++  });
++
++  const paymentRecord = payment as unknown as GenericRecord;
++  return {
++    phase: {
++      id: phaseObjId.toString(),
++      phaseKey: "document_evaluation" as const,
++      status: String(phase.status),
++      documentEvaluationStatus: String(phase.documentEvaluationStatus),
++    },
++    payment: serializeDocumentEvaluationPayment(paymentRecord),
++    canStartDocumentEvaluation:
++      computeDocumentEvaluationCanStart(paymentRecord),
++  };
++};
+diff --git a/apps/api/src/modules/oma-phases/services/oma-phase-portal-overview.service.ts b/apps/api/src/modules/oma-phases/services/oma-phase-portal-overview.service.ts
+index e0eabfa..eba2aef 100644
+--- a/apps/api/src/modules/oma-phases/services/oma-phase-portal-overview.service.ts
++++ b/apps/api/src/modules/oma-phases/services/oma-phase-portal-overview.service.ts
+@@ -250,9 +250,10 @@ export const getPortalDossier = async (dossierId: string, actor: Actor) => {
+     : null;
+   const canUploadPaymentProof = Boolean(
+     documentEvaluationPhase?.status === "in_progress" &&
+-      studyFeePayment?.status === "invoice_sent" &&
+-      studyFeePayment.invoiceDocumentId &&
+-      !studyFeePayment.paymentProofDocumentId,
++      studyFeePayment?.invoiceDocumentId &&
++      (studyFeePayment.status === "invoice_sent" ||
++        studyFeePayment.status === "payment_proof_submitted" ||
++        studyFeePayment.status === "payment_proof_rejected"),
+   );
+ 
+   let firstMeeting: {
+@@ -352,7 +353,9 @@ export const getPortalDossier = async (dossierId: string, actor: Actor) => {
+               | null
+               | undefined) ?? null,
+           portalLabel: canUploadPaymentProof
+-            ? "Preuve de paiement attendue"
++            ? studyFeePayment?.status === "payment_proof_rejected"
++              ? "Preuve de paiement rejetée - nouvel envoi requis"
++              : "Preuve de paiement attendue"
+             : "Evaluation documentaire en cours",
+           payment: {
+             status: studyFeePayment ? String(studyFeePayment.status) : null,
+@@ -366,6 +369,11 @@ export const getPortalDossier = async (dossierId: string, actor: Actor) => {
+             paymentProofSubmittedAt: studyFeePayment
+               ? toIso(studyFeePayment.paymentProofSubmittedAt) ?? null
+               : null,
++            paymentProofRejectionReason:
++              (studyFeePayment?.paymentProofRejectionReason as
++                | string
++                | null
++                | undefined) ?? null,
+           },
+           canUploadPaymentProof,
+         }
+diff --git a/apps/api/src/modules/payments/phase-payment.model.ts b/apps/api/src/modules/payments/phase-payment.model.ts
+index 19e8925..057ce9b 100644
+--- a/apps/api/src/modules/payments/phase-payment.model.ts
++++ b/apps/api/src/modules/payments/phase-payment.model.ts
+@@ -16,7 +16,13 @@ const phasePaymentSchema = new Schema(
+     },
+     status: {
+       type: String,
+-      enum: ["invoice_pending", "invoice_sent", "payment_proof_submitted"],
++      enum: [
++        "invoice_pending",
++        "invoice_sent",
++        "payment_proof_submitted",
++        "payment_proof_validated",
++        "payment_proof_rejected",
++      ],
+       required: true,
+       default: "invoice_pending",
+       index: true,
+@@ -27,6 +33,11 @@ const phasePaymentSchema = new Schema(
+     paymentProofUploadedById: { type: Schema.Types.ObjectId, ref: "User", default: null },
+     invoiceSentAt: { type: Date, default: null },
+     paymentProofSubmittedAt: { type: Date, default: null },
++    paymentProofValidatedAt: { type: Date, default: null },
++    paymentProofValidatedById: { type: Schema.Types.ObjectId, ref: "User", default: null },
++    paymentProofRejectedAt: { type: Date, default: null },
++    paymentProofRejectedById: { type: Schema.Types.ObjectId, ref: "User", default: null },
++    paymentProofRejectionReason: { type: String, trim: true, default: null },
+   },
+   { timestamps: true },
+ );
+diff --git a/apps/api/src/shared/permissions/permissions.ts b/apps/api/src/shared/permissions/permissions.ts
+index 5663ce8..4ef806f 100644
+--- a/apps/api/src/shared/permissions/permissions.ts
++++ b/apps/api/src/shared/permissions/permissions.ts
+@@ -28,6 +28,7 @@ export const Permissions = {
+   MEETING_MANAGE: "MEETING_MANAGE",
+   NOTIFICATION_SEND: "NOTIFICATION_SEND",
+   PAYMENT_INVOICE_UPLOAD: "PAYMENT_INVOICE_UPLOAD",
++  PAYMENT_PROOF_VALIDATE: "PAYMENT_PROOF_VALIDATE",
+   PAYMENT_VIEW: "PAYMENT_VIEW",
+   REPORT_VIEW: "REPORT_VIEW",
+   REPORT_EXPORT: "REPORT_EXPORT",
+@@ -76,6 +77,7 @@ export const rolePermissions: Record<Role, Permission[]> = {
+     Permissions.DOCUMENT_PUBLISH,
+     Permissions.MEETING_MANAGE,
+     Permissions.NOTIFICATION_SEND,
++    Permissions.PAYMENT_PROOF_VALIDATE,
+     Permissions.PAYMENT_VIEW,
+     Permissions.REPORT_VIEW,
+     Permissions.AUDIT_VIEW
+@@ -92,6 +94,7 @@ export const rolePermissions: Record<Role, Permission[]> = {
+     Permissions.DOCUMENT_REVIEW,
+     Permissions.MEETING_MANAGE,
+     Permissions.NOTIFICATION_SEND,
++    Permissions.PAYMENT_PROOF_VALIDATE,
+     Permissions.PAYMENT_VIEW,
+     Permissions.REPORT_VIEW
+   ],
+@@ -112,6 +115,7 @@ export const rolePermissions: Record<Role, Permission[]> = {
+     Permissions.PRE_EVAL_DG_CIRCUIT_HANDLE,
+     Permissions.PRE_EVAL_DG_RETURN_CONSULT,
+     Permissions.PAYMENT_INVOICE_UPLOAD,
++    Permissions.PAYMENT_PROOF_VALIDATE,
+     Permissions.PAYMENT_VIEW,
+     Permissions.REPORT_VIEW
+   ],
+@@ -127,6 +131,7 @@ export const rolePermissions: Record<Role, Permission[]> = {
+     Permissions.DOSSIER_VIEW_ALL,
+     Permissions.DOCUMENT_UPLOAD_INTERNAL,
+     Permissions.PAYMENT_INVOICE_UPLOAD,
++    Permissions.PAYMENT_PROOF_VALIDATE,
+     Permissions.PAYMENT_VIEW,
+     Permissions.REPORT_VIEW
+   ],
+diff --git a/apps/portal/src/lib/api/document-evaluation/types.ts b/apps/portal/src/lib/api/document-evaluation/types.ts
+index 413645f..7a64eb8 100644
+--- a/apps/portal/src/lib/api/document-evaluation/types.ts
++++ b/apps/portal/src/lib/api/document-evaluation/types.ts
+@@ -16,7 +16,9 @@ export type PortalDocumentEvaluationPhaseStatus =
+ export type PortalPhasePaymentStatus =
+   | "invoice_pending"
+   | "invoice_sent"
+-  | "payment_proof_submitted";
++  | "payment_proof_submitted"
++  | "payment_proof_validated"
++  | "payment_proof_rejected";
+ 
+ export type PortalDocumentEvaluationPhase = {
+   id: string;
+@@ -31,6 +33,7 @@ export type PortalPhase3Payment = {
+   paymentProofDocumentId?: string | null;
+   invoiceSentAt?: string | null;
+   paymentProofSubmittedAt?: string | null;
++  paymentProofRejectionReason?: string | null;
+ };
+ 
+ export type PortalDocumentEvaluationEntry = {
+diff --git a/apps/portal/src/lib/api/dossiers/types.ts b/apps/portal/src/lib/api/dossiers/types.ts
+index 0bebb82..89a7544 100644
+--- a/apps/portal/src/lib/api/dossiers/types.ts
++++ b/apps/portal/src/lib/api/dossiers/types.ts
+@@ -27,6 +27,7 @@ export type PortalDossierDocumentEvaluation = {
+     paymentProofDocumentId: string | null;
+     invoiceSentAt: string | null;
+     paymentProofSubmittedAt: string | null;
++    paymentProofRejectionReason: string | null;
+   };
+   canUploadPaymentProof: boolean;
+ };
+diff --git a/apps/portal/src/pages/request-detail/RequestActionsTab.tsx b/apps/portal/src/pages/request-detail/RequestActionsTab.tsx
+index 70c13e6..2743719 100644
+--- a/apps/portal/src/pages/request-detail/RequestActionsTab.tsx
++++ b/apps/portal/src/pages/request-detail/RequestActionsTab.tsx
+@@ -353,12 +353,30 @@ export function RequestActionsTab({
+           <Card>
+             <CardHeader>
+               <CardDescription>Action requise</CardDescription>
+-              <CardTitle>Preuve de paiement attendue</CardTitle>
++              <CardTitle>
++                {dossierDetail.documentEvaluation.payment.status ===
++                "payment_proof_rejected"
++                  ? "Preuve de paiement rejetée"
++                  : "Preuve de paiement attendue"}
++              </CardTitle>
+               <p className="mt-2 text-sm text-slate-600">
+-                La facture des frais d'etude est disponible. Televersez la
+-                quittance ou preuve de paiement pour permettre a l'ANAC de
+-                poursuivre l'evaluation documentaire.
++                {dossierDetail.documentEvaluation.payment.status ===
++                "payment_proof_rejected"
++                  ? "Votre preuve de paiement precedente a ete rejetee. Veuillez deposer une nouvelle quittance."
++                  : "La facture des frais d'etude est disponible. Televersez la quittance ou preuve de paiement pour permettre a l'ANAC de poursuivre l'evaluation documentaire."}
+               </p>
++              {dossierDetail.documentEvaluation.payment.status ===
++                "payment_proof_rejected" &&
++              dossierDetail.documentEvaluation.payment
++                .paymentProofRejectionReason ? (
++                <p className="mt-1 text-sm font-medium text-red-600">
++                  Motif :{" "}
++                  {
++                    dossierDetail.documentEvaluation.payment
++                      .paymentProofRejectionReason
++                  }
++                </p>
++              ) : null}
+             </CardHeader>
+             <CardContent className="flex flex-wrap gap-2">
+               {dossierDetail.documentEvaluation.payment.invoiceDocumentId ? (

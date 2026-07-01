@@ -250,9 +250,10 @@ export const getPortalDossier = async (dossierId: string, actor: Actor) => {
     : null;
   const canUploadPaymentProof = Boolean(
     documentEvaluationPhase?.status === "in_progress" &&
-      studyFeePayment?.status === "invoice_sent" &&
-      studyFeePayment.invoiceDocumentId &&
-      !studyFeePayment.paymentProofDocumentId,
+      studyFeePayment?.invoiceDocumentId &&
+      (studyFeePayment.status === "invoice_sent" ||
+        studyFeePayment.status === "payment_proof_submitted" ||
+        studyFeePayment.status === "payment_proof_rejected"),
   );
 
   let firstMeeting: {
@@ -352,7 +353,9 @@ export const getPortalDossier = async (dossierId: string, actor: Actor) => {
               | null
               | undefined) ?? null,
           portalLabel: canUploadPaymentProof
-            ? "Preuve de paiement attendue"
+            ? studyFeePayment?.status === "payment_proof_rejected"
+              ? "Preuve de paiement rejetée - nouvel envoi requis"
+              : "Preuve de paiement attendue"
             : "Evaluation documentaire en cours",
           payment: {
             status: studyFeePayment ? String(studyFeePayment.status) : null,
@@ -366,6 +369,11 @@ export const getPortalDossier = async (dossierId: string, actor: Actor) => {
             paymentProofSubmittedAt: studyFeePayment
               ? toIso(studyFeePayment.paymentProofSubmittedAt) ?? null
               : null,
+            paymentProofRejectionReason:
+              (studyFeePayment?.paymentProofRejectionReason as
+                | string
+                | null
+                | undefined) ?? null,
           },
           canUploadPaymentProof,
         }

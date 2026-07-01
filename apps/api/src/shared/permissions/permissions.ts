@@ -28,6 +28,7 @@ export const Permissions = {
   MEETING_MANAGE: "MEETING_MANAGE",
   NOTIFICATION_SEND: "NOTIFICATION_SEND",
   PAYMENT_INVOICE_UPLOAD: "PAYMENT_INVOICE_UPLOAD",
+  PAYMENT_PROOF_VALIDATE: "PAYMENT_PROOF_VALIDATE",
   PAYMENT_VIEW: "PAYMENT_VIEW",
   REPORT_VIEW: "REPORT_VIEW",
   REPORT_EXPORT: "REPORT_EXPORT",
@@ -76,6 +77,7 @@ export const rolePermissions: Record<Role, Permission[]> = {
     Permissions.DOCUMENT_PUBLISH,
     Permissions.MEETING_MANAGE,
     Permissions.NOTIFICATION_SEND,
+    Permissions.PAYMENT_PROOF_VALIDATE,
     Permissions.PAYMENT_VIEW,
     Permissions.REPORT_VIEW,
     Permissions.AUDIT_VIEW
@@ -92,6 +94,7 @@ export const rolePermissions: Record<Role, Permission[]> = {
     Permissions.DOCUMENT_REVIEW,
     Permissions.MEETING_MANAGE,
     Permissions.NOTIFICATION_SEND,
+    Permissions.PAYMENT_PROOF_VALIDATE,
     Permissions.PAYMENT_VIEW,
     Permissions.REPORT_VIEW
   ],
@@ -112,6 +115,7 @@ export const rolePermissions: Record<Role, Permission[]> = {
     Permissions.PRE_EVAL_DG_CIRCUIT_HANDLE,
     Permissions.PRE_EVAL_DG_RETURN_CONSULT,
     Permissions.PAYMENT_INVOICE_UPLOAD,
+    Permissions.PAYMENT_PROOF_VALIDATE,
     Permissions.PAYMENT_VIEW,
     Permissions.REPORT_VIEW
   ],
@@ -127,6 +131,7 @@ export const rolePermissions: Record<Role, Permission[]> = {
     Permissions.DOSSIER_VIEW_ALL,
     Permissions.DOCUMENT_UPLOAD_INTERNAL,
     Permissions.PAYMENT_INVOICE_UPLOAD,
+    Permissions.PAYMENT_PROOF_VALIDATE,
     Permissions.PAYMENT_VIEW,
     Permissions.REPORT_VIEW
   ],

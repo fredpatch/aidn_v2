@@ -16,7 +16,13 @@ const phasePaymentSchema = new Schema(
     },
     status: {
       type: String,
-      enum: ["invoice_pending", "invoice_sent", "payment_proof_submitted"],
+      enum: [
+        "invoice_pending",
+        "invoice_sent",
+        "payment_proof_submitted",
+        "payment_proof_validated",
+        "payment_proof_rejected",
+      ],
       required: true,
       default: "invoice_pending",
       index: true,
@@ -27,6 +33,11 @@ const phasePaymentSchema = new Schema(
     paymentProofUploadedById: { type: Schema.Types.ObjectId, ref: "User", default: null },
     invoiceSentAt: { type: Date, default: null },
     paymentProofSubmittedAt: { type: Date, default: null },
+    paymentProofValidatedAt: { type: Date, default: null },
+    paymentProofValidatedById: { type: Schema.Types.ObjectId, ref: "User", default: null },
+    paymentProofRejectedAt: { type: Date, default: null },
+    paymentProofRejectedById: { type: Schema.Types.ObjectId, ref: "User", default: null },
+    paymentProofRejectionReason: { type: String, trim: true, default: null },
   },
   { timestamps: true },
 );

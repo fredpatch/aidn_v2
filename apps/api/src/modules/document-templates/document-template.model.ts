@@ -2,7 +2,7 @@ import { Schema, model, type InferSchemaType, type Types } from "mongoose";
 
 const documentTemplateSchema = new Schema(
   {
-    code: { type: String, required: true, trim: true, uppercase: true, unique: true },
+    code: { type: String, required: true, trim: true, uppercase: true, index: true },
     title: { type: String, required: true, trim: true },
     phaseKey: { type: String, enum: ["preliminary", "formal_request", "document_evaluation", "inspection", "delivery"] },
     documentType: {

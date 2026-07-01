@@ -16,7 +16,9 @@ export type PortalDocumentEvaluationPhaseStatus =
 export type PortalPhasePaymentStatus =
   | "invoice_pending"
   | "invoice_sent"
-  | "payment_proof_submitted";
+  | "payment_proof_submitted"
+  | "payment_proof_validated"
+  | "payment_proof_rejected";
 
 export type PortalDocumentEvaluationPhase = {
   id: string;
@@ -31,6 +33,7 @@ export type PortalPhase3Payment = {
   paymentProofDocumentId?: string | null;
   invoiceSentAt?: string | null;
   paymentProofSubmittedAt?: string | null;
+  paymentProofRejectionReason?: string | null;
 };
 
 export type PortalDocumentEvaluationEntry = {

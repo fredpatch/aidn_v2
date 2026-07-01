@@ -34,6 +34,7 @@ import {
   CloseDocumentEvaluationDialog,
   ReviewDocumentDialog,
   UploadInvoiceDialog,
+  ValidatePaymentProofDialog,
 } from "./document-evaluation-dialogs";
 import {
   getDocumentEvaluationReviewBadgeClass,
@@ -43,7 +44,7 @@ import {
   getPhasePaymentStatusBadgeVariant,
 } from "./document-evaluation-progress.helpers";
 
-type DialogKey = "upload_invoice" | "review_document" | "close_phase";
+type DialogKey = "upload_invoice" | "validate_proof" | "review_document" | "close_phase";
 
 function formatOptionalDate(value?: string | null): string {
   return value ? formatDate(value) : "Non renseigné";
@@ -185,6 +186,7 @@ export function DocumentEvaluationPhaseWorkspace({
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
   const canUploadInvoice = hasPermission(user, "PAYMENT_INVOICE_UPLOAD");
+  const canValidatePayment = hasPermission(user, "PAYMENT_PROOF_VALIDATE");
   const canViewPayment = hasPermission(user, "PAYMENT_VIEW");
   const canReview = hasPermission(user, "DOCUMENT_REVIEW");
   const canClose = hasPermission(user, "PHASE_CLOSE");
@@ -385,6 +387,17 @@ export function DocumentEvaluationPhaseWorkspace({
                     Téléverser la facture
                   </Button>
                 ) : null}
+
+                {payment.status === "payment_proof_submitted" &&
+                canValidatePayment ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => setOpenDialog("validate_proof")}
+                  >
+                    Valider la preuve de paiement
+                  </Button>
+                ) : null}
               </div>
 
               {vis.showInvoiceUpload && !canUploadInvoice ? (
@@ -393,10 +406,24 @@ export function DocumentEvaluationPhaseWorkspace({
                 </WaitingState>
               ) : null}
 
+              {payment.status === "payment_proof_submitted" &&
+              !canValidatePayment ? (
+                <WaitingState>
+                  En attente de validation de la preuve de paiement.
+                </WaitingState>
+              ) : null}
+
+              {payment.status === "payment_proof_rejected" &&
+              payment.paymentProofRejectionReason ? (
+                <Note>
+                  Preuve de paiement rejetée : {payment.paymentProofRejectionReason}
+                </Note>
+              ) : null}
+
               {!paymentState.canStartDocumentEvaluation ? (
                 <Note>
-                  L'évaluation documentaire démarre après réception de la preuve
-                  de paiement.
+                  L'évaluation documentaire démarre après validation de la
+                  preuve de paiement.
                 </Note>
               ) : (
                 <div className="flex items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm font-medium text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-200">
@@ -542,6 +569,19 @@ export function DocumentEvaluationPhaseWorkspace({
 
       <UploadInvoiceDialog
         open={openDialog === "upload_invoice"}
+        onOpenChange={(value) => {
+          if (!value) setOpenDialog(null);
+        }}
+        dossierId={dossierId}
+        onSuccess={(nextState) => {
+          setPaymentState(nextState);
+          setOpenDialog(null);
+          onRefresh?.();
+        }}
+      />
+
+      <ValidatePaymentProofDialog
+        open={openDialog === "validate_proof"}
         onOpenChange={(value) => {
           if (!value) setOpenDialog(null);
         }}

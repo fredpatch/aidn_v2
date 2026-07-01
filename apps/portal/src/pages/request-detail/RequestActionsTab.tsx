@@ -353,12 +353,30 @@ export function RequestActionsTab({
           <Card>
             <CardHeader>
               <CardDescription>Action requise</CardDescription>
-              <CardTitle>Preuve de paiement attendue</CardTitle>
+              <CardTitle>
+                {dossierDetail.documentEvaluation.payment.status ===
+                "payment_proof_rejected"
+                  ? "Preuve de paiement rejetée"
+                  : "Preuve de paiement attendue"}
+              </CardTitle>
               <p className="mt-2 text-sm text-slate-600">
-                La facture des frais d'etude est disponible. Televersez la
-                quittance ou preuve de paiement pour permettre a l'ANAC de
-                poursuivre l'evaluation documentaire.
+                {dossierDetail.documentEvaluation.payment.status ===
+                "payment_proof_rejected"
+                  ? "Votre preuve de paiement precedente a ete rejetee. Veuillez deposer une nouvelle quittance."
+                  : "La facture des frais d'etude est disponible. Televersez la quittance ou preuve de paiement pour permettre a l'ANAC de poursuivre l'evaluation documentaire."}
               </p>
+              {dossierDetail.documentEvaluation.payment.status ===
+                "payment_proof_rejected" &&
+              dossierDetail.documentEvaluation.payment
+                .paymentProofRejectionReason ? (
+                <p className="mt-1 text-sm font-medium text-red-600">
+                  Motif :{" "}
+                  {
+                    dossierDetail.documentEvaluation.payment
+                      .paymentProofRejectionReason
+                  }
+                </p>
+              ) : null}
             </CardHeader>
             <CardContent className="flex flex-wrap gap-2">
               {dossierDetail.documentEvaluation.payment.invoiceDocumentId ? (

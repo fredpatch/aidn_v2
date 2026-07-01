@@ -299,7 +299,9 @@ export type DocumentEvaluationPhaseStatus =
 export type PhasePaymentStatus =
   | 'invoice_pending'
   | 'invoice_sent'
-  | 'payment_proof_submitted';
+  | 'payment_proof_submitted'
+  | 'payment_proof_validated'
+  | 'payment_proof_rejected';
 
 export type AdminDocumentEvaluationPhase = {
   id: string;
@@ -318,6 +320,9 @@ export type AdminDocumentEvaluationPayment = {
   paymentProofDocumentId?: string | null;
   invoiceSentAt?: string | null;
   paymentProofSubmittedAt?: string | null;
+  paymentProofValidatedAt?: string | null;
+  paymentProofRejectedAt?: string | null;
+  paymentProofRejectionReason?: string | null;
 };
 
 export type AdminDocumentEvaluationPaymentState = {

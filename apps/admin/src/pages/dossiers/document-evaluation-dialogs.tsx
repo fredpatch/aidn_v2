@@ -15,6 +15,7 @@ import {
   closeDocumentEvaluationPhase,
   reviewDocumentEvaluation,
   uploadStudyFeeInvoice,
+  validateStudyFeePaymentProof,
   type AdminDocumentEvaluationItem,
   type AdminDocumentEvaluationPaymentState,
 } from "@/lib/api/dossiers";
@@ -64,6 +65,154 @@ export function UploadInvoiceDialog({
       submitLabel="Téléverser la facture"
       onSubmit={handleSubmit}
     />
+  );
+}
+
+// ── ValidatePaymentProofDialog ─────────────────────────────────────────────────
+
+export function ValidatePaymentProofDialog({
+  open,
+  onOpenChange,
+  dossierId,
+  onSuccess,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  dossierId: string;
+  onSuccess: (state: AdminDocumentEvaluationPaymentState) => void;
+}): React.JSX.Element {
+  const [decision, setDecision] = useState<"validated" | "rejected">(
+    "validated",
+  );
+  const [observations, setObservations] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState("");
+
+  const reset = () => {
+    setDecision("validated");
+    setObservations("");
+    setError("");
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (decision === "rejected" && !observations.trim()) {
+      setError("Un motif est requis pour rejeter la preuve de paiement.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    setError("");
+    try {
+      const nextState = await validateStudyFeePaymentProof(dossierId, {
+        decision,
+        observations: observations.trim() || undefined,
+      });
+      reset();
+      onOpenChange(false);
+      onSuccess(nextState);
+    } catch (err) {
+      setError(extractError(err, "Impossible d'enregistrer la décision."));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(value) => {
+        if (!value) reset();
+        onOpenChange(value);
+      }}
+    >
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Valider la preuve de paiement</DialogTitle>
+          <DialogDescription>
+            Confirmez que la quittance déposée correspond bien au paiement
+            reçu avant d'ouvrir l'évaluation documentaire.
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4">
+          <div className="space-y-2">
+            <Label className="text-xs">
+              Décision <span className="text-red-500">*</span>
+            </Label>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant={decision === "validated" ? "default" : "outline"}
+                className={
+                  decision === "validated"
+                    ? "border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700"
+                    : ""
+                }
+                onClick={() => {
+                  setDecision("validated");
+                  setError("");
+                }}
+              >
+                Valider
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant={decision === "rejected" ? "destructive" : "outline"}
+                onClick={() => setDecision("rejected")}
+              >
+                Rejeter
+              </Button>
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <Label htmlFor="payment-proof-observations" className="text-xs">
+              Observations
+              {decision === "rejected" ? (
+                <> <span className="text-red-500">*</span></>
+              ) : null}
+            </Label>
+            <Textarea
+              id="payment-proof-observations"
+              value={observations}
+              onChange={(e) => setObservations(e.target.value)}
+              placeholder="Motif du rejet, référence de paiement vérifiée..."
+              rows={3}
+              required={decision === "rejected"}
+              className="text-sm"
+            />
+          </div>
+
+          {error ? <ActionError message={error} /> : null}
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                reset();
+                onOpenChange(false);
+              }}
+              disabled={isSubmitting}
+            >
+              Annuler
+            </Button>
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? (
+                <>
+                  <Clock className="mr-2 h-4 w-4 animate-spin" />
+                  En cours...
+                </>
+              ) : (
+                "Enregistrer la décision"
+              )}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
 
